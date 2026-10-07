@@ -140,7 +140,21 @@
      - Sidebar: Logo NEXUSTECH • Quản trị Nguồn nhân lực, huy hiệu trạng thái `Hệ thống trực tuyến • HRMIS 2026`, menu active dạng pill tinh gọn.
      - Header: Bỏ Sparkles, chuẩn hóa trung tâm thông báo tác nghiệp.
      - Login: Giao diện xác thực thanh lịch, bỏ các đốm neon blur, làm nổi bật các tính năng bảo mật doanh nghiệp (Audit Trail, 4 lớp RBAC, SSL).
-  5. **Kiểm thử & Đảm bảo Chất lượng**:
-     - `npx tsc --noEmit` đạt Exit code 0 (0 errors).
-     - `npm run build` Next.js 16 (Turbopack) biên dịch thành công 41/41 routes trong 2.7s.
-     - Kiểm tra thực tế bằng `browser_subagent` chụp ảnh màn hình xác nhận giao diện sạch bóng AI-slop (`dashboard_page_1791336941587.png`, `careers_page_1791336953291.png`, `login_page_1791336968678.png`).
+- **[2026-10-07 (Chiến dịch Kiểm thử Toàn diện - Orchestrator Full-System Test Suite)]**: Thiết lập ma trận kịch bản kiểm thử toàn hệ thống và chạy tự động 100% qua runner `scratch/run_full_system_test_suite.ts`:
+  1. **Khởi động Docker Daemon & PostgreSQL**: Kích hoạt thành công service PostgreSQL 15 container trên cổng `54321`.
+  2. **42/42 Kịch bản kiểm thử tích hợp chuyên sâu PASSED (100% Tuyệt đối)**:
+     - **RBAC**: Xác nhận 4 vai trò cốt lõi, bảo vệ vai trò hệ thống, chặn xóa vai trò khi có user liên kết.
+     - **Cơ cấu tổ chức**: Tạo phòng ban, chặn trùng tên, bổ nhiệm/điều chuyển Trưởng phòng giải phóng vị trí cũ an toàn (không lỗi Unique constraint `managerId`), chặn xóa phòng ban có nhân sự.
+     - **Hồ sơ nhân sự**: Tạo nhân sự tự động khởi tạo cấu hình lương cơ bản 12tr, chặn trùng email, cập nhật thông tin và kiểm thử offboarding.
+     - **Chấm công số**: Chuẩn hóa múi giờ UTC+7 (`toUtcDateOnly`), Check-in đúng giờ/đi muộn (mốc 08:30), chặn Check-in lặp trong ngày, Check-out và chặn Check-out lặp, cô lập dữ liệu cá nhân theo vai trò.
+     - **Đơn nghỉ phép**: Tạo đơn, chặn ngày kết thúc < ngày bắt đầu, chặn trùng lặp thời gian với đơn đang chờ/đã duyệt, chặn Trưởng phòng tự duyệt đơn của mình, tự động đồng bộ sang bảng chấm công (`LEAVE`), tự động thu hồi ngày công khi đơn chuyển `REJECTED`.
+     - **Tiền lương & Chế độ**: Tạo/gán thành phần lương, bảo vệ không bị xóa khi đang áp dụng cho nhân sự, tạo phiếu lương với cơ chế kẹp sàn `netSalary >= 0` (không bao giờ âm), khóa sổ phiếu lương (`PAID`) chặn sửa/xóa, engine tính lương tự động cho toàn bộ nhân sự chuẩn xác.
+     - **Tuyển dụng (ATS) & Onboarding**: Tạo tin tuyển dụng, nộp CV từ cổng careers công khai, chuyển trạng thái phễu Kanban, quy trình Onboarding tự động khi `HIRED` (sinh tài khoản User, Profile, Cấu hình lương, Quyết định tiếp nhận `NEW_HIRE` và ghi Audit Log).
+     - **Biến động nhân sự**: Ban hành quyết định thuyên chuyển, bổ nhiệm, thôi việc.
+     - **Đào tạo & eNPS**: Khởi tạo khóa học, cập nhật tiến độ, khảo sát eNPS ẩn danh và chấm điểm hài lòng.
+     - **Quy hoạch cán bộ**: Lập lộ trình kế nhiệm cán bộ nguồn và ma trận 9-Box Grid.
+     - **Nhật ký kiểm toán**: Lưu vết và bảo mật phân quyền truy cập hệ thống Audit Trail.
+  3. **Biên dịch Production Build hoàn hảo**:
+     - `npx tsc --noEmit` đạt Exit code 0 (0 lỗi type).
+     - `npm run build` Next.js 16.3.1 (Turbopack) hoàn tất xuất sắc 41/41 static & dynamic routes.
+
