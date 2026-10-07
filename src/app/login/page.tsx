@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { 
   ArrowRight, Lock, Mail, AlertCircle, CheckCircle2, 
-  ShieldCheck, Fingerprint, Sparkles, Building2, User, KeyRound
+  ShieldCheck, Fingerprint, Building2, User, KeyRound
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -71,7 +71,7 @@ export default function LoginPage() {
 
             <div className="space-y-3.5">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-blue-950/80 text-blue-300 border border-blue-800/80">
-                <Sparkles className="w-3 h-3 text-amber-300" />
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
                 Nền tảng Quản trị Nguồn nhân lực
               </span>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
@@ -114,7 +114,7 @@ export default function LoginPage() {
               </span>
             </div>
             <div className="flex justify-between items-center text-[11px] text-zinc-500 font-mono">
-              <span>Phiên bản: v2.4.0 Enterprise</span>
+              <span>Hệ thống: HRMIS 2026</span>
               <span className="flex items-center gap-1 text-blue-400 font-sans">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Mã hóa chuẩn SSL
@@ -182,7 +182,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md glow-blue disabled:opacity-50 mt-2"
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50 mt-2"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

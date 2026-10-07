@@ -165,7 +165,7 @@ export default function DepartmentModal({
                 .filter(e => e.status !== "RESIGNED")
                 .map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.user.name} — {emp.position} ({emp.department?.name || "Chưa xếp phòng"})
+                    {emp.user.name} - {emp.position} ({emp.department?.name || "Chưa xếp phòng"})
                   </option>
                 ))}
             </select>

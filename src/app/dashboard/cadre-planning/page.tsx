@@ -14,7 +14,6 @@ import {
   X,
   Printer,
   ChevronRight,
-  Sparkles,
   Building2
 } from "lucide-react";
 
@@ -141,7 +140,7 @@ export default function CadrePlanningPage() {
         <div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-              <Sparkles className="w-3.5 h-3.5" />
+              <Award className="w-3.5 h-3.5" />
               Chiến Lược Nhân Tài & Kế Nhiệm
             </span>
           </div>
@@ -596,7 +595,7 @@ export default function CadrePlanningPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 inline-flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3" />
+                    <Award className="w-3 h-3" />
                     Lộ trình bồi dưỡng & Kế nhiệm cán bộ nguồn
                   </span>
                 </div>

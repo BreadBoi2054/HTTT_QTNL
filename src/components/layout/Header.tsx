@@ -2,7 +2,7 @@
 
 import { 
   LogOut, Bell, Search, Moon, Sun, X, CheckCircle2, MessageSquare, 
-  AlertTriangle, FileText, Banknote, Target, ArrowRight, Sparkles 
+  AlertTriangle, FileText, Banknote, Target, ArrowRight 
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";

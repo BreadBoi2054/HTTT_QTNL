@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Target, Award, CheckCircle2, Printer, Star, User, Sparkles, Building2 } from "lucide-react";
+import { X, Target, Award, CheckCircle2, Printer, Star, User, Building2 } from "lucide-react";
 
 interface EvaluationModalProps {
   isOpen: boolean;

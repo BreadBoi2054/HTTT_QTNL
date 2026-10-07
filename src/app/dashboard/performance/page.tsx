@@ -13,8 +13,7 @@ import {
   BarChart3, 
   Filter,
   Eye,
-  TrendingUp,
-  Sparkles
+  TrendingUp
 } from "lucide-react";
 import EvaluationModal from "@/components/performance/EvaluationModal";
 
@@ -419,7 +418,7 @@ export default function PerformancePage() {
                       <td className="px-5 py-3.5 text-center">
                         {item.grade.includes("HẠNG A") ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
-                            <Sparkles className="w-3 h-3 text-emerald-600" /> Hạng A
+                            <Award className="w-3 h-3 text-emerald-600" /> Hạng A
                           </span>
                         ) : item.grade.includes("HẠNG B") ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium">

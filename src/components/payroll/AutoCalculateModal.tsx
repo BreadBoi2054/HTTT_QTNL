@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Banknote, AlertCircle, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { X, Banknote, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 interface AutoCalculateModalProps {
   isOpen: boolean;
@@ -102,7 +102,7 @@ export default function AutoCalculateModal({ isOpen, onClose, onSuccess }: AutoC
 
           <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3.5 space-y-2 text-xs">
             <div className="text-xs text-zinc-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+              <Banknote className="w-3.5 h-3.5 text-blue-500" />
               Quy tắc tính toán tự động
             </div>
             <ul className="text-zinc-600 dark:text-zinc-400 space-y-1 text-xs list-disc list-inside">

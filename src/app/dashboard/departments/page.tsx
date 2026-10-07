@@ -119,7 +119,7 @@ export default function DepartmentsPage() {
         <div className="space-y-6">
           {/* Level 1: Ban Giám Đốc */}
           <div className="flex justify-center">
-            <div className="bento-card p-6 w-full max-w-md text-center shadow-md glow-blue relative overflow-hidden group">
+            <div className="bento-card p-6 w-full max-w-md text-center shadow-xs border border-zinc-200/90 dark:border-zinc-800/90">
               <div className="squircle w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white mx-auto mb-3 shadow-xs group-hover:scale-105 transition-transform">
                 <Network className="w-6 h-6" />
               </div>

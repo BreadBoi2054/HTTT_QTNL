@@ -384,7 +384,7 @@ export default function UserGuidePage() {
                 Áp dụng cho <strong>Nghỉ phép năm</strong> hoặc <strong>Nghỉ ốm đau có bảo hiểm</strong> đã được Quản lý trực tiếp phê duyệt:
               </p>
               <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 font-semibold">
-                ✓ Hưởng đủ 100% lương cơ bản (Không bị trừ lương)
+                Hưởng đủ 100% lương cơ bản (Không bị trừ lương)
               </div>
               <p className="text-[11px] text-zinc-500">
                 Hệ thống tự động cộng dồn ngày phép vào công chuẩn (21 ngày đi làm + 1 ngày phép = 22 công đầy đủ).
@@ -393,13 +393,13 @@ export default function UserGuidePage() {
 
             <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/30 dark:bg-amber-950/20 space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300 text-xs">
-                <span>⚠️ Kịch bản B: Nghỉ không phép hoặc không lương</span>
+                <span>Kịch bản B: Nghỉ không phép hoặc không lương</span>
               </div>
               <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 Áp dụng cho trường hợp <strong>Vắng mặt tự do</strong> hoặc làm đơn <strong>Nghỉ không hưởng lương</strong>:
               </p>
               <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300 font-semibold">
-                ✗ Bị trừ lương theo đúng tỷ lệ công thực tế
+                Bị trừ lương theo đúng tỷ lệ công thực tế
               </div>
               <ul className="text-xs text-zinc-600 dark:text-zinc-400 list-disc list-inside space-y-0.5">
                 <li>Nghỉ 1 ngày: Nhận 21/22 lương CB (Bị trừ 1/22 ≈ 4.55% lương)</li>
@@ -412,7 +412,7 @@ export default function UserGuidePage() {
         {/* 3. Bảng minh họa số tiền cụ thể */}
         <div className="space-y-2">
           <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            Ví dụ minh họa số tiền thực tế (Lương cơ bản thỏa thuận: 22.000.000 VNĐ / tháng ➔ Đơn giá 1.000.000 VNĐ / ngày công):
+            Ví dụ minh họa số tiền thực tế (Lương cơ bản thỏa thuận: 22.000.000 VNĐ / tháng, tương đương 1.000.000 VNĐ / ngày công):
           </div>
 
           <div className="overflow-x-auto text-xs border border-zinc-200 dark:border-zinc-800 rounded-xl">

@@ -212,7 +212,7 @@ export default function MyWorkspacePage() {
       {/* Digital Employee Badge Dossier Banner */}
       <div className="bento-card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-2xl font-extrabold font-mono shrink-0 shadow-md glow-blue group-hover:scale-105 transition-transform">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-2xl font-extrabold font-mono shrink-0 shadow-xs">
             {employeeData.name?.[0] || "N"}
           </div>
 

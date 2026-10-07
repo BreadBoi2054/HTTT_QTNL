@@ -20,8 +20,7 @@ import {
   BookOpen,
   UserCheck,
   FileSignature,
-  Target,
-  Sparkles
+  Target
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";

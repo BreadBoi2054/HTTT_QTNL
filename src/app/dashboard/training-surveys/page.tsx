@@ -17,7 +17,6 @@ import {
   Award,
   FileText,
   Star,
-  Sparkles,
   Printer
 } from "lucide-react";
 

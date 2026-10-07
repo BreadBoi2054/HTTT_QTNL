@@ -17,8 +17,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HRMIS - Enterprise Human Resources",
-  description: "Hệ thống quản trị nhân lực cao cấp chuẩn Enterprise Swiss Editorial",
+  title: "Hệ Thống Thông Tin Quản Trị Nguồn Nhân Lực (HRMIS)",
+  description: "Hệ thống Quản trị Nguồn nhân lực & Tiền lương Doanh nghiệp theo Bộ Luật Lao Động 2019",
 };
 
 export default function RootLayout({

@@ -122,3 +122,25 @@
   19. **Kiểm tra chất lượng toàn diện**:
       - `npx tsc --noEmit` đạt Exit code 0 (100% không còn bất kỳ lỗi TypeScript nào).
       - `npm run build` thành công xuất sắc toàn bộ 41 routes tĩnh và động trên Next.js 16 (Turbopack).
+- **[2026-10-07 (Thanh lọc AI-Slop & Nâng cấp Chuẩn mực Enterprise SaaS B2B)]**: Áp dụng quy chuẩn thiết kế sản phẩm số thực chiến (Anti-Slop / Taste-Skill & UI-UX Pro Max Enterprise Profile) cho toàn bộ hệ thống HTTT Quản trị Nguồn lực (HRMIS):
+  1. **Tẩy rửa Triệt để "AI-Slop Tells"**:
+     - Loại bỏ các dải gradient tím/xanh phát sáng rực rỡ (`glow-blue`, đốm mờ blur-3xl, icon lấp lánh `Sparkles`).
+     - Xóa bỏ toàn bộ emoji điện thoại (`⭐`, `🛡️`, `🚀`, `💻`, `📖`, `📍`, `🏢`) -> Thay bằng vector icon đơn sắc của `Lucide` với nét 1.5 thanh mảnh.
+     - Thay thế 100% các ký tự em-dash (`—`) dư thừa bằng dấu nối chuẩn mực (`-`).
+     - Đưa văn phong từ các câu khẩu hiệu AI sáo rỗng về chuẩn mực thực tế doanh nghiệp Việt Nam (Bộ Luật Lao Động 2019, BHXH bắt buộc 10.5%, công chuẩn 22 ngày, Mã số thuế 0108992341).
+  2. **Tối ưu Bàn điều hành Trung tâm (`/dashboard`)**:
+     - Thay thế khối banner to 200px bằng **Thanh Header Tác nghiệp (Operational Action Header)** cao 55px (Breadcrumb `Hệ thống / Bàn điều hành trung tâm`, kỳ làm việc `Tháng 10/2026`, toolbar hành động nhanh: Chấm công, Duyệt đơn, Cổng cá nhân).
+     - Tiết kiệm 150px chiều cao màn hình, đưa toàn bộ dữ liệu biểu đồ và chỉ số lên ngay tầm mắt người dùng (above-the-fold).
+     - Tinh chỉnh 4 thẻ KPI số liệu gọn gàng, tăng mật độ thông tin (Data Density).
+  3. **Nâng cấp Cổng Tuyển dụng Công khai (`/careers`)**:
+     - Thiết kế lại Header tuyển dụng chuyên nghiệp với thông tin doanh nghiệp, trụ sở Hà Nội & TP.HCM.
+     - Dải đãi ngộ 4 huy hiệu với vector icons: Lương thưởng 13-15 tháng, BHXH/BHYT/BHTN theo luật, Lộ trình cán bộ kế nhiệm, Trợ cấp thiết bị & đào tạo.
+     - Thẻ tin tuyển dụng bo góc `rounded-xl` thanh lịch, hiển thị rõ thời hạn ứng tuyển và phòng ban.
+  4. **Nâng cấp Khung sườn & Xác thực (`Sidebar`, `Header`, `Login`)**:
+     - Sidebar: Logo NEXUSTECH • Quản trị Nguồn nhân lực, huy hiệu trạng thái `Hệ thống trực tuyến • HRMIS 2026`, menu active dạng pill tinh gọn.
+     - Header: Bỏ Sparkles, chuẩn hóa trung tâm thông báo tác nghiệp.
+     - Login: Giao diện xác thực thanh lịch, bỏ các đốm neon blur, làm nổi bật các tính năng bảo mật doanh nghiệp (Audit Trail, 4 lớp RBAC, SSL).
+  5. **Kiểm thử & Đảm bảo Chất lượng**:
+     - `npx tsc --noEmit` đạt Exit code 0 (0 errors).
+     - `npm run build` Next.js 16 (Turbopack) biên dịch thành công 41/41 routes trong 2.7s.
+     - Kiểm tra thực tế bằng `browser_subagent` chụp ảnh màn hình xác nhận giao diện sạch bóng AI-slop (`dashboard_page_1791336941587.png`, `careers_page_1791336953291.png`, `login_page_1791336968678.png`).
