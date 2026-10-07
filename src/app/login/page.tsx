@@ -28,7 +28,13 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        setError(res.error);
+        if (res.error === "CredentialsSignin" || res.error.includes("CredentialsSignin")) {
+          setError("Tài khoản hoặc mật khẩu không chính xác. Mật khẩu demo: password123");
+        } else if (res.error === "Configuration") {
+          setError("Không tìm thấy tài khoản tương ứng trên hệ thống.");
+        } else {
+          setError("Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.");
+        }
       } else {
         router.push("/dashboard");
         router.refresh();
@@ -43,6 +49,7 @@ export default function LoginPage() {
   const handleFillDemo = (demoEmail: string) => {
     setEmail(demoEmail);
     setPassword("password123");
+    setError("");
   };
 
   return (

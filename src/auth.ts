@@ -13,22 +13,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Vui lòng nhập đầy đủ email và mật khẩu.");
+          return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+        const rawEmail = (credentials.email as string).trim().toLowerCase();
+        // Cho phép đăng nhập linh hoạt bằng cả tên miền @nexustech.vn và @hrmis.com
+        const candidateEmails = [
+          rawEmail,
+          rawEmail.replace(/@nexustech\.vn$/, "@hrmis.com"),
+          rawEmail.replace(/@hrmis\.com$/, "@nexustech.vn")
+        ];
+
+        const user = await prisma.user.findFirst({
+          where: {
+            email: { in: candidateEmails }
+          },
           include: { role: true },
         });
 
         if (!user) {
-          throw new Error("Tài khoản không tồn tại.");
+          return null;
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password as string, user.password);
 
         if (!isPasswordValid) {
-          throw new Error("Mật khẩu không chính xác.");
+          return null;
         }
 
         return {

@@ -536,22 +536,36 @@ async function main() {
 
   console.log(`Created ${createdProfiles.length} Employee Profiles and linked Department Managers!`);
 
-  // 6. Seed Attendance (Last 5 working days for all employees)
-  const today = new Date();
-  const pastDays: Date[] = [];
-  for (let i = 4; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    pastDays.push(d);
+  // 6. Seed Attendance (All working days in Sept 2026 + recent working days in Oct 2026)
+  const allAttendanceDays: Date[] = [];
+
+  // Working days (Monday to Friday) in September 2026 (Month 9)
+  for (let day = 1; day <= 30; day++) {
+    const d = new Date(2026, 8, day);
+    const dayOfWeek = d.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      allAttendanceDays.push(d);
+    }
   }
 
+  // Working days in October 2026 up to current date (Month 10)
+  for (let day = 1; day <= 7; day++) {
+    const d = new Date(2026, 9, day);
+    const dayOfWeek = d.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      allAttendanceDays.push(d);
+    }
+  }
+
+  const attendanceSeedBatch: any[] = [];
   for (const profile of createdProfiles) {
-    for (const d of pastDays) {
-      const isLate = Math.random() < 0.15;
-      const isLeave = Math.random() < 0.05;
+    for (const d of allAttendanceDays) {
+      const rand = Math.random();
+      const isLate = rand < 0.12;
+      const isLeave = rand >= 0.12 && rand < 0.15;
 
       const checkInHour = isLate ? 8 : 8;
-      const checkInMin = isLate ? Math.floor(Math.random() * 30) + 31 : Math.floor(Math.random() * 25);
+      const checkInMin = isLate ? Math.floor(Math.random() * 25) + 31 : Math.floor(Math.random() * 25);
       const checkOutHour = 17;
       const checkOutMin = Math.floor(Math.random() * 30) + 30;
 
@@ -563,18 +577,21 @@ async function main() {
 
       const status = isLeave ? "LEAVE" : (isLate ? "LATE" : "PRESENT");
 
-      await prisma.attendance.create({
-        data: {
-          employeeId: profile.id,
-          date: d,
-          checkIn: isLeave ? null : checkInDate,
-          checkOut: isLeave ? null : checkOutDate,
-          status,
-        }
+      attendanceSeedBatch.push({
+        employeeId: profile.id,
+        date: d,
+        checkIn: isLeave ? null : checkInDate,
+        checkOut: isLeave ? null : checkOutDate,
+        status,
       });
     }
   }
-  console.log(`Seeded 5-day Attendance records for all ${createdProfiles.length} employees!`);
+
+  await prisma.attendance.createMany({
+    data: attendanceSeedBatch,
+    skipDuplicates: true
+  });
+  console.log(`Seeded ${attendanceSeedBatch.length} Attendance records for all ${createdProfiles.length} employees (Sept & Oct 2026)!`);
 
   // 7. Seed Leave Requests
   const sampleLeaves = [

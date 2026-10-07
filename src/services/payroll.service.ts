@@ -198,23 +198,21 @@ export async function calculateMonthlyPayroll(month: number, year: number, actor
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = new Date(year, month - 1, lastDay, 23, 59, 59, 999);
 
-  // 1. Lấy tất cả EmployeeConfig
+  // 1. Lấy tất cả EmployeeConfig cùng thông tin chấm công và nghỉ phép
   const employeeConfigs = await prisma.employeeSalaryConfig.findMany({
     include: {
       employee: {
         include: {
           attendances: {
             where: {
-              date: { gte: startDate, lte: endDate },
-              status: { not: "ABSENT" }
+              date: { gte: startDate, lte: endDate }
             }
           },
           leaveRequests: {
             where: {
               startDate: { lte: endDate },
               endDate: { gte: startDate },
-              status: "APPROVED",
-              type: { in: ["ANNUAL_LEAVE", "SICK_LEAVE"] } // Paid leaves
+              status: "APPROVED"
             }
           },
           user: { select: { name: true } }
@@ -231,34 +229,70 @@ export async function calculateMonthlyPayroll(month: number, year: number, actor
   const payrollsCreated = [];
   const STANDARD_WORKING_DAYS = 22; // Cố định 22 ngày công chuẩn mỗi tháng
 
+  // Xác định số ngày chấm công tối đa được ghi nhận trong doanh nghiệp trong kỳ này
+  const maxRecordedDaysInCompany = Math.max(0, ...employeeConfigs.map(c => c.employee.attendances.length));
+
   // 2. Tính lương cho từng nhân viên
   for (const config of employeeConfigs) {
     const { employee, baseSalary, components } = config;
     
+    // Bỏ qua nhân sự đã thôi việc
+    if (employee.status === "RESIGNED") {
+      continue;
+    }
+
     // Ngày công thực tế (chỉ tính ngày đi làm có mặt hoặc đi muộn)
     const workedDays = employee.attendances.filter(a => a.status === "PRESENT" || a.status === "LATE").length;
 
-    // Ngày nghỉ phép có lương từ bảng chấm công
+    // Ngày nghỉ phép từ bảng chấm công
     const leaveAttendanceDays = employee.attendances.filter(a => a.status === "LEAVE").length;
 
-    // Tính ngày nghỉ phép có lương từ các đơn đã được duyệt (loại trừ Chủ nhật)
-    let calculatedLeaveDays = 0;
+    // Số ngày nghỉ không phép từ bảng chấm công
+    const unexcusedAbsences = employee.attendances.filter(a => a.status === "ABSENT").length;
+
+    // Tính ngày nghỉ phép có lương & không lương từ các đơn đã được duyệt (loại trừ Chủ nhật)
+    let calculatedPaidLeaveDays = 0;
+    let calculatedUnpaidLeaveDays = 0;
+
     for (const leave of employee.leaveRequests) {
       const cur = new Date(leave.startDate > startDate ? leave.startDate : startDate);
       const leaveEnd = new Date(leave.endDate < endDate ? leave.endDate : endDate);
       while (cur <= leaveEnd) {
         if (cur.getDay() !== 0) { // Loại trừ Chủ nhật
-          calculatedLeaveDays++;
+          if (leave.type === "UNPAID_LEAVE") {
+            calculatedUnpaidLeaveDays++;
+          } else {
+            calculatedPaidLeaveDays++;
+          }
         }
         cur.setDate(cur.getDate() + 1);
       }
     }
 
     // Tránh cộng trùng nếu đơn nghỉ phép đã đồng bộ sang bảng attendance
-    const paidLeaveDays = Math.max(leaveAttendanceDays, calculatedLeaveDays);
-    const actualWorkingDays = workedDays;
-    const totalPaidDays = actualWorkingDays + paidLeaveDays;
-    const effectiveDays = Math.min(totalPaidDays, STANDARD_WORKING_DAYS);
+    const paidLeaveDays = Math.max(leaveAttendanceDays, calculatedPaidLeaveDays);
+
+    let effectiveDays = 0;
+    let actualWorkingDays = 0;
+
+    if (maxRecordedDaysInCompany === 0) {
+      // Trường hợp 1: Kỳ lương chưa có dữ liệu chấm công (hoặc nhân sự khối quản lý/miễn chấm công)
+      // Mặc định tính chuẩn 22 ngày công định mức theo hợp đồng, trừ ngày nghỉ không lương
+      effectiveDays = Math.max(0, STANDARD_WORKING_DAYS - calculatedUnpaidLeaveDays);
+      actualWorkingDays = Math.max(0, effectiveDays - paidLeaveDays);
+    } else if (maxRecordedDaysInCompany < STANDARD_WORKING_DAYS) {
+      // Trường hợp 2: Kỳ lương đang diễn ra hoặc đang ghi nhận dở dang (ví dụ các ngày đầu tháng)
+      // Nhân viên tham gia đầy đủ các ngày đã chấm công sẽ được tính tròn công định mức
+      const missedTrackedDays = maxRecordedDaysInCompany - (workedDays + paidLeaveDays);
+      const penaltyDays = Math.max(0, missedTrackedDays) + calculatedUnpaidLeaveDays + unexcusedAbsences;
+      effectiveDays = Math.max(0, STANDARD_WORKING_DAYS - penaltyDays);
+      actualWorkingDays = Math.max(0, effectiveDays - paidLeaveDays);
+    } else {
+      // Trường hợp 3: Kỳ lương đã chốt đủ dữ liệu chấm công cả tháng (>= 22 ngày)
+      const totalPaidDays = workedDays + paidLeaveDays;
+      effectiveDays = Math.min(totalPaidDays, STANDARD_WORKING_DAYS);
+      actualWorkingDays = workedDays;
+    }
 
     const proRatedBaseSalary = Math.round((baseSalary / STANDARD_WORKING_DAYS) * effectiveDays);
 
@@ -272,11 +306,30 @@ export async function calculateMonthlyPayroll(month: number, year: number, actor
       amount: actualWorkingDays,
       amountType: "DAYS"
     });
+
     if (paidLeaveDays > 0) {
       details.push({
         name: "Ngày nghỉ phép (Có lương)",
         type: "INFO",
         amount: paidLeaveDays,
+        amountType: "DAYS"
+      });
+    }
+
+    if (calculatedUnpaidLeaveDays > 0) {
+      details.push({
+        name: "Nghỉ không lương (Khấu trừ ngày công)",
+        type: "DEDUCTION",
+        amount: calculatedUnpaidLeaveDays,
+        amountType: "DAYS"
+      });
+    }
+
+    if (unexcusedAbsences > 0) {
+      details.push({
+        name: "Nghỉ không phép (Trừ công)",
+        type: "DEDUCTION",
+        amount: unexcusedAbsences,
         amountType: "DAYS"
       });
     }
@@ -334,6 +387,22 @@ export async function calculateMonthlyPayroll(month: number, year: number, actor
     }
 
     const netSalary = Math.max(0, Math.round(proRatedBaseSalary + totalBonus - totalDeduction));
+
+    // Không ghi đè phiếu lương đã khóa sổ (PAID)
+    const existing = await prisma.payroll.findUnique({
+      where: {
+        employeeId_month_year: {
+          employeeId: employee.id,
+          month,
+          year
+        }
+      }
+    });
+
+    if (existing && existing.status === "PAID") {
+      payrollsCreated.push(existing);
+      continue;
+    }
 
     const payroll = await prisma.payroll.upsert({
       where: {

@@ -17,7 +17,8 @@ export async function GET(req: Request) {
     let whereClause: any = {};
     if (month && year) {
       const startDate = new Date(Number(year), Number(month) - 1, 1);
-      const endDate = new Date(Number(year), Number(month), 0); // last day of month
+      const lastDay = new Date(Number(year), Number(month), 0).getDate();
+      const endDate = new Date(Number(year), Number(month) - 1, lastDay, 23, 59, 59, 999);
       
       whereClause.date = {
         gte: startDate,
