@@ -1,0 +1,253 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g. "SYSTEM_ADMIN", "MANAGER", "USER"
+  permissions String?  // JSON string or array of permissions
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  name       String
+  roleId     String
+  role       Role     @relation(fields: [roleId], references: [id])
+  employee   EmployeeProfile?
+  interviews Interview[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  managerId   String?  @unique
+  manager     EmployeeProfile? @relation("DepartmentManager", fields: [managerId], references: [id])
+  employees   EmployeeProfile[] @relation("DepartmentEmployees")
+  jobPostings JobPosting[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmployeeProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department? @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  managedDept  Department? @relation("DepartmentManager")
+  position     String
+  status       String   @default("ACTIVE") // "ACTIVE", "PROBATION", "SUSPENDED", "RESIGNED"
+  phone        String?
+  address      String?
+  joinDate     DateTime @default(now())
+  attendances  Attendance[]
+  payrolls     Payroll[]
+  leaveRequests LeaveRequest[]
+  salaryConfig  EmployeeSalaryConfig?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     String   // "PRESENT", "ABSENT", "LATE", "LEAVE"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, date])
+}
+
+model LeaveRequest {
+  id         String          @id @default(cuid())
+  employeeId String
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate  DateTime
+  endDate    DateTime
+  type       String          // ANNUAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE
+  status     String          @default("PENDING") // PENDING, APPROVED, REJECTED
+  reason     String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model Payroll {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  month       Int
+  year        Int
+  baseSalary  Float
+  bonus       Float    @default(0)
+  deductions  Float    @default(0)
+  netSalary   Float
+  details     Json?    // Snapshot of salary components applied
+  status      String   // "DRAFT", "PAID"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, month, year])
+}
+
+model JobPosting {
+  id          String        @id @default(cuid())
+  title       String
+  description String        @db.Text
+  departmentId String?
+  department  Department?   @relation(fields: [departmentId], references: [id])
+  headcount   Int           @default(1)
+  status      String        @default("OPEN") // OPEN, CLOSED
+  dueDate     DateTime?
+  applications Application[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Application {
+  id           String      @id @default(cuid())
+  jobPostingId String
+  jobPosting   JobPosting  @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  candidateName String
+  candidateEmail String
+  candidatePhone String
+  cvUrl        String
+  status       String      @default("APPLIED") // APPLIED, REVIEWING, INTERVIEWING, OFFERED, HIRED, REJECTED
+  interviews   Interview[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Interview {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId String
+  interviewer   User        @relation(fields: [interviewerId], references: [id])
+  scheduledAt   DateTime
+  result        String?     // PASS, FAIL
+  notes         String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model SalaryComponent {
+  id          String   @id @default(cuid())
+  name        String   // e.g. "Phụ cấp ăn trưa", "Phạt đi muộn"
+  type        String   // EARNING, DEDUCTION
+  amountType  String   @default("FIXED") // FIXED, PERCENTAGE
+  defaultVal  Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  configs     EmployeeSalaryComponent[]
+}
+
+model EmployeeSalaryConfig {
+  id         String          @id @default(cuid())
+  employeeId String          @unique
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  baseSalary Float
+  components EmployeeSalaryComponent[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model EmployeeSalaryComponent {
+  id            String               @id @default(cuid())
+  configId      String
+  config        EmployeeSalaryConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  componentId   String
+  component     SalaryComponent      @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  customAmount  Float?               // Overrides SalaryComponent.defaultVal if provided
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@unique([configId, componentId])
+}
+
+model PersonnelChange {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  employeeName  String
+  employeeEmail String
+  type          String   // "NEW_HIRE", "PROMOTION", "TRANSFER", "RESIGNATION"
+  fromDept      String
+  toDept        String
+  fromPosition  String
+  toPosition    String
+  effectiveDate String
+  signer        String
+  status        String   @default("APPROVED") // "APPROVED", "PENDING", "DRAFT"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model TrainingCourse {
+  id           String   @id @default(cuid())
+  title        String
+  instructor   String
+  category     String
+  duration     String
+  participants Int      @default(0)
+  progress     Int      @default(0)
+  startDate    String
+  status       String   @default("ENROLLING") // "ENROLLING", "IN_PROGRESS", "COMPLETED"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Survey {
+  id          String   @id @default(cuid())
+  title       String
+  targetDept  String
+  respondents Int      @default(0)
+  totalTarget Int      @default(0)
+  deadline    String
+  score       Float    @default(5.0)
+  status      String   @default("ACTIVE") // "ACTIVE", "CLOSED"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SuccessionPlan {
+  id             String   @id @default(cuid())
+  position       String
+  department     String
+  currentHolder  String
+  successorName  String
+  successorEmail String
+  readiness      String   // "READY_NOW", "READY_1_2_YEARS", "DEVELOPING"
+  potentialScore String   @default("HIGH") // "HIGH", "MEDIUM"
+  mentor         String
+  plannedYear    String
+  status         String   @default("APPROVED") // "APPROVED", "REVIEWING"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userName  String
+  userRole  String
+  action    String
+  target    String
+  ip        String
+  status    String   // "SUCCESS", "WARNING", "CRITICAL"
+  createdAt DateTime @default(now())
+}
+
