@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { 
   ArrowLeftRight, 
   TrendingUp, 
@@ -18,6 +19,7 @@ import {
   Printer,
   Building2
 } from "lucide-react";
+import { TableSkeleton } from "@/components/providers/ToastProvider";
 
 interface PersonnelChange {
   id: string;
@@ -35,6 +37,10 @@ interface PersonnelChange {
 }
 
 export default function PersonnelChangesPage() {
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.roleName || "USER";
+  const canManageChanges = ["SYSTEM_ADMIN", "BOD", "HR", "MANAGER"].includes(userRole);
+  const canApproveChanges = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
   const [changes, setChanges] = useState<PersonnelChange[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -134,6 +140,23 @@ export default function PersonnelChangesPage() {
     }
   };
 
+  const handleUpdateDecisionStatus = async (id: string, status: "APPROVED" | "REJECTED") => {
+    try {
+      const res = await fetch("/api/personnel-changes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Không thể cập nhật trạng thái quyết định.");
+      }
+      fetchChanges();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const filteredChanges = changes.filter((c) => {
     const matchesSearch = c.employeeName?.toLowerCase().includes(search.toLowerCase()) || 
                           c.code?.toLowerCase().includes(search.toLowerCase());
@@ -156,13 +179,7 @@ export default function PersonnelChangesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-              <ArrowLeftRight className="w-3.5 h-3.5" />
-              Nhân sự & Bổ nhiệm
-            </span>
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
             Biến Động Nhân Sự & Bổ Nhiệm
           </h1>
           <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -170,58 +187,64 @@ export default function PersonnelChangesPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Tạo quyết định biến động</span>
-        </button>
+        {canManageChanges && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Tạo quyết định biến động</span>
+          </button>
+        )}
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-start justify-between mb-2">
-            <span className="swiss-label">Tỷ lệ biến động</span>
-            <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+            <span className="swiss-label">Tỷ lệ phê duyệt quyết định</span>
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">2.4%</div>
-          <div className="text-xs text-zinc-400 mt-1">Ngưỡng an toàn (&lt; 5%)</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+            {changes.length > 0 ? Math.round((changes.filter(c => c.status === "APPROVED").length / changes.length) * 100) : 0}%
+          </div>
+          <div className="text-xs text-zinc-400 mt-1">
+            {changes.filter(c => c.status === "APPROVED").length}/{changes.length} quyết định đã duyệt
+          </div>
         </div>
 
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-start justify-between mb-2">
             <span className="swiss-label">Tiếp nhận mới</span>
-            <div className="squircle w-9 h-9 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <UserPlus className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">+{changes.filter(c => c.type === "NEW_HIRE").length || 8}</div>
-          <div className="text-xs text-zinc-400 mt-1">Hoàn thành tiếp nhận</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">+{changes.filter(c => c.type === "NEW_HIRE").length}</div>
+          <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">Hoàn thành tiếp nhận</div>
         </div>
 
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-start justify-between mb-2">
             <span className="swiss-label">Điều chuyển & Bổ nhiệm</span>
-            <div className="squircle w-9 h-9 bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <Award className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{changes.filter(c => c.type === "PROMOTION" || c.type === "TRANSFER").length || 5}</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{changes.filter(c => c.type === "PROMOTION" || c.type === "TRANSFER").length}</div>
           <div className="text-xs text-zinc-400 mt-1">Quyết định đã ban hành</div>
         </div>
 
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-start justify-between mb-2">
             <span className="swiss-label">Thôi việc / Nghỉ</span>
-            <div className="squircle w-9 h-9 bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 group-hover:bg-red-600 group-hover:text-white transition-colors">
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <UserMinus className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{changes.filter(c => c.type === "RESIGNATION").length || 1}</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{changes.filter(c => c.type === "RESIGNATION").length}</div>
           <div className="text-xs text-zinc-400 mt-1">Bàn giao đầy đủ</div>
         </div>
       </div>
@@ -237,7 +260,7 @@ export default function PersonnelChangesPage() {
               placeholder="Tìm theo tên hoặc số quyết định..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs font-mono"
+              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs"
             />
           </div>
 
@@ -246,7 +269,7 @@ export default function PersonnelChangesPage() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none shadow-2xs font-mono"
+              className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none shadow-2xs"
             >
               <option value="ALL">Tất cả biến động</option>
               <option value="NEW_HIRE">Tiếp nhận mới</option>
@@ -273,8 +296,8 @@ export default function PersonnelChangesPage() {
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-zinc-500 text-xs">
-                    Đang tải danh sách biến động nhân sự...
+                  <td colSpan={6} className="p-0">
+                    <TableSkeleton rows={5} cols={6} />
                   </td>
                 </tr>
               ) : filteredChanges.length === 0 ? (
@@ -323,7 +346,7 @@ export default function PersonnelChangesPage() {
                       </span>
                       <button
                         onClick={() => setViewingChange(item)}
-                        className="text-xs px-2.5 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium transition-colors"
+                        className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium transition-colors"
                       >
                         Xem quyết định
                       </button>
@@ -350,7 +373,7 @@ export default function PersonnelChangesPage() {
               <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Tạo Quyết định Biến động Nhân sự</h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-md"
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg"
                 title="Thoát (Esc)"
               >
                 <X className="w-5 h-5" />
@@ -372,7 +395,7 @@ export default function PersonnelChangesPage() {
                       ...(newType === "RESIGNATION" ? { toPosition: "Thôi việc / Đã bàn giao", toDept: "Lưu trữ hồ sơ" } : {})
                     }));
                   }}
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600 text-zinc-800 dark:text-zinc-200"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 text-zinc-800 dark:text-zinc-200"
                 >
                   <option value="PROMOTION">BỔ NHIỆM / THĂNG CHỨC NỘI BỘ</option>
                   <option value="TRANSFER">ĐIỀU CHUYỂN PHÒNG BAN</option>
@@ -406,7 +429,7 @@ export default function PersonnelChangesPage() {
                         }));
                       }
                     }}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600 text-zinc-800 dark:text-zinc-200 font-sans"
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 text-zinc-800 dark:text-zinc-200 font-sans"
                   >
                     <option value="">-- Click để chọn nhân sự thực hiện quyết định --</option>
                     {employees
@@ -419,7 +442,7 @@ export default function PersonnelChangesPage() {
                   </select>
 
                   {formData.employeeName && (
-                    <div className="mt-2 p-2.5 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded font-mono text-[11px] space-y-1">
+                    <div className="mt-2 p-2.5 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl font-mono text-[11px] space-y-1">
                       <div className="flex justify-between">
                         <span className="text-zinc-400">NHÂN SỰ:</span>
                         <strong className="text-zinc-900 dark:text-zinc-100">{formData.employeeName}</strong>
@@ -447,7 +470,7 @@ export default function PersonnelChangesPage() {
                       placeholder="VD: Hoàng Văn Nam"
                       value={formData.employeeName}
                       onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600"
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                     />
                   </div>
                   <div>
@@ -460,7 +483,7 @@ export default function PersonnelChangesPage() {
                       placeholder="nam.hoang@nexustech.vn"
                       value={formData.employeeEmail}
                       onChange={(e) => setFormData({ ...formData, employeeEmail: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600 font-mono"
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 font-mono"
                     />
                   </div>
                 </div>
@@ -475,7 +498,7 @@ export default function PersonnelChangesPage() {
                   <select
                     value={formData.toDept}
                     onChange={(e) => setFormData({ ...formData, toDept: e.target.value })}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600"
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                   >
                     {departments.map((d) => (
                       <option key={d.id} value={d.name}>{d.name}</option>
@@ -494,7 +517,7 @@ export default function PersonnelChangesPage() {
                     placeholder="VD: Senior Tech Lead / Trưởng nhóm"
                     value={formData.toPosition}
                     onChange={(e) => setFormData({ ...formData, toPosition: e.target.value })}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600"
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                   />
                   <datalist id="new-positions">
                     <option value="Trưởng phòng (Department Manager)" />
@@ -507,6 +530,38 @@ export default function PersonnelChangesPage() {
                 </div>
               </div>
 
+              {formData.type !== "RESIGNATION" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
+                      Mức lương cơ bản mới (VNĐ - Đồng bộ HĐ & Lương)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500000"
+                      placeholder="Bỏ trống nếu giữ nguyên lương"
+                      value={(formData as any).newSalary || ""}
+                      onChange={(e) => setFormData({ ...formData, newSalary: e.target.value } as any)}
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
+                      Trạng thái quyết định
+                    </label>
+                    <select
+                      value={(formData as any).status || "APPROVED"}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value } as any)}
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600"
+                    >
+                      <option value="APPROVED">Ban hành chính thức ngay (Tự động cập nhật Hồ sơ & Lương)</option>
+                      <option value="PENDING">Lưu trình ký / Chờ Ban Giám đốc phê duyệt</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
               {/* Effective date & Signer */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -518,7 +573,7 @@ export default function PersonnelChangesPage() {
                     required
                     value={formData.effectiveDate}
                     onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600 font-mono"
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 font-mono"
                   />
                 </div>
                 <div>
@@ -531,7 +586,7 @@ export default function PersonnelChangesPage() {
                     list="signers-list"
                     value={formData.signer}
                     onChange={(e) => setFormData({ ...formData, signer: e.target.value })}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-xs focus:outline-none focus:border-blue-600"
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                   />
                   <datalist id="signers-list">
                     <option value="Quản trị viên (Tổng Giám Đốc / CEO)" />
@@ -548,13 +603,13 @@ export default function PersonnelChangesPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors"
+                  className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors"
                 >
                   Thoát
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                  className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
                 >
                   Ban hành quyết định
                 </button>

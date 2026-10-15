@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || (role !== 'SYSTEM_ADMIN' && role !== 'HR')) {
+    if (!session || !["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(role)) {
       return new NextResponse("Unauthorized", { status: 403 });
     }
 

@@ -1,27 +1,48 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Moon, Sun, Monitor, Save, User, CheckCircle2 } from "lucide-react";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
+  const [displayName, setDisplayName] = useState("");
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const saved = localStorage.getItem("hrmis_system_settings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.displayName) setDisplayName(parsed.displayName);
+      }
+    } catch {}
   }, []);
+
+  useEffect(() => {
+    if (session?.user?.name && !displayName) setDisplayName(session.user.name);
+  }, [session?.user?.name, displayName]);
 
   const handleSave = () => {
     setSaving(true);
     setSuccess("");
+    try {
+      localStorage.setItem("hrmis_system_settings", JSON.stringify({
+        theme,
+        displayName: displayName || session?.user?.name || "Người dùng hệ thống",
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch {}
     setTimeout(() => {
       setSaving(false);
-      setSuccess("Cập nhật tham số hệ thống thành công!");
+      setSuccess("Đã lưu cấu hình cá nhân và tham số hệ thống!");
       setTimeout(() => setSuccess(""), 3000);
-    }, 800);
+    }, 400);
   };
 
   if (!mounted) return null;
@@ -93,7 +114,7 @@ export default function SettingsPage() {
                   <Moon className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-bold">Giao diện Tối</span>
-                <span className="text-[11px] text-zinc-500 mt-1">Sleek Obsidian & Glassmorphism</span>
+                <span className="text-[11px] text-zinc-500 mt-1">Nền tối tương phản cao chuẩn Swiss</span>
               </button>
 
               <button
@@ -136,9 +157,9 @@ export default function SettingsPage() {
                 </label>
                 <input 
                   type="text" 
-                  defaultValue="Quản trị viên Hệ thống" 
-                  disabled 
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 font-medium opacity-90 cursor-not-allowed" 
+                  value={displayName || session?.user?.name || "Người dùng hệ thống"} 
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 font-medium" 
                 />
               </div>
 
@@ -148,7 +169,7 @@ export default function SettingsPage() {
                 </label>
                 <input 
                   type="email" 
-                  defaultValue="admin@nexustech.vn" 
+                  value={session?.user?.email || "user@nexustech.vn"} 
                   disabled 
                   className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-mono text-zinc-900 dark:text-zinc-100 opacity-90 cursor-not-allowed" 
                 />
@@ -157,7 +178,7 @@ export default function SettingsPage() {
 
             <div className="pt-2">
               <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 font-semibold">
-                Vai trò: Quản trị viên hệ thống (Toàn quyền quản trị phân hệ)
+                Vai trò: {(session?.user as any)?.role || "USER"}
               </span>
             </div>
           </div>
@@ -175,7 +196,7 @@ export default function SettingsPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-70"
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-[0.98] disabled:opacity-70"
           >
             {saving ? (
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

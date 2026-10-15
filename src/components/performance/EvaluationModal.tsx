@@ -83,7 +83,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+      className="printable-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-xs animate-in fade-in overflow-y-auto"
       onClick={onClose}
     >
       <div 
@@ -91,7 +91,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/60 print:hidden">
+        <div className="no-print flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/60 print:hidden">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
               Đánh giá hiệu suất & KPI
@@ -122,7 +122,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
         </div>
 
         {/* Printable Form Sheet */}
-        <form onSubmit={handleSubmit} className="p-8 space-y-6 text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 print:p-0">
+        <form onSubmit={handleSubmit} className="printable-area p-8 space-y-6 text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 print:p-0">
           
           {/* Header Strip */}
           <div className="flex justify-between items-start pb-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -220,9 +220,9 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
               <div className="flex justify-between items-center text-xs">
                 <div>
                   <span className="font-semibold text-zinc-900 dark:text-zinc-100">3. Sáng kiến cải tiến & Phát triển chuyên môn</span>
-                  <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium ml-2">(Trọng số 25%)</span>
+                  <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium ml-2">(Trọng số 25%)</span>
                 </div>
-                <span className="font-mono font-bold text-sm text-purple-600 dark:text-purple-400">{c3} / 100</span>
+                <span className="font-mono font-bold text-sm text-blue-600 dark:text-blue-400">{c3} / 100</span>
               </div>
               <input
                 type="range"
@@ -230,7 +230,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
                 max={100}
                 value={c3}
                 onChange={(e) => setC3(Number(e.target.value))}
-                className="w-full accent-purple-600 cursor-pointer"
+                className="w-full accent-blue-600 cursor-pointer"
               />
             </div>
           </div>
@@ -299,7 +299,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
           </div>
 
           {/* Buttons */}
-          <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center print:hidden">
+          <div className="no-print pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center print:hidden">
             <button
               type="button"
               onClick={onClose}

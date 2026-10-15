@@ -119,7 +119,7 @@ export default function DepartmentModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs font-sans">
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 rounded-lg">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 rounded-lg">
               {error}
             </div>
           )}

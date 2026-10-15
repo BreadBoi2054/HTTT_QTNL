@@ -44,17 +44,26 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
   const grossSalary = baseSalary + bonus;
   const netSalary = payroll.netSalary || (grossSalary - deductions);
 
-  // Social insurance itemization
-  const bhxh = Math.round(baseSalary * 0.08);
-  const bhyt = Math.round(baseSalary * 0.015);
-  const bhtn = Math.round(baseSalary * 0.01);
-  const otherDeductions = Math.max(0, deductions - (bhxh + bhyt + bhtn));
-
   const detailsList = Array.isArray(payroll.details) ? payroll.details : null;
+
+  // Social insurance itemization: respect detailsList or zero deductions
+  const findDetailAmount = (keyword: string, fallbackRate: number) => {
+    if (deductions <= 0) return 0;
+    if (detailsList && detailsList.length > 0) {
+      const found = detailsList.find((d: any) => d.type === "DEDUCTION" && String(d.name || "").toUpperCase().includes(keyword));
+      if (found && typeof found.amount === "number") return Math.round(found.amount);
+    }
+    return Math.min(deductions, Math.round(baseSalary * fallbackRate));
+  };
+
+  const bhxh = findDetailAmount("BHXH", 0.08);
+  const bhyt = findDetailAmount("BHYT", 0.015);
+  const bhtn = findDetailAmount("BHTN", 0.01);
+  const otherDeductions = Math.max(0, deductions - (bhxh + bhyt + bhtn));
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+      className="printable-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in overflow-y-auto"
       onClick={onClose}
     >
       <div 
@@ -62,7 +71,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky Top Action Bar */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
+        <div className="no-print sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
               Chi tiết phiếu lương
@@ -93,7 +102,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
         </div>
 
         {/* Printable Payslip Sheet */}
-        <div className="p-8 space-y-6 text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 print:p-0">
+        <div className="printable-area p-8 space-y-6 text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 print:p-0">
           
           {/* Corporate Letterhead */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
@@ -161,16 +170,24 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
             <div>
               <span className="text-zinc-400 uppercase text-[10px] font-medium tracking-wider">Vai trò hệ thống</span>
               <div className="mt-1">
-                {(user?.role?.name === "SYSTEM_ADMIN" || emp?.role === "SYSTEM_ADMIN") ? (
+                {(user?.role?.name === "BOD" || emp?.role === "BOD") ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border border-zinc-800 dark:border-zinc-300">
+                    Ban Giám Đốc (BOD)
+                  </span>
+                ) : (user?.role?.name === "SYSTEM_ADMIN" || emp?.role === "SYSTEM_ADMIN") ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                    Ban Lãnh đạo (Admin)
+                    Quản trị Hệ thống (Admin)
+                  </span>
+                ) : (user?.role?.name === "ACCOUNTANT" || emp?.role === "ACCOUNTANT") ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    Kế toán trưởng (Accountant)
                   </span>
                 ) : (user?.role?.name === "MANAGER" || emp?.managedDept) ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     Trưởng đơn vị (Manager)
                   </span>
                 ) : (user?.role?.name === "HR") ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                     Nhân sự & C&B (HR)
                   </span>
                 ) : (
@@ -243,7 +260,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
                 </div>
                 {otherDeductions > 0 && (
                   <div className="px-4 py-2.5 flex justify-between">
-                    <span className="text-zinc-600 dark:text-zinc-400">4. Giảm trừ khác / Tạm ứng</span>
+                    <span className="text-zinc-600 dark:text-zinc-400">4. Giảm trừ khác / Thuế TNCN</span>
                     <span className="font-mono text-zinc-700 dark:text-zinc-300">{formatVND(otherDeductions)}</span>
                   </div>
                 )}
@@ -277,67 +294,112 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
                 Thông tin ngày công & phụ cấp thực tế:
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                {detailsList.map((d: any, idx: number) => (
-                  <div key={idx} className="bg-white dark:bg-zinc-950 p-2.5 border border-zinc-200 dark:border-zinc-800 rounded">
-                    <div className="text-zinc-500 text-[11px] truncate">{d.name}</div>
-                    <div className="font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 font-mono">
-                      {d.amountType === "DAYS" ? `${d.amount} ngày` : formatVND(d.amount)}
+                {detailsList.map((d: any, idx: number) => {
+                  const rawName = String(d.name || "");
+                  const cleanName = rawName.includes("?")
+                    ? rawName.includes("BHXH")
+                      ? "Bảo hiểm Xã hội (BHXH 8%)"
+                      : rawName.includes("BHYT")
+                      ? "Bảo hiểm Y tế (BHYT 1.5%)"
+                      : rawName.includes("BHTN")
+                      ? "Bảo hiểm Thất nghiệp (BHTN 1.0%)"
+                      : rawName.includes("TNCN")
+                      ? "Thuế TNCN lũy tiến"
+                      : rawName.includes("OT")
+                      ? rawName.replace("L??ng l?m th?m gi?", "Lương làm thêm giờ")
+                      : d.amountType === "DAYS"
+                      ? "Ngày công thực tế"
+                      : d.type === "DEDUCTION"
+                      ? "Tổng khoản khấu trừ & BHXH"
+                      : rawName.includes("Ph?")
+                      ? "Phụ cấp & Thưởng hiệu suất"
+                      : "Lương cơ bản theo ngày công"
+                    : rawName;
+                  return (
+                    <div key={idx} className="bg-white dark:bg-zinc-950 p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                      <div className="text-zinc-500 text-[11px] truncate">{cleanName}</div>
+                      <div className="font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 font-mono">
+                        {d.amountType === "DAYS" ? `${d.amount} ngày` : formatVND(d.amount)}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Signatures 4-Role Chain */}
-          <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
-            <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
-              <div className="font-semibold text-zinc-900 dark:text-zinc-100">1. Người lập biểu</div>
-              <div className="text-[10px] text-zinc-400 italic">(Khởi tạo)</div>
-              <div className="h-12 flex items-center justify-center text-zinc-400 text-xs italic">
-                Chuyên viên C&B
-              </div>
-              <div className="font-medium text-[11px] text-purple-600 dark:text-purple-400">Phòng Nhân sự (HR)</div>
-            </div>
+          {/* Signatures 4-Role Chain - Phân cấp thẩm quyền kiểm soát công chuẩn doanh nghiệp */}
+          {(() => {
+            const roleName = user?.role?.name || "";
+            const posLower = (position || "").toLowerCase();
+            const isBOD = roleName === "BOD" || posLower.includes("tổng giám đốc") || posLower.includes("ceo") || posLower.includes("cto") || posLower.includes("coo") || posLower.includes("hội đồng");
+            const isManagerOrAccountant = roleName === "MANAGER" || roleName === "ACCOUNTANT" || posLower.includes("trưởng phòng") || posLower.includes("giám đốc kỹ thuật") || posLower.includes("kế toán trưởng") || posLower.includes("manager");
 
-            <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
-              <div className="font-semibold text-zinc-900 dark:text-zinc-100">2. Kiểm soát công</div>
-              <div className="text-[10px] text-zinc-400 italic">(Thẩm định)</div>
-              <div className="h-12 flex items-center justify-center text-zinc-400 text-xs italic">
-                Đã đối soát công
-              </div>
-              <div className="font-medium text-[11px] text-amber-600 dark:text-amber-400">Trưởng phòng (Manager)</div>
-            </div>
+            let auditReviewerTitle = "Trưởng phòng chuyên môn (Manager)";
+            let auditReviewerSub = "Đã đối soát công";
+            let auditReviewerBadge = "text-amber-600 dark:text-amber-400";
 
-            <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
-              <div className="font-semibold text-zinc-900 dark:text-zinc-100">3. Phê duyệt chi</div>
-              <div className="text-[10px] text-zinc-400 italic">(Khóa sổ tài chính)</div>
-              <div className="h-12 flex items-center justify-center">
-                {payroll.status === "PAID" ? (
-                  <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold rounded-full">
-                    Đã duyệt chi
-                  </span>
-                ) : (
-                  <span className="text-[11px] text-zinc-400 italic">Chờ phê duyệt</span>
-                )}
-              </div>
-              <div className="font-medium text-[11px] text-blue-600 dark:text-blue-400">Ban Lãnh đạo (Admin)</div>
-            </div>
+            if (isBOD) {
+              auditReviewerTitle = "Ban Kiểm soát / HĐQT (BOD)";
+              auditReviewerSub = "Đối soát lịch công tác HĐQT";
+              auditReviewerBadge = "text-zinc-900 dark:text-zinc-100 font-semibold";
+            } else if (isManagerOrAccountant) {
+              auditReviewerTitle = "Ban Giám Đốc / Khối QTNS (BOD / HR)";
+              auditReviewerSub = "Thẩm tra công cấp Quản lý";
+              auditReviewerBadge = "text-blue-600 dark:text-blue-400";
+            }
 
-            <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
-              <div className="font-semibold text-zinc-900 dark:text-zinc-100">4. Người nhận lương</div>
-              <div className="text-[10px] text-zinc-400 italic">(Xác nhận nhận tiền)</div>
-              <div className="h-12 flex items-center justify-center text-zinc-400 text-xs italic">
-                Xác nhận điện tử
+            return (
+              <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
+                <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">1. Người lập biểu</div>
+                  <div className="text-[10px] text-zinc-400 italic">(Khởi tạo)</div>
+                  <div className="h-12 flex items-center justify-center text-zinc-500 text-xs font-medium">
+                    Chuyên viên C&B
+                  </div>
+                  <div className="font-medium text-[11px] text-blue-600 dark:text-blue-400">Phòng Nhân sự (HR)</div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">2. Kiểm soát công</div>
+                  <div className="text-[10px] text-zinc-400 italic">(Thẩm định)</div>
+                  <div className="h-12 flex items-center justify-center text-zinc-500 text-xs font-medium">
+                    {auditReviewerSub}
+                  </div>
+                  <div className={`font-medium text-[11px] ${auditReviewerBadge}`}>{auditReviewerTitle}</div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">3. Kế toán & Duyệt chi</div>
+                  <div className="text-[10px] text-zinc-400 italic">(Đối soát quỹ & Duyệt chi)</div>
+                  <div className="h-12 flex items-center justify-center">
+                    {payroll.status === "PAID" ? (
+                      <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold rounded-full">
+                        Đã duyệt chi
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-zinc-400 italic">Chờ KT & BOD duyệt</span>
+                    )}
+                  </div>
+                  <div className="font-medium text-[11px] text-emerald-600 dark:text-emerald-400">Kế toán trưởng & BOD</div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">4. Người nhận lương</div>
+                  <div className="text-[10px] text-zinc-400 italic">(Xác nhận nhận tiền)</div>
+                  <div className="h-12 flex items-center justify-center text-zinc-500 text-xs font-medium">
+                    Xác nhận điện tử
+                  </div>
+                  <div className="font-medium text-[11px] text-zinc-700 dark:text-zinc-300 truncate">{user?.name || emp?.name}</div>
+                </div>
               </div>
-              <div className="font-medium text-[11px] text-zinc-700 dark:text-zinc-300 truncate">{user?.name}</div>
-            </div>
-          </div>
+            );
+          })()}
 
         </div>
 
         {/* Sticky Bottom Action Bar with Clear Exit Button */}
-        <div className="sticky bottom-0 z-20 flex items-center justify-between px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
+        <div className="no-print sticky bottom-0 z-20 flex items-center justify-between px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
           <div className="text-xs text-zinc-500">
             Bấm <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-zinc-200 dark:bg-zinc-800 rounded border border-zinc-300 dark:border-zinc-700">Esc</kbd> hoặc nút Thoát để đóng
           </div>

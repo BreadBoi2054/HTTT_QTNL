@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Award } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 
@@ -19,6 +19,8 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
   const [position, setPosition] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [baseSalary, setBaseSalary] = useState<number>(12000000);
+  const [dependentCount, setDependentCount] = useState<number>(0);
   const [isManager, setIsManager] = useState(false);
 
   const [roles, setRoles] = useState<any[]>([]);
@@ -26,19 +28,23 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [createdCredential, setCreatedCredential] = useState<{ email: string; password: string } | null>(null);
 
   const { data: session } = useSession();
   const currentUserRole = (session?.user as any)?.roleName || "USER";
 
   const filteredRoles = roles.filter(r => {
+    if (employee && r.id === roleId) return true;
     if (currentUserRole === "SYSTEM_ADMIN") return true;
+    if (currentUserRole === "BOD") return r.name !== "SYSTEM_ADMIN";
+    if (currentUserRole === "HR") return ["HR", "MANAGER", "ACCOUNTANT", "USER"].includes(r.name);
     if (currentUserRole === "MANAGER") return r.name === "USER";
-    if (currentUserRole === "HR") return r.name !== "SYSTEM_ADMIN";
     return false;
   });
 
   useEffect(() => {
     if (isOpen) {
+      setCreatedCredential(null);
       // Fetch dependencies
       Promise.all([
         fetch("/api/roles").then(res => res.json()),
@@ -56,6 +62,8 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
         setPosition(employee.position || "");
         setPhone(employee.phone || "");
         setAddress(employee.address || "");
+        setBaseSalary(employee.salaryConfig?.baseSalary ?? employee.baseSalary ?? 12000000);
+        setDependentCount(Number(employee.dependentCount) || 0);
         setIsManager(!!(employee.managedDept || (employee.department && employee.department.managerId === employee.id)));
       } else {
         setEmail("");
@@ -65,6 +73,8 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
         setPosition("");
         setPhone("");
         setAddress("");
+        setBaseSalary(12000000);
+        setDependentCount(0);
         setIsManager(false);
       }
       setError("");
@@ -99,6 +109,8 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
         position,
         phone,
         address,
+        baseSalary: Number(baseSalary) || 12000000,
+        dependentCount: Math.max(0, Math.floor(dependentCount)),
         isManager
       };
 
@@ -113,8 +125,13 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
         throw new Error(errorText || "Lỗi hệ thống");
       }
 
+      if (!employee) {
+        const result = await res.json();
+        setCreatedCredential({ email, password: result.temporaryPassword });
+      } else {
+        onClose();
+      }
       onSuccess();
-      onClose();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -134,13 +151,8 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
         <div className="flex items-center justify-between p-5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50">
           <div>
             <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              {employee ? "Cập Nhật Hồ Sơ Nhân Viên" : "Thêm Nhân Viên Mới"}
+              {createdCredential ? "Tài khoản đã được tạo" : employee ? "Cập Nhật Hồ Sơ Nhân Viên" : "Thêm Nhân Viên Mới"}
             </h2>
-            {!employee && (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Mật khẩu khởi tạo: <span className="text-blue-600 dark:text-blue-400 font-mono font-medium">Hrmis@123</span>
-              </p>
-            )}
           </div>
           <button 
             onClick={onClose} 
@@ -151,16 +163,26 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 text-xs">
+        {createdCredential ? (
+          <div className="p-6 space-y-4 text-sm">
+            <p className="text-zinc-600 dark:text-zinc-300">Mật khẩu tạm chỉ hiển thị lần này. Hãy chuyển riêng cho nhân viên và yêu cầu đổi sau khi đăng nhập.</p>
+            <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800 p-4 space-y-3">
+              <div><span className="text-zinc-500">Email:</span> <strong>{createdCredential.email}</strong></div>
+              <div><span className="text-zinc-500">Mật khẩu tạm:</span> <code className="select-all font-mono">{createdCredential.password}</code></div>
+            </div>
+            <button type="button" onClick={() => navigator.clipboard.writeText(`Email: ${createdCredential.email}\nMật khẩu tạm: ${createdCredential.password}`)} className="px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700">Sao chép thông tin</button>
+            <button type="button" onClick={onClose} className="ml-2 px-4 py-2 rounded-lg bg-blue-600 text-white">Đóng</button>
+          </div>
+        ) : <form onSubmit={handleSubmit} className="p-6 text-xs">
           {error && (
-            <div className="p-3 mb-4 bg-red-950/40 border border-red-800 text-red-300 font-mono">
+            <div className="p-3 mb-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 rounded-lg">
               {error}
             </div>
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Họ và tên <span className="text-red-500">*</span>
               </label>
               <input 
@@ -168,13 +190,13 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
                 required 
                 value={name} 
                 onChange={(e) => setName(e.target.value)} 
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
                 placeholder="VD: Nguyễn Văn An" 
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Email doanh nghiệp <span className="text-red-500">*</span>
               </label>
               <input 
@@ -183,19 +205,19 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
                 disabled={!!employee} 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-mono text-zinc-900 dark:text-zinc-100 disabled:opacity-50 focus:border-blue-600 outline-none transition-colors" 
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl font-mono text-zinc-900 dark:text-zinc-100 disabled:opacity-50 focus:border-blue-600 outline-none transition-colors" 
                 placeholder="VD: an.nguyen@nexustech.vn" 
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Phòng ban trực thuộc
               </label>
               <select 
                 value={departmentId} 
                 onChange={(e) => setDepartmentId(e.target.value)} 
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
               >
                 <option value="">-- Lựa chọn phòng ban --</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -203,14 +225,14 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Vai trò hệ thống <span className="text-red-500">*</span>
               </label>
               <select 
                 required 
                 value={roleId} 
                 onChange={(e) => setRoleId(e.target.value)} 
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-mono text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl font-mono text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
               >
                 <option value="">-- Lựa chọn vai trò --</option>
                 {filteredRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -218,7 +240,7 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Chức vụ / Vị trí đảm nhiệm <span className="text-red-500">*</span>
               </label>
               <input 
@@ -227,7 +249,7 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
                 list="positions-datalist"
                 value={position} 
                 onChange={(e) => setPosition(e.target.value)} 
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
                 placeholder="VD: Senior Backend Engineer hoặc chọn gợi ý..." 
               />
               <datalist id="positions-datalist">
@@ -259,37 +281,71 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Số điện thoại liên hệ
               </label>
               <input 
                 type="text" 
                 value={phone} 
                 onChange={(e) => setPhone(e.target.value)} 
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-mono text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl font-mono text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
                 placeholder="VD: 0901234567" 
               />
             </div>
           </div>
 
-          <div className="space-y-1 mb-4">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-              Địa chỉ cư trú
-            </label>
-            <input 
-              type="text" 
-              value={address} 
-              onChange={(e) => setAddress(e.target.value)} 
-              className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
-              placeholder="Nhập địa chỉ cư trú thường trú..." 
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                Mức lương cơ bản (VNĐ/tháng) <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="number" 
+                min={0}
+                step={500000}
+                required
+                value={baseSalary} 
+                onChange={(e) => setBaseSalary(Number(e.target.value))} 
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl font-mono text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
+                placeholder="VD: 15000000" 
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300" htmlFor="dependentCount">
+                Số người phụ thuộc tính thuế
+              </label>
+              <input
+                id="dependentCount"
+                type="number"
+                min={0}
+                step={1}
+                value={dependentCount}
+                onChange={(e) => setDependentCount(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl font-mono text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                Địa chỉ cư trú
+              </label>
+              <input 
+                type="text" 
+                value={address} 
+                onChange={(e) => setAddress(e.target.value)} 
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
+                placeholder="Nhập địa chỉ cư trú thường trú..." 
+              />
+            </div>
           </div>
 
           {/* Bổ nhiệm Trưởng phòng Checkbox */}
-          <div className="p-3 mb-5 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 rounded flex items-center justify-between">
+          <div className="p-3.5 mb-5 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-between">
             <div>
               <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300 text-xs">
-                <span>⭐ BỔ NHIỆM LÀM TRƯỞNG PHÒNG / TRƯỞNG BỘ PHẬN</span>
+                <Award className="w-3.5 h-3.5 shrink-0" />
+                <span>BỔ NHIỆM LÀM TRƯỞNG PHÒNG / TRƯỞNG BỘ PHẬN</span>
               </div>
               <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
                 Nhân sự sẽ được gán làm người đứng đầu phòng ban đã chọn và hiển thị biểu tượng Lãnh đạo
@@ -308,20 +364,20 @@ export default function EmployeeModal({ isOpen, onClose, onSuccess, employee }: 
             <button 
               type="button" 
               onClick={onClose} 
-              className="px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl transition-colors"
             >
               Thoát
             </button>
             <button 
               type="submit" 
               disabled={loading} 
-              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-medium text-xs rounded-lg disabled:opacity-50 flex items-center gap-2 transition-colors"
+              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-medium text-xs rounded-xl disabled:opacity-50 flex items-center gap-2 transition-colors"
             >
               {loading && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
               {employee ? "Lưu hồ sơ" : "Tạo nhân viên"}
             </button>
           </div>
-        </form>
+        </form>}
       </div>
     </div>
   );

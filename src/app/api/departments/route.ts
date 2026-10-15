@@ -21,8 +21,8 @@ export async function POST(req: Request) {
     if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
 
     const roleName = (session.user as any).roleName;
-    if (!["SYSTEM_ADMIN", "HR"].includes(roleName)) {
-      return new NextResponse("Chỉ Quản trị viên hoặc Nhân sự mới có quyền tạo phòng ban.", { status: 403 });
+    if (!["SYSTEM_ADMIN", "BOD", "HR"].includes(roleName)) {
+      return new NextResponse("Chỉ Quản trị viên, Ban Giám Đốc hoặc Nhân sự mới có quyền tạo phòng ban.", { status: 403 });
     }
 
     const body = await req.json();

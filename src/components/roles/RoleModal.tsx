@@ -130,9 +130,10 @@ export default function RoleModal({ isOpen, onClose, onSuccess, role }: RoleModa
               <input
                 type="text"
                 required
+                disabled={Boolean(role && ["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "ACCOUNTANT", "USER"].includes(role.name))}
                 value={name}
                 onChange={(e) => setName(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600 uppercase transition-colors"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600 uppercase transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 placeholder="Ví dụ: AUDITOR_LEAD"
               />
               <p className="text-[11px] text-zinc-500">Định dạng chữ in hoa không khoảng trắng (Ví dụ: HR_LEAD, DIRECTOR, OPS).</p>

@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || (role !== 'SYSTEM_ADMIN' && role !== 'HR')) {
+    if (!session || !["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -17,7 +17,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Thiếu thông tin month, year' }, { status: 400 });
     }
 
-    const payrolls = await calculateMonthlyPayroll(Number(month), Number(year));
+    const actorName = session.user?.name || "Kế toán / HR";
+    const payrolls = await calculateMonthlyPayroll(Number(month), Number(year), actorName);
 
     return NextResponse.json({ 
       success: true, 

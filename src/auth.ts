@@ -3,6 +3,11 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+if (process.env.NODE_ENV === "production" && !authSecret) {
+  throw new Error("Thiếu AUTH_SECRET hoặc NEXTAUTH_SECRET trong môi trường production.");
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
@@ -28,10 +33,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: {
             email: { in: candidateEmails }
           },
-          include: { role: true },
+          include: { role: true, employee: true },
+          orderBy: { createdAt: "asc" },
         });
 
         if (!user) {
+          return null;
+        }
+
+        if (user.employee && (user.employee.status === "RESIGNED" || user.employee.status === "SUSPENDED")) {
           return null;
         }
 
@@ -47,6 +57,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           roleId: user.roleId,
           roleName: user.role?.name,
+          employeeId: user.employee?.id,
         };
       },
     }),
@@ -57,6 +68,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id;
         token.roleId = (user as any).roleId;
         token.roleName = (user as any).roleName;
+        token.employeeId = (user as any).employeeId;
       }
       return token;
     },
@@ -65,6 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         (session.user as any).roleId = token.roleId;
         (session.user as any).roleName = token.roleName;
+        (session.user as any).employeeId = token.employeeId;
       }
       return session;
     },
@@ -75,5 +88,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
-  secret: process.env.AUTH_SECRET || "SUPER_SECRET_KEY_FOR_DEVELOPMENT_ONLY_DO_NOT_USE_IN_PROD",
+  secret: authSecret || "local-development-only-secret-change-before-deployment",
 });

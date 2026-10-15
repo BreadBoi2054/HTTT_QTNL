@@ -17,9 +17,25 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
   const [employeeCode, setEmployeeCode] = useState("NX-" + Math.floor(1000 + Math.random() * 9000));
   const [department, setDepartment] = useState("Khối Công Nghệ & Phần Mềm");
   const [position, setPosition] = useState("Kỹ Sư Phần Mềm");
+  const computeEndDate = (baseDateStr: string, contractType: string) => {
+    if (contractType === "Hợp đồng Không xác định thời hạn") return "";
+    const base = baseDateStr ? new Date(baseDateStr) : new Date();
+    if (isNaN(base.getTime())) return "";
+    const target = new Date(base);
+    if (contractType === "Hợp đồng Thử việc (02 tháng)") {
+      target.setMonth(target.getMonth() + 2);
+    } else if (contractType === "Hợp đồng Xác định thời hạn 12 tháng") {
+      target.setMonth(target.getMonth() + 12);
+    } else if (contractType === "Hợp đồng Xác định thời hạn 36 tháng") {
+      target.setMonth(target.getMonth() + 36);
+    }
+    return target.toISOString().slice(0, 10);
+  };
+
+  const initialStart = new Date().toISOString().slice(0, 10);
   const [type, setType] = useState("Hợp đồng Xác định thời hạn 12 tháng");
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [endDate, setEndDate] = useState("2027-10-05");
+  const [startDate, setStartDate] = useState(initialStart);
+  const [endDate, setEndDate] = useState(() => computeEndDate(initialStart, "Hợp đồng Xác định thời hạn 12 tháng"));
   const [salary, setSalary] = useState(22000000);
   const [error, setError] = useState("");
 
@@ -59,41 +75,62 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
 
   const handleTypeChange = (newType: string) => {
     setType(newType);
-    if (newType === "Hợp đồng Không xác định thời hạn") {
-      setEndDate("");
-    } else if (newType === "Hợp đồng Thử việc (02 tháng)") {
-      setEndDate("2026-12-05");
-    } else if (newType === "Hợp đồng Xác định thời hạn 12 tháng") {
-      setEndDate("2027-10-05");
-    } else if (newType === "Hợp đồng Xác định thời hạn 36 tháng") {
-      setEndDate("2029-10-05");
-    }
+    setEndDate(computeEndDate(startDate, newType));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleStartDateChange = (newStart: string) => {
+    setStartDate(newStart);
+    setEndDate(computeEndDate(newStart, type));
+  };
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeName.trim()) {
-      setError("Vui lòng chọn hoặc nhập họ và tên nhân viên.");
+    if (!selectedEmpId) {
+      setError("Vui lòng chọn nhân viên từ danh sách.");
+      return;
+    }
+    if (Number(salary) <= 0) {
+      setError("Mức lương cơ bản thỏa thuận phải lớn hơn 0.");
+      return;
+    }
+    if (type !== "Hợp đồng Không xác định thời hạn" && endDate && endDate < startDate) {
+      setError("Ngày hết hạn hợp đồng không được nhỏ hơn ngày bắt đầu.");
       return;
     }
 
-    const newContract = {
-      id: "contract_" + Date.now(),
-      code: `HĐLĐ-2026/${employeeCode}`,
-      employeeName: employeeName.trim(),
-      employeeCode,
-      employeeEmail: employeeEmail || undefined,
-      department,
-      position,
-      type,
-      startDate,
-      endDate: endDate || "Không xác định",
-      salary: Number(salary),
-      status: "ACTIVE"
-    };
+    setSubmitting(true);
+    setError("");
 
-    onCreated(newContract);
-    onClose();
+    try {
+      const res = await fetch("/api/contracts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: selectedEmpId,
+          code: `HĐLĐ-2026/${employeeCode}`,
+          contractType: type,
+          startDate,
+          endDate: endDate ? endDate : null,
+          salary: Number(salary),
+          note: `Hợp đồng lao động tiêu chuẩn ký cho ${employeeName} - chức vụ ${position}`
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Không thể tạo hợp đồng");
+      }
+
+      const created = await res.json();
+      onCreated(created);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Lỗi tạo hợp đồng");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -245,8 +282,8 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
                 type="date"
                 required
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs focus:outline-none"
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono focus:outline-none"
               />
             </div>
 
@@ -259,7 +296,7 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
                 disabled={type === "Hợp đồng Không xác định thời hạn"}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs focus:outline-none disabled:opacity-50"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono focus:outline-none disabled:opacity-50"
               />
             </div>
           </div>
@@ -288,10 +325,11 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors"
+              disabled={submitting}
+              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Lưu hợp đồng
+              {submitting ? "Đang lưu..." : "Lưu hợp đồng"}
             </button>
           </div>
         </form>

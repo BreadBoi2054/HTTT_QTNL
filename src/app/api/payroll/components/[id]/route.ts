@@ -6,7 +6,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || (role !== "SYSTEM_ADMIN" && role !== "HR")) {
+    if (!session || !["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(role)) {
       return new NextResponse("Unauthorized", { status: 403 });
     }
 
@@ -46,7 +46,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   try {
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || (role !== "SYSTEM_ADMIN" && role !== "HR")) {
+    if (!session || !["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(role)) {
       return new NextResponse("Unauthorized", { status: 403 });
     }
 

@@ -19,6 +19,8 @@ import {
   Star,
   Printer
 } from "lucide-react";
+import { CardGridSkeleton } from "@/components/providers/ToastProvider";
+import { useSession } from "next-auth/react";
 
 interface TrainingCourse {
   id: string;
@@ -41,17 +43,28 @@ interface Survey {
   deadline: string;
   score: number;
   status: string;
+  hasResponded?: boolean;
 }
 
 export default function TrainingSurveysPage() {
+  const { data: session } = useSession();
+  const roleName = (session?.user as any)?.roleName || "USER";
+  const canManageLearning = ["SYSTEM_ADMIN", "BOD", "HR"].includes(roleName);
   const [activeTab, setActiveTab] = useState<"training" | "surveys">("training");
   const [courses, setCourses] = useState<TrainingCourse[]>([]);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<TrainingCourse | null>(null);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
+  const [surveyForm, setSurveyForm] = useState({
+    title: "",
+    targetDept: "Toàn công ty",
+    totalTarget: 38,
+    deadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+  });
 
   // Form State for new course
   const [courseForm, setCourseForm] = useState({
@@ -117,24 +130,90 @@ export default function TrainingSurveysPage() {
           participants: 10,
           startDate: new Date().toISOString().split("T")[0],
         });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể tạo khóa học mới.");
       }
     } catch (error) {
       console.error(error);
     }
   };
 
+  const handleCreateSurvey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/training-surveys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...surveyForm, type: "SURVEY" }),
+      });
+      if (res.ok) {
+        fetchData();
+        setIsSurveyModalOpen(false);
+        setSurveyForm({
+          title: "",
+          targetDept: "Toàn công ty",
+          totalTarget: 38,
+          deadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+        });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể tạo khảo sát mới.");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleUpdateCourseProgress = async (course: TrainingCourse) => {
+    try {
+      const nextProgress = Math.min(100, (course.progress || 0) + 20);
+      const res = await fetch("/api/training-surveys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: course.id, kind: "COURSE", progress: nextProgress }),
+      });
+      if (res.ok) await fetchData();
+      else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể cập nhật tiến độ khóa học.");
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleRespondSurvey = async (survey: Survey) => {
+    const answer = window.prompt("Chấm điểm mức độ hài lòng từ 1 đến 5:");
+    if (answer === null) return;
+    const score = Number(answer);
+    if (!Number.isInteger(score) || score < 1 || score > 5) {
+      alert("Vui lòng nhập số nguyên từ 1 đến 5.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/training-surveys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: survey.id, kind: "SURVEY", score }),
+      });
+      if (res.ok) await fetchData();
+      else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể gửi phản hồi khảo sát.");
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const avgCourseProgress = courses.length > 0 ? Math.round(courses.reduce((s, c) => s + (c.progress || 0), 0) / courses.length) : 0;
+  const surveysWithResponses = surveys.filter((survey) => survey.respondents > 0);
+  const avgSurveyScore = surveysWithResponses.length > 0 ? (surveysWithResponses.reduce((s, sv) => s + (sv.score || 0), 0) / surveysWithResponses.length).toFixed(1) : "—";
+  const avgSurveyParticipation = surveys.length > 0 ? Math.round(surveys.reduce((s, sv) => s + (sv.totalTarget > 0 ? (sv.respondents / sv.totalTarget) * 100 : 0), 0) / surveys.length) : 0;
+
   return (
     <div className="space-y-6 animate-swiss-in pb-12 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-              <GraduationCap className="w-3.5 h-3.5" />
-              Đào Tạo & Khảo Sát Doanh Nghiệp
-            </span>
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
             Học Tập, Phát Triển & Khảo Sát Ý Kiến
           </h1>
           <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -169,60 +248,52 @@ export default function TrainingSurveysPage() {
             </button>
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
+          {canManageLearning && <button
+            onClick={() => activeTab === "surveys" ? setIsSurveyModalOpen(true) : setIsModalOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Thêm khóa học</span>
-          </button>
+            <span>{activeTab === "surveys" ? "Tạo khảo sát" : "Thêm khóa học"}</span>
+          </button>}
         </div>
       </div>
 
-      {/* 4 Stat Bento Tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bento-card p-5 group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Chương trình đào tạo</span>
-            <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-all">
-              <BookOpen className="w-4 h-4" />
-            </div>
+      {/* Unified Swiss L&D Metric Strip */}
+      <div className="bento-card p-0 overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800">
+        <div className="p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="swiss-label">Chương trình đào tạo</span>
+            <BookOpen className="w-4 h-4 text-zinc-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-zinc-900 dark:text-zinc-100">{courses.length}</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{courses.length}</div>
           <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Lộ trình học tập nội bộ</div>
         </div>
 
-        <div className="bento-card p-5 group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tỷ lệ hoàn thành</span>
-            <div className="squircle w-9 h-9 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-all">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
+        <div className="p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="swiss-label">Tỷ lệ hoàn thành</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">88.5%</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Đạt chỉ tiêu cam kết</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{avgCourseProgress}%</div>
+          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">Đạt chỉ tiêu cam kết</div>
         </div>
 
-        <div className="bento-card p-5 group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Điểm hài lòng eNPS</span>
-            <div className="squircle w-9 h-9 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-all">
-              <BarChart3 className="w-4 h-4" />
-            </div>
+        <div className="p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="swiss-label">Điểm hài lòng TB</span>
+            <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-indigo-600 dark:text-indigo-400">+52</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Mức xếp hạng xuất sắc</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{avgSurveyScore}/5</div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Tổng hợp từ {surveys.length} khảo sát</div>
         </div>
 
-        <div className="bento-card p-5 group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Khảo sát ý kiến</span>
-            <div className="squircle w-9 h-9 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-all">
-              <ClipboardCheck className="w-4 h-4" />
-            </div>
+        <div className="p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="swiss-label">Khảo sát ý kiến</span>
+            <ClipboardCheck className="w-4 h-4 text-zinc-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-amber-600 dark:text-amber-400">{surveys.length}</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Tỷ lệ tham gia 92%</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{surveys.length}</div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Tỷ lệ tham gia {avgSurveyParticipation}%</div>
         </div>
       </div>
 
@@ -230,8 +301,8 @@ export default function TrainingSurveysPage() {
       {activeTab === "training" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {loading ? (
-            <div className="col-span-3 py-16 text-center text-zinc-500 text-xs">
-              Đang tải danh sách khóa học...
+            <div className="col-span-3">
+              <CardGridSkeleton count={3} />
             </div>
           ) : (
             courses.map((course) => (
@@ -269,9 +340,9 @@ export default function TrainingSurveysPage() {
                       <span className="font-medium">Tiến độ khóa học</span>
                       <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{course.progress}%</span>
                     </div>
-                    <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-full overflow-hidden p-0.5">
+                    <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-linear-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500" 
+                        className="h-full bg-blue-600 rounded-full transition-all duration-500" 
                         style={{ width: `${course.progress}%` }} 
                       />
                     </div>
@@ -282,13 +353,13 @@ export default function TrainingSurveysPage() {
                   <span className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono">
                     <Calendar className="w-3.5 h-3.5" /> {course.startDate}
                   </span>
-                  <button 
-                    onClick={() => setSelectedCourse(course)}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold flex items-center gap-1 hover:gap-1.5 transition-all"
-                  >
-                    <span>Chi tiết</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {canManageLearning && <button onClick={() => handleUpdateCourseProgress(course)} className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold text-xs">+Tiến độ</button>}
+                    <button onClick={() => setSelectedCourse(course)} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold flex items-center gap-1 hover:gap-1.5 transition-all">
+                      <span>Chi tiết</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
@@ -307,7 +378,7 @@ export default function TrainingSurveysPage() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Thu thập đánh giá môi trường làm việc và văn hóa doanh nghiệp</p>
             </div>
             <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-              Bảo mật ẩn danh
+              Tổng hợp kết quả; mỗi tài khoản gửi một lần
             </span>
           </div>
 
@@ -343,7 +414,7 @@ export default function TrainingSurveysPage() {
 
                     <td className="px-5 py-3.5 text-center font-mono">
                       <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
-                        {survey.score} / 5.0
+                        {survey.respondents > 0 ? `${survey.score} / 5.0` : "Chưa có phản hồi"}
                       </span>
                     </td>
 
@@ -361,12 +432,9 @@ export default function TrainingSurveysPage() {
                           Đã đóng
                         </span>
                       )}
-                      <button
-                        onClick={() => setSelectedSurvey(survey)}
-                        className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-semibold transition-all shadow-2xs"
-                      >
-                        Xem kết quả
-                      </button>
+                      {survey.status === "ACTIVE" && !survey.hasResponded && <button onClick={() => handleRespondSurvey(survey)} className="text-xs px-3 py-1.5 rounded-xl border border-blue-200/80 dark:border-blue-700/80 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-semibold transition-all shadow-2xs">Gửi phản hồi</button>}
+                      {survey.hasResponded && <span className="text-xs text-zinc-500">Đã phản hồi</span>}
+                      <button onClick={() => setSelectedSurvey(survey)} className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-semibold transition-all shadow-2xs">Xem kết quả</button>
                     </td>
                   </tr>
                 ))}
@@ -474,6 +542,40 @@ export default function TrainingSurveysPage() {
         </div>
       )}
 
+      {isSurveyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-xs" onClick={() => setIsSurveyModalOpen(false)}>
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Tạo Khảo sát nội bộ mới</h3>
+              <button onClick={() => setIsSurveyModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-md"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleCreateSurvey} className="space-y-4 mt-4 text-xs font-sans">
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Tên khảo sát *</label>
+                <input type="text" required value={surveyForm.title} onChange={(e) => setSurveyForm({ ...surveyForm, title: e.target.value })} className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-lg text-xs text-zinc-900 dark:text-zinc-100" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Đối tượng</label>
+                  <input type="text" required value={surveyForm.targetDept} onChange={(e) => setSurveyForm({ ...surveyForm, targetDept: e.target.value })} className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-lg text-xs text-zinc-900 dark:text-zinc-100" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Số lượng mục tiêu</label>
+                  <input type="number" min="1" required value={surveyForm.totalTarget} onChange={(e) => setSurveyForm({ ...surveyForm, totalTarget: Number(e.target.value) })} className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-lg text-xs text-zinc-900 dark:text-zinc-100" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Hạn chót</label>
+                <input type="date" required value={surveyForm.deadline} onChange={(e) => setSurveyForm({ ...surveyForm, deadline: e.target.value })} className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-lg text-xs text-zinc-900 dark:text-zinc-100" />
+              </div>
+              <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+                <button type="button" onClick={() => setIsSurveyModalOpen(false)} className="px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium">Thoát</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium">Khởi tạo khảo sát</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* Modal Chi tiết Khóa Học */}
       {selectedCourse && (
         <div 
@@ -533,12 +635,12 @@ export default function TrainingSurveysPage() {
                 <div>
                   <div className="text-xs text-zinc-400 font-medium">Thời lượng</div>
                   <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5">{selectedCourse.duration}</div>
-                  <div className="text-[11px] text-zinc-500">8 modules đào tạo</div>
+                  <div className="text-[11px] text-zinc-500">{selectedCourse.category}</div>
                 </div>
                 <div>
                   <div className="text-xs text-zinc-400 font-medium">Học viên</div>
                   <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5">{selectedCourse.participants} cán bộ</div>
-                  <div className="text-[11px] text-zinc-500">Phủ 6 phòng ban</div>
+                  <div className="text-[11px] text-zinc-500">Khóa {selectedCourse.startDate}</div>
                 </div>
                 <div>
                   <div className="text-xs text-zinc-400 font-medium">Tiến độ</div>
@@ -691,16 +793,16 @@ export default function TrainingSurveysPage() {
                 <div>
                   <div className="text-xs text-zinc-400 font-medium">Tỷ lệ phản hồi</div>
                   <div className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100 mt-1">
-                    {Math.round((selectedSurvey.respondents / selectedSurvey.totalTarget) * 100)}%
+                    {selectedSurvey.totalTarget > 0 ? Math.round((selectedSurvey.respondents / selectedSurvey.totalTarget) * 100) : 0}%
                   </div>
                   <div className="text-xs text-zinc-500 mt-1">{selectedSurvey.respondents} / {selectedSurvey.totalTarget} nhân sự</div>
                 </div>
                 <div>
-                  <div className="text-xs text-zinc-400 font-medium">Chỉ số tín nhiệm (eNPS)</div>
-                  <div className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400 mt-1">
-                    +78
+                  <div className="text-xs text-zinc-400 font-medium">Chỉ số hài lòng quy đổi</div>
+                  <div className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100 mt-1">
+                    {Math.round(((Number(selectedSurvey.score) || 0) / 5) * 100)}%
                   </div>
-                  <div className="text-xs text-zinc-500 mt-1">Xếp loại: Xuất sắc</div>
+                  <div className="text-xs text-zinc-500 mt-1">Từ {selectedSurvey.respondents} phiếu khảo sát</div>
                 </div>
               </div>
 
@@ -712,41 +814,21 @@ export default function TrainingSurveysPage() {
                 <div className="space-y-3">
                   <div>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">1. Môi trường làm việc & Văn hóa gắn kết</span>
-                      <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">4.8 / 5.0</span>
+                      <span className="font-medium text-zinc-800 dark:text-zinc-200">1. Điểm hài lòng tổng thể ghi nhận</span>
+                      <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">{selectedSurvey.score} / 5.0</span>
                     </div>
                     <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '96%' }} />
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, Math.round(((Number(selectedSurvey.score) || 0) / 5) * 100))}%` }} />
                     </div>
                   </div>
 
                   <div>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">2. Sự minh bạch về Đãi ngộ, Thưởng & Phúc lợi</span>
-                      <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">4.5 / 5.0</span>
+                      <span className="font-medium text-zinc-800 dark:text-zinc-200">2. Tỷ lệ hoàn thành khảo sát ({selectedSurvey.targetDept})</span>
+                      <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">{selectedSurvey.respondents} / {selectedSurvey.totalTarget}</span>
                     </div>
                     <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full" style={{ width: '90%' }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">3. Năng lực điều hành & Sự hỗ trợ từ Trưởng bộ phận</span>
-                      <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">4.7 / 5.0</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: '94%' }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">4. Cơ hội đào tạo, nâng cao kỹ năng & Lộ trình phát triển</span>
-                      <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">4.6 / 5.0</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full" style={{ width: '92%' }} />
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${selectedSurvey.totalTarget > 0 ? Math.min(100, Math.round((selectedSurvey.respondents / selectedSurvey.totalTarget) * 100)) : 0}%` }} />
                     </div>
                   </div>
                 </div>

@@ -35,12 +35,14 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
 
   useEffect(() => {
     if (isOpen) {
-      fetch("/api/employees")
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setEmployees(data);
-        })
-        .catch(console.error);
+      if (isAdmin) {
+        fetch("/api/employees")
+          .then(res => res.ok ? res.json() : [])
+          .then(data => {
+            if (Array.isArray(data)) setEmployees(data);
+          })
+          .catch(console.error);
+      }
 
       if (leaveRequest) {
         setFormData({
@@ -63,7 +65,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
       }
       setError("");
     }
-  }, [leaveRequest, isOpen]);
+  }, [leaveRequest, isOpen, isAdmin]);
 
   if (!isOpen) return null;
 
@@ -96,7 +98,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
     }
   };
 
-  const isViewOnly = leaveRequest && !isAdmin;
+  const isViewOnly = Boolean(leaveRequest && !isAdmin && leaveRequest.status !== "PENDING");
 
   return (
     <div 

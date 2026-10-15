@@ -1,9 +1,16 @@
 import { prisma } from "@/lib/prisma";
 
 export function toUtcDateOnly(date: Date = new Date()): Date {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
   return new Date(`${y}-${m}-${d}T00:00:00.000Z`);
 }
 
@@ -14,20 +21,16 @@ export async function getAttendances(
   const whereClause: any = {};
   if (date) whereClause.date = toUtcDateOnly(date);
 
-  // Bảo mật và phân quyền dữ liệu chấm công theo vai trò
   if (scope?.roleName === "USER" && scope.userEmail) {
     whereClause.employee = { user: { email: scope.userEmail } };
   } else if (scope?.roleName === "MANAGER" && scope.userId) {
     const managedDept = await prisma.department.findFirst({
       where: { manager: { userId: scope.userId } },
-      select: { id: true }
+      select: { id: true },
     });
     if (managedDept) {
       whereClause.employee = {
-        OR: [
-          { departmentId: managedDept.id },
-          { user: { id: scope.userId } }
-        ]
+        OR: [{ departmentId: managedDept.id }, { user: { id: scope.userId } }],
       };
     } else {
       whereClause.employee = { user: { id: scope.userId } };
@@ -36,17 +39,17 @@ export async function getAttendances(
 
   return await prisma.attendance.findMany({
     where: whereClause,
-    orderBy: { date: 'desc' },
+    orderBy: { date: "desc" },
     include: {
       employee: {
         include: {
           user: {
-            select: { name: true, email: true }
+            select: { name: true, email: true },
           },
-          department: true
-        }
-      }
-    }
+          department: true,
+        },
+      },
+    },
   });
 }
 
@@ -57,34 +60,51 @@ export async function getDailyAttendance(employeeId: string, date: Date) {
     where: {
       employeeId,
       date: recordDate,
-    }
+    },
   });
 }
 
 export async function processCheckIn(userId: string) {
   const profile = await prisma.employeeProfile.findUnique({
     where: { userId },
-    include: { user: true }
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: { select: { name: true } },
+        },
+      },
+    },
   });
 
   if (!profile) throw new Error("Tài khoản chưa được gán Hồ sơ nhân viên. Vui lòng liên hệ HR.");
+
+  if (profile.status === "RESIGNED" || profile.status === "SUSPENDED") {
+    throw new Error("Tài khoản nhân sự đã ngừng hoạt động hoặc đang tạm đình chỉ, không thể chấm công.");
+  }
 
   const now = new Date();
   const today = toUtcDateOnly(now);
 
   const existingRecord = await getDailyAttendance(profile.id, today);
-  if (existingRecord) throw new Error("Bạn đã thực hiện Check-in trong ngày hôm nay rồi.");
+  if (existingRecord) {
+    if (existingRecord.status === "LEAVE" && !existingRecord.checkIn) {
+      throw new Error("Hôm nay bạn đang trong lịch Nghỉ phép đã được phê duyệt, không thể Check-in.");
+    }
+    throw new Error("Bạn đã thực hiện Check-in trong ngày hôm nay rồi.");
+  }
 
-  // Logic: Tính giờ phút theo múi giờ Việt Nam (Asia/Ho_Chi_Minh - UTC+7), trễ nếu Check-in sau 08:30 sáng
   const vnFormatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Ho_Chi_Minh",
     hour: "numeric",
     minute: "numeric",
-    hour12: false
+    hourCycle: "h23",
   });
   const parts = vnFormatter.formatToParts(now);
-  const vnHour = parseInt(parts.find(p => p.type === "hour")?.value || "0", 10);
-  const vnMinute = parseInt(parts.find(p => p.type === "minute")?.value || "0", 10);
+  const vnHour = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+  const vnMinute = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
 
   const isLate = vnHour > 8 || (vnHour === 8 && vnMinute > 30);
   const status = isLate ? "LATE" : "PRESENT";
@@ -94,20 +114,19 @@ export async function processCheckIn(userId: string) {
       employeeId: profile.id,
       date: today,
       checkIn: now,
-      status: status
-    }
+      status: status,
+    },
   });
 
-  // Ghi nhật ký kiểm toán (Audit Trail)
   await prisma.auditLog.create({
     data: {
       userName: profile.user.name,
-      userRole: "USER",
+      userRole: profile.user.role?.name || "USER",
       action: `Check-in ngày công [${status}] lúc ${now.toLocaleTimeString("vi-VN")}`,
       target: "Attendance",
       ip: "127.0.0.1",
-      status: isLate ? "WARNING" : "SUCCESS"
-    }
+      status: isLate ? "WARNING" : "SUCCESS",
+    },
   });
 
   return record;
@@ -116,35 +135,51 @@ export async function processCheckIn(userId: string) {
 export async function processCheckOut(userId: string) {
   const profile = await prisma.employeeProfile.findUnique({
     where: { userId },
-    include: { user: true }
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: { select: { name: true } },
+        },
+      },
+    },
   });
 
   if (!profile) throw new Error("Không tìm thấy Hồ sơ nhân viên.");
+
+  if (profile.status === "RESIGNED" || profile.status === "SUSPENDED") {
+    throw new Error("Tài khoản nhân sự đã ngừng hoạt động hoặc đang tạm đình chỉ, không thể chấm công.");
+  }
 
   const now = new Date();
   const today = toUtcDateOnly(now);
 
   const existingRecord = await getDailyAttendance(profile.id, today);
-  if (!existingRecord) throw new Error("Bạn chưa Check-in hôm nay, không thể Check-out.");
-  if (existingRecord.checkOut) throw new Error("Bạn đã thực hiện Check-out hôm nay rồi.");
+  if (!existingRecord || !existingRecord.checkIn || existingRecord.status === "LEAVE") {
+    throw new Error("Bạn chưa thực hiện Check-in trong ngày hôm nay nên không thể Check-out.");
+  }
+  if (existingRecord.checkOut) {
+    throw new Error("Bạn đã thực hiện Check-out hôm nay rồi.");
+  }
 
   const record = await prisma.attendance.update({
     where: { id: existingRecord.id },
     data: {
-      checkOut: now
-    }
+      checkOut: now,
+    },
   });
 
-  // Ghi nhật ký kiểm toán
   await prisma.auditLog.create({
     data: {
       userName: profile.user.name,
-      userRole: "USER",
+      userRole: profile.user.role?.name || "USER",
       action: `Check-out hoàn thành ngày làm việc lúc ${now.toLocaleTimeString("vi-VN")}`,
       target: "Attendance",
       ip: "127.0.0.1",
-      status: "SUCCESS"
-    }
+      status: "SUCCESS",
+    },
   });
 
   return record;

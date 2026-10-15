@@ -19,6 +19,7 @@ import {
 import CreateWorkflowModal from "@/components/audit-workflow/CreateWorkflowModal";
 import WorkflowConfigModal from "@/components/audit-workflow/WorkflowConfigModal";
 import AuditLogDetailModal from "@/components/audit-workflow/AuditLogDetailModal";
+import { TableSkeleton } from "@/components/providers/ToastProvider";
 
 interface Workflow {
   id: string;
@@ -49,7 +50,7 @@ const initialWorkflows: Workflow[] = [
     category: "Nhân sự & Tuyển dụng",
     stepsCount: 4,
     sla: "48 giờ",
-    activeRequests: 3,
+    activeRequests: 0,
     steps: ["Trưởng Bộ phận đề xuất", "HR Sàng lọc & Phỏng vấn", "CFO Duyệt Ngân sách", "CEO Ký hợp đồng"],
     status: "ACTIVE"
   },
@@ -59,7 +60,7 @@ const initialWorkflows: Workflow[] = [
     category: "Lương thưởng & Đãi ngộ",
     stepsCount: 3,
     sla: "72 giờ",
-    activeRequests: 2,
+    activeRequests: 0,
     steps: ["Quản lý đánh giá hiệu suất", "C&B Thẩm định ngạch bậc", "Ban Giám Đốc phê duyệt"],
     status: "ACTIVE"
   },
@@ -69,7 +70,7 @@ const initialWorkflows: Workflow[] = [
     category: "Chấm công & Nghỉ phép",
     stepsCount: 2,
     sla: "24 giờ",
-    activeRequests: 5,
+    activeRequests: 0,
     steps: ["Quản lý trực tiếp xác nhận", "Chuyên viên Nhân sự lưu hồ sơ"],
     status: "ACTIVE"
   }
@@ -102,14 +103,27 @@ export default function AuditWorkflowPage() {
 
   useEffect(() => {
     fetchLogs();
+    try {
+      const saved = localStorage.getItem("hrmis_workflows");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setWorkflows(parsed);
+      }
+    } catch {}
   }, []);
 
   const handleWorkflowCreated = (newWf: Workflow) => {
-    setWorkflows([newWf, ...workflows]);
+    const next = [newWf, ...workflows];
+    setWorkflows(next);
+    try { localStorage.setItem("hrmis_workflows", JSON.stringify(next)); } catch {}
+    alert(`Đã lưu mẫu SOP "${newWf.name}" trong trình duyệt này. Mẫu chưa tự chạy luồng phê duyệt.`);
   };
 
   const handleWorkflowSaved = (updatedWf: Workflow) => {
-    setWorkflows(workflows.map(wf => wf.id === updatedWf.id ? updatedWf : wf));
+    const next = workflows.map(wf => wf.id === updatedWf.id ? updatedWf : wf);
+    setWorkflows(next);
+    try { localStorage.setItem("hrmis_workflows", JSON.stringify(next)); } catch {}
+    alert(`Đã lưu mẫu SOP "${updatedWf.name}" trong trình duyệt này.`);
   };
 
   const handleExportAuditCSV = () => {
@@ -136,7 +150,7 @@ export default function AuditWorkflowPage() {
       `"${log.userRole || ""}"`,
       `"${(log.action || "").replace(/"/g, '""')}"`,
       `"${(log.target || "").replace(/"/g, '""')}"`,
-      `"${log.ip || "127.0.0.1"}"`,
+      `"${log.ip || "Không ghi nhận"}"`,
       `"${log.status || "SUCCESS"}"`
     ]);
 
@@ -175,17 +189,11 @@ export default function AuditWorkflowPage() {
         {/* Editorial Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Kiểm Toán & Luồng Phê Duyệt
-              </span>
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
               Quy Trình Chuẩn (SOP) & Nhật Ký Kiểm Toán
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              Chuẩn hóa luồng phê duyệt đa cấp và lưu trữ nhật ký kiểm toán hệ thống bất biến
+              Mẫu quy trình tham khảo và nhật ký sự kiện nghiệp vụ
             </p>
           </div>
 
@@ -236,51 +244,55 @@ export default function AuditWorkflowPage() {
           </div>
         </div>
 
-        {/* 4 Stat Bento Tiles */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bento-card p-5 group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Quy trình (SOP)</span>
-              <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-all">
-                <Layers className="w-4 h-4" />
-              </div>
+        {activeTab === "workflow" && (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
+            Các SOP dưới đây là mẫu tham khảo được lưu trên trình duyệt này. Hệ thống chưa tạo yêu cầu phê duyệt, giao việc theo bước hoặc nhắc SLA.
+          </div>
+        )}
+
+        {/* Unified Swiss SOP & Audit Metric Strip */}
+        <div className="bento-card rounded-2xl overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-zinc-200 dark:divide-zinc-800">
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Quy trình (SOP)</span>
+              <Layers className="w-4 h-4 text-zinc-400" />
             </div>
-            <div className="text-3xl font-extrabold font-mono tracking-tight text-blue-600 dark:text-blue-400">{workflows.length} <span className="text-sm font-sans font-medium text-zinc-500">Luồng</span></div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Phê duyệt tự động đa cấp</div>
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+              {workflows.length} <span className="text-sm font-sans font-medium text-zinc-500">Mẫu</span>
+            </div>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Được lưu trong trình duyệt này</div>
           </div>
 
-          <div className="bento-card p-5 group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Đang xử lý</span>
-              <div className="squircle w-9 h-9 bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-all">
-                <Clock className="w-4 h-4" />
-              </div>
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Đang xử lý</span>
+              <Clock className="w-4 h-4 text-zinc-400" />
             </div>
-            <div className="text-3xl font-extrabold font-mono tracking-tight text-purple-600 dark:text-purple-400">
-              {workflows.reduce((acc, curr) => acc + (curr.activeRequests || 0), 0)}
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+              —
             </div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Hồ sơ trong hạn mức SLA</div>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Chưa có xử lý phê duyệt tự động</div>
           </div>
 
-          <div className="bento-card p-5 group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Đúng hạn SLA</span>
-              <div className="squircle w-9 h-9 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-all">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tỷ lệ log thành công</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </div>
-            <div className="text-3xl font-extrabold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">98.2%</div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Thời gian trung bình: 14h</div>
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+              {logs.length > 0 ? `${Math.round((logs.filter((l) => l.status === "SUCCESS").length / logs.length) * 100)}%` : "—"}
+            </div>
+            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+              {logs.length > 0 ? `${logs.filter((l) => l.status === "SUCCESS").length}/${logs.length} bản ghi mới nhất` : "Chưa có bản ghi"}
+            </div>
           </div>
 
-          <div className="bento-card p-5 group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Nhật ký bảo mật</span>
-              <div className="squircle w-9 h-9 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 group-hover:scale-105 transition-all">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Nhật ký bảo mật</span>
+              <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="text-3xl font-extrabold font-mono tracking-tight text-teal-600 dark:text-teal-400">{logs.length} <span className="text-sm font-sans font-medium text-zinc-500">Bản ghi</span></div>
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{logs.length} <span className="text-sm font-sans font-medium text-zinc-500">Bản ghi</span></div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Audit log hệ thống bảo mật</div>
           </div>
         </div>
@@ -323,7 +335,7 @@ export default function AuditWorkflowPage() {
                 </div>
 
                 <div className="pt-3.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs text-zinc-500">
-                  <span className="font-medium">Đang xử lý: <strong className="text-zinc-800 dark:text-zinc-200 font-mono font-bold">{wf.activeRequests} hồ sơ</strong></span>
+              <span className="font-medium">Mẫu tham khảo</span>
                   <button 
                     onClick={() => setSelectedWfForConfig(wf)}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl font-semibold transition-all shadow-2xs border border-blue-200/60 dark:border-blue-800/60"
@@ -354,7 +366,7 @@ export default function AuditWorkflowPage() {
               </div>
               <div className="text-xs text-zinc-500 hidden sm:flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Lưu trữ nhật ký kiểm toán bất biến</span>
+                <span>Nhật ký sự kiện (chưa có chữ ký số)</span>
               </div>
             </div>
 
@@ -372,8 +384,8 @@ export default function AuditWorkflowPage() {
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="px-5 py-12 text-center text-zinc-500 text-xs">
-                        Đang tải nhật ký kiểm toán...
+                      <td colSpan={5} className="p-4">
+                        <TableSkeleton rows={5} cols={5} />
                       </td>
                     </tr>
                   ) : filteredLogs.length === 0 ? (

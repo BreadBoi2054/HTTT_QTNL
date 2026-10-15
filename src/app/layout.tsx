@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { ToastProvider } from "@/components/providers/ToastProvider";
 
 const sans = Plus_Jakarta_Sans({ 
   subsets: ["latin", "vietnamese"], 
@@ -25,13 +26,15 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+} >) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${sans.variable} ${mono.variable} font-sans antialiased bg-[#FAFAF9] dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 transition-colors selection:bg-blue-600 selection:text-white`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <body className={`${sans.variable} ${mono.variable} font-sans antialiased bg-[#FAFAF9] dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 selection:bg-blue-600 selection:text-white`}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            {children}
+            <ToastProvider>
+              {children}
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

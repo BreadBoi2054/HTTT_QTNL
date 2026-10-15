@@ -7,7 +7,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     const params = await props.params;
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || (role !== 'SYSTEM_ADMIN' && role !== 'HR')) {
+    if (!session || !['SYSTEM_ADMIN', 'BOD', 'HR'].includes(role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -34,7 +34,7 @@ export async function DELETE(req: Request, props: { params: Promise<{ id: string
     const params = await props.params;
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || (role !== 'SYSTEM_ADMIN' && role !== 'HR')) {
+    if (!session || !['SYSTEM_ADMIN', 'BOD', 'HR'].includes(role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 

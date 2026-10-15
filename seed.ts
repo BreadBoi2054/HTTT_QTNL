@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { prisma } from './src/lib/prisma';
+import { prisma, pool } from './src/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 async function main() {
@@ -20,6 +20,8 @@ async function main() {
   await prisma.salaryComponent.deleteMany({});
   await prisma.attendance.deleteMany({});
   await prisma.leaveRequest.deleteMany({});
+  await prisma.contract.deleteMany({});
+  await prisma.performanceEvaluation.deleteMany({});
   
   // Unlink manager before deleting profiles
   await prisma.department.updateMany({ data: { managerId: null } });
@@ -30,13 +32,45 @@ async function main() {
 
   console.log("Cleared old database records!");
 
-  // 2. Create Roles
-  const adminRole = await prisma.role.create({ data: { name: 'SYSTEM_ADMIN' } });
-  const managerRole = await prisma.role.create({ data: { name: 'MANAGER' } });
-  const hrRole = await prisma.role.create({ data: { name: 'HR' } });
-  const userRole = await prisma.role.create({ data: { name: 'USER' } });
+  // 2. Create 6 RBAC Roles
+  const adminRole = await prisma.role.create({ 
+    data: { 
+      name: 'SYSTEM_ADMIN',
+      permissions: 'MANAGE_ROLES,MANAGE_SETTINGS,VIEW_AUDIT_LOGS,VIEW_DASHBOARD'
+    } 
+  });
+  const bodRole = await prisma.role.create({ 
+    data: { 
+      name: 'BOD',
+      permissions: 'VIEW_DASHBOARD,MANAGE_PAYROLL,MANAGE_EMPLOYEES,MANAGE_DEPARTMENTS,MANAGE_CONTRACTS,MANAGE_PERFORMANCE,MANAGE_CADRE,MANAGE_PERSONNEL_CHANGES,VIEW_AUDIT_LOGS'
+    } 
+  });
+  const accountantRole = await prisma.role.create({ 
+    data: { 
+      name: 'ACCOUNTANT',
+      permissions: 'VIEW_DASHBOARD,MANAGE_PAYROLL,VIEW_AUDIT_LOGS'
+    } 
+  });
+  const hrRole = await prisma.role.create({ 
+    data: { 
+      name: 'HR',
+      permissions: 'VIEW_DASHBOARD,MANAGE_EMPLOYEES,MANAGE_CONTRACTS,MANAGE_ATTENDANCE,MANAGE_PAYROLL,MANAGE_PERFORMANCE,MANAGE_RECRUITMENT,MANAGE_PERSONNEL_CHANGES,MANAGE_TRAINING,MANAGE_CADRE'
+    } 
+  });
+  const managerRole = await prisma.role.create({ 
+    data: { 
+      name: 'MANAGER',
+      permissions: 'VIEW_DASHBOARD,MANAGE_ATTENDANCE,MANAGE_PERFORMANCE,MANAGE_LEAVE,MANAGE_RECRUITMENT'
+    } 
+  });
+  const userRole = await prisma.role.create({ 
+    data: { 
+      name: 'USER',
+      permissions: 'VIEW_DASHBOARD,MANAGE_ATTENDANCE,MANAGE_LEAVE'
+    } 
+  });
 
-  console.log("Created 4 RBAC Roles!");
+  console.log("Created 6 Enterprise RBAC Roles!");
 
   // 3. Default Password for all demo accounts
   const hashedPassword = await bcrypt.hash('password123', 10);
@@ -86,24 +120,24 @@ async function main() {
 
   console.log("Created 6 Departments!");
 
-  // 5. Create 38 Employees across 6 enterprise departments
+  // 5. Create 39 Employees across 6 enterprise departments
   const rawEmployees = [
     // 1. Ban Tổng Giám Đốc (BOD) (4 nhân sự)
     {
-      name: 'Quản trị viên (Admin HQ)',
-      email: 'admin@hrmis.com',
-      roleId: adminRole.id,
+      name: 'Đỗ Minh Hiếu',
+      email: 'ceo@nexustech.vn',
+      roleId: bodRole.id,
       deptId: bodDept.id,
-      position: 'Tổng Giám Đốc (CEO)',
+      position: 'Tổng Giám Đốc (CEO & Ban Điều Hành)',
       phone: '0987654001',
       address: 'Hoàn Kiếm, Hà Nội',
-      baseSalary: 65000000,
+      baseSalary: 75000000,
       isManagerOfDept: bodDept.id,
     },
     {
       name: 'Vũ Đình Trọng',
-      email: 'trong.vu@hrmis.com',
-      roleId: managerRole.id,
+      email: 'trong.vu@nexustech.vn',
+      roleId: bodRole.id,
       deptId: bodDept.id,
       position: 'Phó Tổng Giám Đốc Kỹ thuật & Hạ tầng (CTO)',
       phone: '0987654002',
@@ -112,8 +146,8 @@ async function main() {
     },
     {
       name: 'Phạm Hoàng Long',
-      email: 'long.pham@hrmis.com',
-      roleId: managerRole.id,
+      email: 'long.pham@nexustech.vn',
+      roleId: bodRole.id,
       deptId: bodDept.id,
       position: 'Phó Tổng Giám Đốc Vận hành & Tài chính (COO)',
       phone: '0987654003',
@@ -122,7 +156,7 @@ async function main() {
     },
     {
       name: 'Hoàng Thu Uyên',
-      email: 'uyen.hoang@hrmis.com',
+      email: 'uyen.hoang@nexustech.vn',
       roleId: userRole.id,
       deptId: bodDept.id,
       position: 'Thư ký Hội đồng & Trợ lý Điều hành BOD',
@@ -131,10 +165,20 @@ async function main() {
       baseSalary: 25000000,
     },
 
-    // 2. Phòng Công nghệ (IT) (8 nhân sự)
+    // 2. Phòng Công nghệ (IT) (9 nhân sự)
+    {
+      name: 'Nguyễn Tuấn IT Admin',
+      email: 'admin@nexustech.vn',
+      roleId: adminRole.id,
+      deptId: itDept.id,
+      position: 'Quản trị viên Hệ thống (System Administrator)',
+      phone: '0987654099',
+      address: 'Cầu Giấy, Hà Nội',
+      baseSalary: 35000000,
+    },
     {
       name: 'Lê Tuấn Anh',
-      email: 'manager@hrmis.com',
+      email: 'manager@nexustech.vn',
       roleId: managerRole.id,
       deptId: itDept.id,
       position: 'Giám đốc Kỹ thuật / IT Manager',
@@ -145,7 +189,7 @@ async function main() {
     },
     {
       name: 'Nguyễn Văn An',
-      email: 'user@hrmis.com',
+      email: 'user@nexustech.vn',
       roleId: userRole.id,
       deptId: itDept.id,
       position: 'Senior Frontend Lead & Tech Lead',
@@ -155,7 +199,7 @@ async function main() {
     },
     {
       name: 'Nguyễn Hoàng Duy',
-      email: 'duy.nguyen@hrmis.com',
+      email: 'duy.nguyen@nexustech.vn',
       roleId: userRole.id,
       deptId: itDept.id,
       position: 'Backend Architect (Node/Go/Postgres)',
@@ -165,7 +209,7 @@ async function main() {
     },
     {
       name: 'Phạm Thùy Linh',
-      email: 'linh.pham@hrmis.com',
+      email: 'linh.pham@nexustech.vn',
       roleId: userRole.id,
       deptId: itDept.id,
       position: 'UI/UX Product Designer & Design System Lead',
@@ -175,7 +219,7 @@ async function main() {
     },
     {
       name: 'Vũ Minh Tuấn',
-      email: 'tuan.vu@hrmis.com',
+      email: 'tuan.vu@nexustech.vn',
       roleId: userRole.id,
       deptId: itDept.id,
       position: 'DevOps & Cloud Security Engineer',
@@ -185,7 +229,7 @@ async function main() {
     },
     {
       name: 'Trần Thảo My',
-      email: 'my.tran@hrmis.com',
+      email: 'my.tran@nexustech.vn',
       roleId: userRole.id,
       deptId: itDept.id,
       position: 'Senior React/Next.js Engineer',
@@ -195,7 +239,7 @@ async function main() {
     },
     {
       name: 'Đỗ Hùng Dũng',
-      email: 'dung.do@hrmis.com',
+      email: 'dung.do@nexustech.vn',
       roleId: userRole.id,
       deptId: itDept.id,
       position: 'Mobile Application Engineer (Flutter/iOS)',
@@ -205,7 +249,7 @@ async function main() {
     },
     {
       name: 'Lê Thúy Hằng',
-      email: 'hang.le@hrmis.com',
+      email: 'hang.le@nexustech.vn',
       roleId: userRole.id,
       deptId: itDept.id,
       position: 'QA/QC & Automation Test Engineer',
@@ -217,7 +261,7 @@ async function main() {
     // 3. Phòng Nhân sự & Đào tạo (HR) (6 nhân sự)
     {
       name: 'Trần Thị Mai',
-      email: 'hr@hrmis.com',
+      email: 'hr@nexustech.vn',
       roleId: hrRole.id,
       deptId: hrDept.id,
       position: 'Trưởng phòng Nhân sự (HR Manager)',
@@ -228,7 +272,7 @@ async function main() {
     },
     {
       name: 'Đỗ Kim Ngân',
-      email: 'ngan.do@hrmis.com',
+      email: 'ngan.do@nexustech.vn',
       roleId: hrRole.id,
       deptId: hrDept.id,
       position: 'Phó phòng Nhân sự & Đãi ngộ (C&B Lead)',
@@ -238,7 +282,7 @@ async function main() {
     },
     {
       name: 'Nguyễn Bích Phương',
-      email: 'phuong.nguyen@hrmis.com',
+      email: 'phuong.nguyen@nexustech.vn',
       roleId: hrRole.id,
       deptId: hrDept.id,
       position: 'Chuyên viên Tuyển dụng Cấp cao (Senior TA)',
@@ -248,7 +292,7 @@ async function main() {
     },
     {
       name: 'Lê Hoàng Phúc',
-      email: 'phuc.le@hrmis.com',
+      email: 'phuc.le@nexustech.vn',
       roleId: userRole.id,
       deptId: hrDept.id,
       position: 'Chuyên viên Đào tạo & Phát triển (L&D Specialist)',
@@ -258,7 +302,7 @@ async function main() {
     },
     {
       name: 'Vũ Kiều Oanh',
-      email: 'oanh.vu@hrmis.com',
+      email: 'oanh.vu@nexustech.vn',
       roleId: userRole.id,
       deptId: hrDept.id,
       position: 'Chuyên viên Tiền lương & BHXH (C&B Officer)',
@@ -268,7 +312,7 @@ async function main() {
     },
     {
       name: 'Trịnh Đức Anh',
-      email: 'anh.trinh@hrmis.com',
+      email: 'anh.trinh@nexustech.vn',
       roleId: userRole.id,
       deptId: hrDept.id,
       position: 'Chuyên viên Quan hệ Lao động & Văn hóa Doanh nghiệp',
@@ -280,8 +324,8 @@ async function main() {
     // 4. Phòng Tài chính - Kế toán (6 nhân sự)
     {
       name: 'Đặng Thu Hòa',
-      email: 'hoa.dang@hrmis.com',
-      roleId: managerRole.id,
+      email: 'accountant@nexustech.vn',
+      roleId: accountantRole.id,
       deptId: faDept.id,
       position: 'Kế toán trưởng (Chief Accountant)',
       phone: '0987654019',
@@ -291,7 +335,7 @@ async function main() {
     },
     {
       name: 'Dương Minh Đức',
-      email: 'duc.duong@hrmis.com',
+      email: 'duc.duong@nexustech.vn',
       roleId: userRole.id,
       deptId: faDept.id,
       position: 'Phó phòng Kế toán & Kiểm soát Chi phí',
@@ -301,7 +345,7 @@ async function main() {
     },
     {
       name: 'Trần Nhật Quang',
-      email: 'quang.tran@hrmis.com',
+      email: 'quang.tran@nexustech.vn',
       roleId: userRole.id,
       deptId: faDept.id,
       position: 'Chuyên viên Phân tích Tài chính Doanh nghiệp (FP&A)',
@@ -311,7 +355,7 @@ async function main() {
     },
     {
       name: 'Bùi Ngọc Thanh',
-      email: 'thanh.bui@hrmis.com',
+      email: 'thanh.bui@nexustech.vn',
       roleId: userRole.id,
       deptId: faDept.id,
       position: 'Kế toán viên Tổng hợp & Báo cáo Thuế',
@@ -321,7 +365,7 @@ async function main() {
     },
     {
       name: 'Phạm Mai Hương',
-      email: 'huong.pham@hrmis.com',
+      email: 'huong.pham@nexustech.vn',
       roleId: userRole.id,
       deptId: faDept.id,
       position: 'Kế toán Thanh toán & Giao dịch Ngân hàng',
@@ -331,7 +375,7 @@ async function main() {
     },
     {
       name: 'Ngô Bảo Châu',
-      email: 'chau.ngo@hrmis.com',
+      email: 'chau.ngo@nexustech.vn',
       roleId: userRole.id,
       deptId: faDept.id,
       position: 'Thủ quỹ Doanh nghiệp & Quản lý Thu chi',
@@ -343,7 +387,7 @@ async function main() {
     // 5. Phòng Kinh doanh & Phát triển thị trường (8 nhân sự)
     {
       name: 'Nguyễn Hoàng Nam',
-      email: 'nam.nguyen@hrmis.com',
+      email: 'nam.nguyen@nexustech.vn',
       roleId: managerRole.id,
       deptId: salesDept.id,
       position: 'Giám đốc Kinh doanh (Sales Director)',
@@ -354,7 +398,7 @@ async function main() {
     },
     {
       name: 'Lê Quốc Bảo',
-      email: 'bao.le@hrmis.com',
+      email: 'bao.le@nexustech.vn',
       roleId: userRole.id,
       deptId: salesDept.id,
       position: 'Phó Giám đốc Kinh doanh Miền Bắc',
@@ -364,7 +408,7 @@ async function main() {
     },
     {
       name: 'Đinh Thị Lan Hương',
-      email: 'huong.dinh@hrmis.com',
+      email: 'huong.dinh@nexustech.vn',
       roleId: userRole.id,
       deptId: salesDept.id,
       position: 'Trưởng nhóm Khách hàng Doanh nghiệp (B2B Lead)',
@@ -374,7 +418,7 @@ async function main() {
     },
     {
       name: 'Trần Đình Trọng',
-      email: 'trong.tran@hrmis.com',
+      email: 'trong.tran@nexustech.vn',
       roleId: userRole.id,
       deptId: salesDept.id,
       position: 'Senior Account Executive (Enterprise SaaS)',
@@ -384,7 +428,7 @@ async function main() {
     },
     {
       name: 'Nguyễn Thu Hà',
-      email: 'ha.nguyen@hrmis.com',
+      email: 'ha.nguyen@nexustech.vn',
       roleId: userRole.id,
       deptId: salesDept.id,
       position: 'Key Account Manager (Khách hàng Chiến lược)',
@@ -394,7 +438,7 @@ async function main() {
     },
     {
       name: 'Chu Văn Mạnh',
-      email: 'manh.chu@hrmis.com',
+      email: 'manh.chu@nexustech.vn',
       roleId: userRole.id,
       deptId: salesDept.id,
       position: 'Chuyên viên Tư vấn Giải pháp Phần mềm (Solution Consultant)',
@@ -404,7 +448,7 @@ async function main() {
     },
     {
       name: 'Lại Mỹ Linh',
-      email: 'linh.lai@hrmis.com',
+      email: 'linh.lai@nexustech.vn',
       roleId: userRole.id,
       deptId: salesDept.id,
       position: 'Chuyên viên Phát triển Khách hàng Doanh nghiệp',
@@ -414,7 +458,7 @@ async function main() {
     },
     {
       name: 'Đặng Quốc Huy',
-      email: 'huy.dang@hrmis.com',
+      email: 'huy.dang@nexustech.vn',
       roleId: userRole.id,
       deptId: salesDept.id,
       position: 'Chuyên viên Hỗ trợ Kinh doanh (Sales Admin & Contracts)',
@@ -426,7 +470,7 @@ async function main() {
     // 6. Phòng Marketing & Truyền thông (6 nhân sự)
     {
       name: 'Vũ Thu Trang',
-      email: 'trang.vu@hrmis.com',
+      email: 'trang.vu@nexustech.vn',
       roleId: managerRole.id,
       deptId: mktDept.id,
       position: 'Trưởng phòng Marketing (Marketing Manager)',
@@ -437,7 +481,7 @@ async function main() {
     },
     {
       name: 'Trần Đăng Khoa',
-      email: 'khoa.tran@hrmis.com',
+      email: 'khoa.tran@nexustech.vn',
       roleId: userRole.id,
       deptId: mktDept.id,
       position: 'Phó phòng Truyền thông & Thương hiệu (Brand Lead)',
@@ -447,7 +491,7 @@ async function main() {
     },
     {
       name: 'Hoàng Đức Minh',
-      email: 'minh.hoang@hrmis.com',
+      email: 'minh.hoang@nexustech.vn',
       roleId: userRole.id,
       deptId: mktDept.id,
       position: 'Chuyên viên Tối ưu hóa Chiến dịch Số (Performance Marketing)',
@@ -457,7 +501,7 @@ async function main() {
     },
     {
       name: 'Phan Thanh Thảo',
-      email: 'thao.phan@hrmis.com',
+      email: 'thao.phan@nexustech.vn',
       roleId: userRole.id,
       deptId: mktDept.id,
       position: 'Content Marketing & Copywriting Lead',
@@ -467,7 +511,7 @@ async function main() {
     },
     {
       name: 'Nguyễn Tiến Dũng',
-      email: 'dung.nguyen@hrmis.com',
+      email: 'dung.nguyen@nexustech.vn',
       roleId: userRole.id,
       deptId: mktDept.id,
       position: 'Senior Graphic & Motion Designer',
@@ -477,7 +521,7 @@ async function main() {
     },
     {
       name: 'Đỗ Diệu Linh',
-      email: 'linh.dieu@hrmis.com',
+      email: 'linh.dieu@nexustech.vn',
       roleId: userRole.id,
       deptId: mktDept.id,
       position: 'Chuyên viên SEO & Quản trị Mạng Xã hội (Social Media)',
@@ -828,7 +872,7 @@ async function main() {
       {
         code: "QĐ-2026-041",
         employeeName: "Nguyễn Văn An",
-        employeeEmail: "user@hrmis.com",
+        employeeEmail: "user@nexustech.vn",
         type: "PROMOTION",
         fromDept: "Phòng Công nghệ (IT)",
         toDept: "Phòng Công nghệ (IT)",
@@ -841,7 +885,7 @@ async function main() {
       {
         code: "QĐ-2026-042",
         employeeName: "Trần Thị Mai",
-        employeeEmail: "hr@hrmis.com",
+        employeeEmail: "hr@nexustech.vn",
         type: "PROMOTION",
         fromDept: "Phòng Nhân sự & Đào tạo (HR)",
         toDept: "Phòng Nhân sự & Đào tạo (HR)",
@@ -854,9 +898,9 @@ async function main() {
       {
         code: "QĐ-2026-043",
         employeeName: "Lê Hoàng Phúc",
-        employeeEmail: "phuc.le@hrmis.com",
+        employeeEmail: "phuc.le@nexustech.vn",
         type: "TRANSFER",
-        fromDept: "Phòng Kinh doanh & Thị trường",
+        fromDept: "Phòng Kinh doanh & Phát triển thị trường",
         toDept: "Phòng Nhân sự & Đào tạo (HR)",
         fromPosition: "Chuyên viên Đào tạo Khách hàng",
         toPosition: "Chuyên viên L&D Nội bộ",
@@ -867,7 +911,7 @@ async function main() {
       {
         code: "QĐ-2026-044",
         employeeName: "Vũ Minh Tuấn",
-        employeeEmail: "tuan.vu@hrmis.com",
+        employeeEmail: "tuan.vu@nexustech.vn",
         type: "NEW_HIRE",
         fromDept: "Thị trường ngoài",
         toDept: "Phòng Công nghệ (IT)",
@@ -880,10 +924,10 @@ async function main() {
       {
         code: "QĐ-2026-045",
         employeeName: "Lê Quốc Bảo",
-        employeeEmail: "bao.le@hrmis.com",
+        employeeEmail: "bao.le@nexustech.vn",
         type: "PROMOTION",
-        fromDept: "Phòng Kinh doanh & Thị trường",
-        toDept: "Phòng Kinh doanh & Thị trường",
+        fromDept: "Phòng Kinh doanh & Phát triển thị trường",
+        toDept: "Phòng Kinh doanh & Phát triển thị trường",
         fromPosition: "Chuyên viên Kinh doanh Cấp cao",
         toPosition: "Trưởng nhóm B2B Lead",
         effectiveDate: "01/10/2026",
@@ -981,7 +1025,7 @@ async function main() {
         department: "Phòng Công nghệ (IT)",
         currentHolder: "Lê Tuấn Anh (IT Manager)",
         successorName: "Nguyễn Văn An",
-        successorEmail: "user@hrmis.com",
+        successorEmail: "user@nexustech.vn",
         readiness: "READY_1_2_YEARS",
         potentialScore: "HIGH",
         mentor: "Quản trị viên (Admin HQ)",
@@ -993,7 +1037,7 @@ async function main() {
         department: "Phòng Nhân sự & Đào tạo (HR)",
         currentHolder: "Trần Thị Mai (HR Manager)",
         successorName: "Đỗ Kim Ngân",
-        successorEmail: "ngan.do@hrmis.com",
+        successorEmail: "ngan.do@nexustech.vn",
         readiness: "READY_NOW",
         potentialScore: "HIGH",
         mentor: "Ban Tổng Giám Đốc",
@@ -1005,7 +1049,7 @@ async function main() {
         department: "Phòng Tài chính - Kế toán",
         currentHolder: "Đặng Thu Hòa (Kế toán trưởng)",
         successorName: "Trần Nhật Quang",
-        successorEmail: "quang.tran@hrmis.com",
+        successorEmail: "quang.tran@nexustech.vn",
         readiness: "READY_1_2_YEARS",
         potentialScore: "HIGH",
         mentor: "Đặng Thu Hòa",
@@ -1014,10 +1058,10 @@ async function main() {
       },
       {
         position: "Phó Giám đốc Kinh doanh Toàn quốc",
-        department: "Phòng Kinh doanh & Thị trường",
+        department: "Phòng Kinh doanh & Phát triển thị trường",
         currentHolder: "Nguyễn Hoàng Nam (Sales Director)",
         successorName: "Lê Quốc Bảo",
-        successorEmail: "bao.le@hrmis.com",
+        successorEmail: "bao.le@nexustech.vn",
         readiness: "READY_NOW",
         potentialScore: "HIGH",
         mentor: "Nguyễn Hoàng Nam",
@@ -1078,13 +1122,14 @@ async function main() {
   console.log("\n=======================================================");
   console.log("  DATABASE FULLY POPULATED WITH 38 ENTERPRISE EMPLOYEES");
   console.log("=======================================================");
-  console.log("Admin:    admin@hrmis.com   / password123 (SYSTEM_ADMIN)");
-  console.log("Manager:  manager@hrmis.com / password123 (IT Manager)");
-  console.log("HR:       hr@hrmis.com      / password123 (HR Manager)");
-  console.log("User:     user@hrmis.com    / password123 (Frontend Lead)");
-  console.log("Finance:  hoa.dang@hrmis.com / password123 (Chief Accountant)");
-  console.log("Sales:    nam.nguyen@hrmis.com / password123 (Sales Director)");
-  console.log("Marketing: trang.vu@hrmis.com / password123 (Marketing Manager)");
+  console.log("CEO/BOD:  ceo@nexustech.vn        / password123 (CEO - BOD)");
+  console.log("Admin:    admin@nexustech.vn      / password123 (SYSTEM_ADMIN)");
+  console.log("Manager:  manager@nexustech.vn    / password123 (IT Manager)");
+  console.log("HR:       hr@nexustech.vn         / password123 (HR Manager)");
+  console.log("User:     user@nexustech.vn       / password123 (Frontend Lead)");
+  console.log("Finance:  accountant@nexustech.vn / password123 (Chief Accountant)");
+  console.log("Sales:    nam.nguyen@nexustech.vn / password123 (Sales Director)");
+  console.log("Marketing: trang.vu@nexustech.vn / password123 (Marketing Manager)");
   console.log("=======================================================\n");
 }
 
@@ -1095,4 +1140,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });

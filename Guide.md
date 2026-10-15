@@ -31,65 +31,67 @@ Hệ thống thiết lập phân quyền dựa trên vai trò nghiêm ngặt (**
 
 ## II. MA TRẬN TÀI KHOẢN TRẢI NGHIỆM (38 NHÂN SỰ - 6 PHÒNG BAN)
 
-Hệ thống đã nạp sẵn cơ sở dữ liệu mẫu gồm **38 cán bộ nhân viên** phân bổ đầy đủ trên 6 phòng ban của Tập đoàn Nexustech, có chỉ định Trưởng phòng rõ ràng. Tất cả tài khoản đều dùng mật khẩu mặc định: `password123`.
+Hệ thống đã nạp sẵn cơ sở dữ liệu mẫu gồm **38 cán bộ nhân viên** phân bổ đầy đủ trên 6 phòng ban của Tập đoàn Nexustech, có chỉ định Trưởng phòng rõ ràng. Tất cả tài khoản mẫu ban đầu đều dùng mật khẩu mặc định: `password123`.
+
+*(Lưu ý: Đối với nhân viên mới được tiếp nhận qua luồng Tuyển dụng Onboarding tự động, mật khẩu mặc định được hệ thống tự động sinh là `Hrmis@123`).*
 
 ### 1. Tài khoản Quản trị & Trưởng Bộ Phận (Key Roles)
 
 | Họ và Tên | Chức vụ | Phòng ban | Email đăng nhập | Quyền (Role) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Nguyễn Văn An** | Tổng Giám Đốc (CEO) | Ban Giám Đốc (BOD) | `admin@hrmis.com` | `SYSTEM_ADMIN` |
-| **Trần Thị Mai** | Trưởng phòng Nhân sự | Phòng Quản Trị Nhân Sự | `hr@hrmis.com` | `HR` / `MANAGER` |
-| **Phạm Hoàng Nam** | Trưởng phòng Kỹ thuật | Phòng Công Nghệ Thông Tin | `nam.pham@hrmis.com` | `MANAGER` |
-| **Bùi Phương Thảo** | Trưởng phòng Tài chính | Phòng Kế Toán & Tài Chính | `thao.bui@hrmis.com` | `MANAGER` |
-| **Nguyễn Văn Phát** | Trưởng phòng Kinh doanh | Phòng Kinh Doanh & Bán Hàng | `phat.nguyen@hrmis.com` | `MANAGER` |
-| **Hoàng Minh Tú** | Trưởng phòng Tiếp thị | Phòng Marketing & Truyền Thông | `tu.hoang@hrmis.com` | `MANAGER` |
-| **Trần Văn Bình** | Chuyên viên Phát triển (Senior) | Phòng Công Nghệ Thông Tin | `user@hrmis.com` | `USER` |
+| **Quản trị viên (Admin HQ)** | Tổng Giám Đốc (CEO) | Ban Tổng Giám Đốc (BOD) | `admin@hrmis.com` | `SYSTEM_ADMIN` |
+| **Lê Tuấn Anh** | Giám đốc Kỹ thuật / IT Manager | Phòng Công nghệ (IT) | `manager@hrmis.com` | `MANAGER` |
+| **Trần Thị Mai** | Trưởng phòng Nhân sự | Phòng Nhân sự & Đào tạo (HR) | `hr@hrmis.com` | `HR` |
+| **Đặng Thu Hòa** | Kế toán trưởng | Phòng Tài chính - Kế toán | `hoa.dang@hrmis.com` | `MANAGER` |
+| **Nguyễn Hoàng Nam** | Giám đốc Kinh doanh | Phòng Kinh doanh & Phát triển thị trường | `nam.nguyen@hrmis.com` | `MANAGER` |
+| **Vũ Thu Trang** | Trưởng phòng Marketing | Phòng Marketing & Truyền thông | `trang.vu@hrmis.com` | `MANAGER` |
+| **Nguyễn Văn An** | Senior Frontend Lead & Tech Lead | Phòng Công nghệ (IT) | `user@hrmis.com` | `USER` |
 
-### 2. Danh sách phân bổ nhân viên theo từng phòng ban
-1. **Ban Giám Đốc (BOD - 4 nhân sự):**
-   - `admin@hrmis.com` (Nguyễn Văn An - Tổng Giám Đốc, Head of Dept)
-   - `phuong.le@hrmis.com` (Lê Minh Phương - Phó Tổng Giám Đốc Vận Hành)
-   - `hung.do@hrmis.com` (Đỗ Quang Hùng - Giám Đốc Tài Chính CFO)
-   - `nga.trinh@hrmis.com` (Trịnh Thúy Nga - Thư Ký Hội Đồng Quản Trị)
-2. **Phòng Công Nghệ Thông Tin (IT - 8 nhân sự):**
-   - `nam.pham@hrmis.com` (Phạm Hoàng Nam - Trưởng phòng CNTT, Head of Dept)
-   - `user@hrmis.com` (Trần Văn Bình - Kỹ sư Lập trình Senior)
-   - `anh.hoang@hrmis.com` (Hoàng Quốc Anh - Kỹ sư DevOps)
-   - `linh.dang@hrmis.com` (Đặng Thùy Linh - Kỹ sư Kiểm thử QA)
-   - `khoa.vu@hrmis.com` (Vũ Đăng Khoa - Kỹ sư Lập trình Fullstack)
-   - `tram.doan@hrmis.com` (Đoàn Ngọc Trâm - Chuyên viên Thiết kế UI/UX)
-   - `long.ha@hrmis.com` (Hà Đức Long - Kỹ sư Dữ liệu Data Engineer)
-   - `quyen.phan@hrmis.com` (Phan Thảo Quyên - Chuyên viên Phân tích Nghiệp vụ BA)
-3. **Phòng Quản Trị Nhân Sự (HR - 6 nhân sự):**
-   - `hr@hrmis.com` (Trần Thị Mai - Trưởng phòng Nhân sự, Head of Dept)
-   - `tuan.vu@hrmis.com` (Vũ Anh Tuấn - Chuyên viên Tiền lương C&B)
-   - `ngoc.dinh@hrmis.com` (Đinh Bảo Ngọc - Chuyên viên Tuyển dụng Talent Acquisition)
-   - `son.mac@hrmis.com` (Mạc Văn Sơn - Chuyên viên Đào tạo & Phát triển L&D)
-   - `chi.duong@hrmis.com` (Dương Kim Chi - Chuyên viên Quan hệ Lao động)
-   - `uyen.ha@hrmis.com` (Hà Phương Uyên - Chuyên viên Văn hóa Doanh nghiệp)
-4. **Phòng Kế Toán & Tài Chính (Finance - 6 nhân sự):**
-   - `thao.bui@hrmis.com` (Bùi Phương Thảo - Trưởng phòng Kế toán, Head of Dept)
-   - `loc.nguyen@hrmis.com` (Nguyễn Tấn Lộc - Kế toán Tổng hợp)
-   - `nhung.dao@hrmis.com` (Đào Hồng Nhung - Kế toán Thuế & Kiểm toán)
-   - `khang.to@hrmis.com` (Tô Vĩnh Khang - Chuyên viên Phân tích Tài chính)
-   - `lien.tran@hrmis.com` (Trần Bích Liên - Thủ quỹ Doanh nghiệp)
-   - `triet.vo@hrmis.com` (Võ Minh Triết - Kế toán Công nợ)
-5. **Phòng Kinh Doanh & Bán Hàng (Sales - 8 nhân sự):**
-   - `phat.nguyen@hrmis.com` (Nguyễn Văn Phát - Trưởng phòng Kinh doanh, Head of Dept)
-   - `hang.le@hrmis.com` (Lê Thu Hằng - Quản lý Khách hàng Doanh nghiệp Key Account)
-   - `thanh.lam@hrmis.com` (Lâm Quốc Thành - Chuyên viên Bán hàng Cấp cao)
-   - `yen.phung@hrmis.com` (Phùng Hải Yến - Chuyên viên Phát triển Thị trường)
-   - `dat.nguyen@hrmis.com` (Nguyễn Tiến Đạt - Đại diện Kinh doanh Vùng)
-   - `van.chu@hrmis.com` (Chu Khánh Vân - Tư vấn Bán hàng Giải pháp)
-   - `huy.luu@hrmis.com` (Lưu Gia Huy - Chăm sóc Khách hàng VIP)
-   - `my.truong@hrmis.com` (Trương Diễm My - Quản lý Hợp đồng Thương mại)
-6. **Phòng Marketing & Truyền Thông (Marketing - 6 nhân sự):**
-   - `tu.hoang@hrmis.com` (Hoàng Minh Tú - Trưởng phòng Marketing, Head of Dept)
-   - `giang.nguyen@hrmis.com` (Nguyễn Hương Giang - Chuyên viên Truyền thông Nội bộ)
-   - `bach.tran@hrmis.com` (Trần Xuân Bách - Chuyên viên Digital Marketing)
-   - `thao.do@hrmis.com` (Đỗ Thu Thảo - Nhà sáng tạo Nội dung Content Lead)
-   - `tuan.pham@hrmis.com` (Phạm Quốc Tuấn - Thiết kế Đồ họa Visual Designer)
-   - `chau.ly@hrmis.com` (Lý Minh Châu - Chuyên viên Quản lý Sự kiện & PR)
+### 2. Danh sách phân bổ 38 nhân sự theo từng phòng ban
+1. **Ban Tổng Giám Đốc (BOD - 4 nhân sự):**
+   - `admin@hrmis.com` (Quản trị viên (Admin HQ) - Tổng Giám Đốc (CEO), Head of Dept, SYSTEM_ADMIN)
+   - `trong.vu@hrmis.com` (Vũ Đình Trọng - Phó Tổng Giám Đốc Kỹ thuật & Hạ tầng (CTO), MANAGER)
+   - `long.pham@hrmis.com` (Phạm Hoàng Long - Phó Tổng Giám Đốc Vận hành & Tài chính (COO), MANAGER)
+   - `uyen.hoang@hrmis.com` (Hoàng Thu Uyên - Thư ký Hội đồng & Trợ lý Điều hành BOD, USER)
+2. **Phòng Công nghệ (IT - 8 nhân sự):**
+   - `manager@hrmis.com` (Lê Tuấn Anh - Giám đốc Kỹ thuật / IT Manager, Head of Dept, MANAGER)
+   - `user@hrmis.com` (Nguyễn Văn An - Senior Frontend Lead & Tech Lead, USER)
+   - `duy.nguyen@hrmis.com` (Nguyễn Hoàng Duy - Backend Architect, USER)
+   - `linh.pham@hrmis.com` (Phạm Thùy Linh - UI/UX Product Designer & Design System Lead, USER)
+   - `tuan.vu@hrmis.com` (Vũ Minh Tuấn - DevOps & Cloud Security Engineer, USER)
+   - `my.tran@hrmis.com` (Trần Thảo My - Senior React/Next.js Engineer, USER)
+   - `dung.do@hrmis.com` (Đỗ Hùng Dũng - Mobile Application Engineer, USER)
+   - `hang.le@hrmis.com` (Lê Thúy Hằng - QA/QC & Automation Test Engineer, USER)
+3. **Phòng Nhân sự & Đào tạo (HR - 6 nhân sự):**
+   - `hr@hrmis.com` (Trần Thị Mai - Trưởng phòng Nhân sự, Head of Dept, HR)
+   - `ngan.do@hrmis.com` (Đỗ Kim Ngân - Phó phòng Nhân sự & Đãi ngộ (C&B Lead), HR)
+   - `phuong.nguyen@hrmis.com` (Nguyễn Bích Phương - Chuyên viên Tuyển dụng Cấp cao (Senior TA), HR)
+   - `phuc.le@hrmis.com` (Lê Hoàng Phúc - Chuyên viên Đào tạo & Phát triển (L&D Specialist), USER)
+   - `oanh.vu@hrmis.com` (Vũ Kiều Oanh - Chuyên viên Tiền lương & BHXH (C&B Officer), USER)
+   - `anh.trinh@hrmis.com` (Trịnh Đức Anh - Chuyên viên Quan hệ Lao động & Văn hóa Doanh nghiệp, USER)
+4. **Phòng Tài chính - Kế toán (Finance - 6 nhân sự):**
+   - `hoa.dang@hrmis.com` (Đặng Thu Hòa - Kế toán trưởng, Head of Dept, MANAGER)
+   - `duc.duong@hrmis.com` (Dương Minh Đức - Phó phòng Kế toán & Kiểm soát Chi phí, USER)
+   - `quang.tran@hrmis.com` (Trần Nhật Quang - Chuyên viên Phân tích Tài chính Doanh nghiệp (FP&A), USER)
+   - `thanh.bui@hrmis.com` (Bùi Ngọc Thanh - Kế toán viên Tổng hợp & Báo cáo Thuế, USER)
+   - `huong.pham@hrmis.com` (Phạm Mai Hương - Kế toán Thanh toán & Giao dịch Ngân hàng, USER)
+   - `chau.ngo@hrmis.com` (Ngô Bảo Châu - Thủ quỹ Doanh nghiệp & Quản lý Thu chi, USER)
+5. **Phòng Kinh doanh & Phát triển thị trường (Sales - 8 nhân sự):**
+   - `nam.nguyen@hrmis.com` (Nguyễn Hoàng Nam - Giám đốc Kinh doanh (Sales Director), Head of Dept, MANAGER)
+   - `bao.le@hrmis.com` (Lê Quốc Bảo - Phó Giám đốc Kinh doanh Miền Bắc, USER)
+   - `huong.dinh@hrmis.com` (Đinh Thị Lan Hương - Trưởng nhóm Khách hàng Doanh nghiệp (B2B Lead), USER)
+   - `trong.tran@hrmis.com` (Trần Đình Trọng - Senior Account Executive (Enterprise SaaS), USER)
+   - `ha.nguyen@hrmis.com` (Nguyễn Thu Hà - Key Account Manager (Khách hàng Chiến lược), USER)
+   - `manh.chu@hrmis.com` (Chu Văn Mạnh - Chuyên viên Tư vấn Giải pháp Phần mềm, USER)
+   - `linh.lai@hrmis.com` (Lại Mỹ Linh - Chuyên viên Phát triển Khách hàng Doanh nghiệp, USER)
+   - `huy.dang@hrmis.com` (Đặng Quốc Huy - Chuyên viên Hỗ trợ Kinh doanh (Sales Admin & Contracts), USER)
+6. **Phòng Marketing & Truyền thông (Marketing - 6 nhân sự):**
+   - `trang.vu@hrmis.com` (Vũ Thu Trang - Trưởng phòng Marketing, Head of Dept, MANAGER)
+   - `khoa.tran@hrmis.com` (Trần Đăng Khoa - Chuyên viên Chiến lược Thương hiệu & Digital, USER)
+   - `yen.pham@hrmis.com` (Phạm Hải Yến - Chuyên viên Digital Marketing & SEO Lead, USER)
+   - `thang.nguyen@hrmis.com` (Nguyễn Chiến Thắng - Content Marketing & Copywriter Lead, USER)
+   - `ngoc.bui@hrmis.com` (Bùi Bích Ngọc - Chuyên viên Quản trị Sự kiện & Quan hệ Báo chí PR, USER)
+   - `dat.le@hrmis.com` (Lê Thành Đạt - Chuyên viên Thiết kế Đồ họa & Đa phương tiện, USER)
 
 ---
 
@@ -159,14 +161,30 @@ Mọi nút bấm tương tác trên toàn hệ thống đều đã được kế
   - Soạn thảo hợp đồng lao động song phương chuẩn pháp lý Việt Nam và hỗ trợ in/xuất PDF trực tiếp.
   - Xuất bảng theo dõi HĐLĐ toàn công ty ra file CSV/Excel.
 
-### 3. Đánh Giá Hiệu Suất 360° & Tự Động Phân Bổ Thưởng KPI
-* **Đường dẫn:** `/dashboard/performance`
-* **Mục tiêu:** Thẩm định năng lực minh bạch, loại bỏ định kiến cá nhân và liên thông trực tiếp với hệ số thưởng lương.
-* **Tính năng:**
-  - 3 nhóm tiêu chí chuẩn: Mục tiêu công việc chính (50%), Kỷ luật văn hóa tập đoàn (25%), Sáng kiến đổi mới sáng tạo (25%).
-  - Quy trình đánh giá: Nhân viên tự chấm điểm &rarr; Quản lý trực tiếp thẩm định & cho điểm &rarr; Hội đồng Nhân sự phê duyệt xếp hạng Bell Curve (Hạng A, B, C, D).
-  - Tự động gắn hệ số thưởng: Hạng A (+25% Lương CB), Hạng B (+10% Lương CB), Hạng C (0%), Hạng D (Trừ KPI).
-  - Xuất bảng kết quả đánh giá KPI toàn tập đoàn ra CSV/Excel.
+### 3. Đánh Giá Hiệu Suất 360° & Thuật Toán Phân Bổ Thưởng/Phạt KPI
+* **Đường dẫn phân hệ:** `/dashboard/performance`
+* **Mục tiêu:** Thẩm định năng lực minh bạch, lượng hóa hiệu suất theo chuẩn mực OKR/KPI và tự động liên thông sang Bảng tính lương (Payroll Engine).
+* **Bộ 3 Tiêu chí Thẩm định & Trọng số:**
+  1. **Tiêu chí 1: Mục tiêu công việc chính (Trọng số 50% - $W_1 = 0.50$):** Đánh giá mức độ hoàn thành các chỉ tiêu OKR/KPI chuyên môn theo hợp đồng lao động và cam kết đầu kỳ.
+  2. **Tiêu chí 2: Kỷ luật & Văn hóa doanh nghiệp (Trọng số 25% - $W_2 = 0.25$):** Đánh giá việc tuân thủ nội quy, thời gian làm việc (đúng giờ, hạn chế đi muộn `LATE`), tinh thần hợp tác và đóng góp cho tập thể.
+  3. **Tiêu chí 3: Sáng kiến & Đổi mới sáng tạo (Trọng số 25% - $W_3 = 0.25$):** Đánh giá các ý tưởng cải tiến quy trình, tự động hóa tác vụ hoặc chủ trì các dự án nâng cao năng suất.
+* **Công thức Tính Điểm Tổng Hợp (Total Score):**
+  $$\text{Điểm Tổng} = (\text{Điểm TC1} \times 0.50) + (\text{Điểm TC2} \times 0.25) + (\text{Điểm TC3} \times 0.25)$$
+* **Bảng Quy Chuẩn Xếp Hạng Bell Curve & Hệ Số Thưởng/Phạt:**
+
+| Phân hạng KPI | Khoảng điểm tổng hợp | Tỷ lệ thưởng/phạt | Mức điều chỉnh lương | Diễn giải & Chế tài |
+| :--- | :---: | :---: | :---: | :--- |
+| **Hạng A (Xuất sắc)** | **90.0 - 100 điểm** | $\mathbf{+25\%}$ | $+25\%$ Lương CB theo công | Cán bộ hoàn thành vượt mức chỉ tiêu, được quy hoạch cán bộ kế nhiệm. |
+| **Hạng B (Hoàn thành tốt)** | **75.0 - 89.9 điểm** | $\mathbf{+10\%}$ | $+10\%$ Lương CB theo công | Hoàn thành tốt khối lượng công việc được giao, tinh thần phối hợp tốt. |
+| **Hạng C (Đạt yêu cầu)** | **60.0 - 74.9 điểm** | $\mathbf{0\%}$ | Không thưởng, không phạt | Đạt chuẩn cơ bản, cần bồi dưỡng thêm kỹ năng chuyên môn. |
+| **Hạng D (Cần cải thiện)** | **Dưới 60.0 điểm** | $\mathbf{-10\%}$ | $-10\%$ Phạt vi phạm KPI | Không hoàn thành chỉ tiêu, vi phạm kỷ luật lao động, xem xét điều chuyển. |
+
+* **Quy trình Phê duyệt 3 bước & Lưu vết CSDL:**
+  - **Bước 1 (Tự đánh giá):** Nhân viên chủ động tự chấm điểm và giải trình kết quả công tác trong kỳ.
+  - **Bước 2 (Quản lý thẩm định):** Trưởng phòng ban trực tiếp xem xét, đối soát dữ liệu và chấm điểm quản lý (`managerScore`).
+  - **Bước 3 (Hội đồng nhân sự phê duyệt):** Chốt phân hạng Bell Curve, ghi nhận trạng thái `APPROVED` vào Model `PerformanceEvaluation` trong PostgreSQL và tự động đồng bộ sang bảng lương hàng tháng.
+
+---
 
 ### 4. Trung Tâm Thông Báo & Cảnh Báo Thời Gian Thực (In-App Notification Hub)
 * **Vị trí:** Biểu tượng chuông trên thanh Header.
@@ -178,9 +196,11 @@ Mọi nút bấm tương tác trên toàn hệ thống đều đã được kế
 
 ## VI. CƠ CHẾ & THUẬT TOÁN TÍNH LƯƠNG CHI TIẾT (PAYROLL MECHANISM)
 
-### 1. Nguyên Tắc Ngày Công Chuẩn (Standard Working Days)
+### 1. Nguyên Tắc Ngày Công Chuẩn (Standard Working Days) & Chấm Công
 * **Số ngày công chuẩn cố định:** `STANDARD_WORKING_DAYS = 22 ngày / tháng` (quy chuẩn theo Bộ luật Lao động cho chế độ làm việc từ Thứ 2 đến Thứ 6 hàng tuần, nghỉ Thứ 7 và Chủ nhật).
-* **Ngày tính công thực tế:**
+* **Mốc giờ chấm công chuẩn:** Giờ vào ca quy chuẩn là **08:30 sáng**. Check-in $\le$ 08:30 là Đúng giờ (`PRESENT`), sau 08:30 là Đi muộn (`LATE`).
+* **Quy tắc ngày nghỉ tuần (Cuối tuần):** Đơn xin nghỉ phép tự động loại trừ cả Thứ 7 và Chủ nhật (`dayOfWeek !== 0 && dayOfWeek !== 6`).
+* **Công thức ngày tính công thực tế:**
   $$\text{Số ngày tính lương (effectiveDays)} = \min(22, \text{Ngày đi làm thực tế} + \text{Ngày nghỉ phép hưởng lương})$$
 
 ---
@@ -198,41 +218,76 @@ Hệ thống phân định rạch ròi thành **2 kịch bản nghiệp vụ**:
 #### 🔴 KỊCH BẢN B: Nghỉ KHÔNG PHÉP (Vắng mặt `ABSENT`) hoặc Nghỉ KHÔNG HƯỞNG LƯƠNG (`UNPAID_LEAVE`)
 * **Nguyên tắc:** Nhân viên tự ý nghỉ không xin phép hoặc làm đơn xin nghỉ việc riêng không hưởng lương.
 * **Cơ chế trừ lương:** Lương cơ bản được tính theo tỷ lệ công thực tế (**Pro-rated Base Salary**):
-  $$\text{Lương Cơ Bản Nhận Được} = \frac{\text{Lương Cơ Bản Thỏa Thuận}}{22} \times \text{Số ngày đi làm thực tế}$$
+  $$\text{Lương Cơ Bản Nhận Được} = \text{round}\left(\frac{\text{Lương Cơ Bản Thỏa Thuận}}{22} \times \text{Số ngày đi làm thực tế}\right)$$
 * **Cách trừ cụ thể:**
   * **Nghỉ 1 buổi (1 ngày):** Đi làm 21 công $\rightarrow$ Lương CB nhận $\frac{21}{22} \times \text{Lương CB}$ (**Bị trừ $\frac{1}{22} \approx 4.545\%$** lương cơ bản).
   * **Nghỉ 2 buổi (2 ngày):** Đi làm 20 công $\rightarrow$ Lương CB nhận $\frac{20}{22} \times \text{Lương CB}$ (**Bị trừ $\frac{2}{22} \approx 9.09\%$** lương cơ bản).
 
 ---
 
-### 3. Ví Dụ Bằng Số Tiền Minh Họa Thực Tế
-
-> **Giả định:** Nhân viên A có mức lương thỏa thuận trên HĐLĐ là **22.000.000 VNĐ / tháng**:
-> * Đơn giá 1 ngày công chuẩn: $\frac{22.000.000}{22} = \mathbf{1.000.000 \text{ VNĐ / ngày}}$.
-
-| Trường hợp nghỉ | Số ngày đi làm | Số ngày tính lương | Lương cơ bản nhận | Số tiền bị trừ |
-| :--- | :---: | :---: | :---: | :---: |
-| **Đi làm đủ tháng** | 22 ngày | 22 công | 22.000.000 VNĐ | 0 VNĐ |
-| **Nghỉ 1 ngày CÓ PHÉP** | 21 ngày | 21 + 1 = 22 công | **22.000.000 VNĐ** | **0 VNĐ (Hưởng đủ 100%)** |
-| **Nghỉ 2 ngày CÓ PHÉP** | 20 ngày | 20 + 2 = 22 công | **22.000.000 VNĐ** | **0 VNĐ (Hưởng đủ 100%)** |
-| **Nghỉ 1 ngày KHÔNG PHÉP** | 21 ngày | 21 công | **21.000.000 VNĐ** | **-1.000.000 VNĐ** |
-| **Nghỉ 2 ngày KHÔNG PHÉP** | 20 ngày | 20 công | **20.000.000 VNĐ** | **-2.000.000 VNĐ** |
+### 3. Danh Mục Các Khoản Phụ Cấp Chuẩn Doanh Nghiệp (Salary Components)
+Toàn bộ phụ cấp được cấu hình linh hoạt trong hệ thống và tự động cộng vào khoản thu nhập hàng tháng:
+1. **Phụ cấp ăn trưa:** Cố định **730.000 VNĐ / tháng** (mức miễn thuế TNCN chuẩn theo quy định).
+2. **Phụ cấp xăng xe & liên lạc:** Cố định **500.000 VNĐ / tháng** (hỗ trợ chi phí đi lại và cước viễn thông công tác).
+3. **Phụ cấp trách nhiệm chức vụ:** Cố định **2.000.000 VNĐ / tháng** (áp dụng cho cấp Trưởng bộ phận, Giám đốc khối và Team Lead).
 
 ---
 
 ### 4. Công Thức Tổng Quát Tính Thực Lĩnh (Net Salary)
-$$\text{Lương Thực Lĩnh (Net)} = \text{Lương CB theo công} + \text{Phụ Cấp} + \text{Thưởng KPI} - \text{Khấu Trừ Bảo Hiểm (10.5\%)}$$
+$$\text{Lương Thực Lĩnh (Net)} = \max\left(0, \text{Lương CB theo công} + \sum \text{Phụ Cấp} + \text{Thưởng KPI} - \sum \text{Bảo Hiểm (10.5\%)} - \text{Thuế TNCN}\right)$$
 
-* **Khoản cộng (Gross):**
-  * Lương cơ bản theo ngày công thực tế.
-  * Phụ cấp cố định (Ăn trưa, xăng xe, trách nhiệm).
-  * Thưởng hiệu suất KPI (theo xếp hạng A: +25%, B: +10% tại phân hệ Đánh giá hiệu suất).
+* **Khoản cộng (Gross Additions):**
+  * **Lương cơ bản theo ngày công thực tế:** $\text{Pro-rated Base} = \text{round}\left(\frac{\text{Lương CB}}{22} \times \text{effectiveDays}\right)$.
+  * **Tổng các khoản phụ cấp cố định:** Ăn trưa, xăng xe, trách nhiệm.
+  * **Thưởng hiệu suất KPI:** $\text{Thưởng KPI} = \text{round}(\text{Lương CB theo công} \times \text{bonusRate})$ với Hạng A ($+25\%$), Hạng B ($+10\%$).
 * **Khoản trừ nghĩa vụ pháp lý (10.5% theo Luật BHXH Việt Nam):**
-  * Bảo hiểm Xã hội (BHXH): $8\% \times \text{Lương CB}$
-  * Bảo hiểm Y tế (BHYT): $1.5\% \times \text{Lương CB}$
-  * Bảo hiểm Thất nghiệp (BHTN): $1.0\% \times \text{Lương CB}$
+  * Bảo hiểm Xã hội (BHXH): $8\% \times \text{Lương CB theo công}$
+  * Bảo hiểm Y tế (BHYT): $1.5\% \times \text{Lương CB theo công}$
+  * Bảo hiểm Thất nghiệp (BHTN): $1.0\% \times \text{Lương CB theo công}$
+  * Khấu trừ vi phạm KPI (nếu xếp Hạng D: $-10\%$).
+* **Thuế Thu nhập Cá nhân (kỳ tính thuế từ năm 2026 - Luật 109/2025/QH15):**
+  * $\text{Thu nhập chịu thuế} = \text{Lương CB theo công} + \sum \text{Phụ Cấp} + \text{Thưởng KPI} - \text{Ăn trưa miễn thuế (730k)}$.
+  * $\text{Thu nhập tính thuế (TNTT)} = \max(0, \text{Thu nhập chịu thuế} - \text{Bảo hiểm bắt buộc} - 15.5\text{ triệu} - 6.2\text{ triệu} \times \text{Số người phụ thuộc})$.
+  * Biểu thuế tháng 5 bậc: đến 10 triệu 5%; trên 10–30 triệu 10% trừ 500 nghìn; trên 30–60 triệu 20% trừ 3.5 triệu; trên 60–100 triệu 30% trừ 9.5 triệu; trên 100 triệu 35% trừ 14.5 triệu.
 
 ---
-*Tài liệu được cập nhật tự động theo phiên bản HRMIS Enterprise v3.0 - Tập đoàn Công nghệ Nexustech.*
+
+### 5. Bảng Minh Họa Quyết Toán Lương Thực Tế Chi Tiết (Bao Gồm Thuế TNCN)
+
+> **Giả định:** Nhân viên Nguyễn Văn An (Trưởng phòng, Lương CB hợp đồng: **22.000.000 VNĐ / tháng**, Phụ cấp ăn trưa: 730.000đ, Phụ cấp xăng xe: 500.000đ, Phụ cấp trách nhiệm: 2.000.000đ, Đánh giá KPI Hạng A (+25%), chưa đăng ký người phụ thuộc):
+> - Tổng thu nhập chịu thuế: $22.000.000 + 500.000 + 2.000.000 + 5.500.000 = 30.000.000$ VNĐ (miễn thuế ăn trưa 730k).
+> - Trừ BHXH 10.5%: $2.310.000$ VNĐ.
+> - Trừ gia cảnh bản thân: $15.500.000$ VNĐ.
+> - Thu nhập tính thuế (TNTT): $30.000.000 - 2.310.000 - 15.500.000 = 12.190.000$ VNĐ (Bậc 2: 10% - 500k).
+> - Thuế TNCN khấu trừ: $12.190.000 \times 10\% - 500.000 = 719.000$ VNĐ.
+
+| Khoản mục | Đơn giá / Tỷ lệ | Số ngày / Mức áp dụng | Thành tiền (VNĐ) | Phân loại |
+| :--- | :---: | :---: | :---: | :--- |
+| **Lương cơ bản theo công** | $1.000.000 \text{ đ/công}$ | 22 công (21 đi làm + 1 phép) | **22.000.000 VNĐ** | Thu nhập cơ bản |
+| **Phụ cấp ăn trưa** | Cố định (Miễn thuế) | Cả tháng | **+730.000 VNĐ** | Phụ cấp đãi ngộ |
+| **Phụ cấp xăng xe & liên lạc** | Cố định | Cả tháng | **+500.000 VNĐ** | Phụ cấp đãi ngộ |
+| **Phụ cấp trách nhiệm** | Cấp quản lý | Cả tháng | **+2.000.000 VNĐ** | Phụ cấp chức vụ |
+| **Thưởng hiệu suất KPI (Hạng A)** | $+25\%$ Lương CB | Hạng A (94.5 điểm) | **+5.500.000 VNĐ** | Thưởng hiệu suất |
+| **Bảo hiểm Xã hội (BHXH 8%)** | $8\%$ | Trừ vào lương | **-1.760.000 VNĐ** | Giảm trừ pháp lý |
+| **Bảo hiểm Y tế (BHYT 1.5%)** | $1.5\%$ | Trừ vào lương | **-330.000 VNĐ** | Giảm trừ pháp lý |
+| **Bảo hiểm Thất nghiệp (BHTN 1%)** | $1.0\%$ | Trừ vào lương | **-220.000 VNĐ** | Giảm trừ pháp lý |
+| **Thuế Thu nhập Cá nhân (TNCN)** | Lũy tiến từng phần | TNTT: 16.690.000 đ | **-1.753.500 VNĐ** | Nghĩa vụ thuế nhà nước |
+| **TỔNG LƯƠNG THỰC LĨNH (NET)** | — | — | **26.666.500 VNĐ** | **Thực chuyển tài khoản** |
+
+---
+
+## VII. QUẢN LÝ QUỸ PHÉP NĂM & HỢP ĐỒNG LAO ĐỘNG (CHUẨN BLLĐ 2019)
+
+### 1. Quỹ Phép Năm (Annual Leave Allowance - Điều 113 BLLĐ 2019)
+- **Hạn mức chuẩn:** Mỗi nhân viên chính thức có **12 ngày phép hưởng nguyên lương / năm**.
+- **Cơ chế kiểm soát tự động:** Khi nộp đơn `ANNUAL_LEAVE`, hệ thống tự động kiểm tra số ngày phép còn lại. Nếu đơn vượt quá số dư phép năm, hệ thống từ chối nộp và yêu cầu chuyển sang nghỉ không lương `UNPAID_LEAVE`.
+
+### 2. Quản Trị Hợp Đồng Lao Động (Điều 20 BLLĐ 2019)
+- **Cơ sở dữ liệu tập trung:** Toàn bộ hợp đồng được lưu trữ trong bảng `Contract` có liên kết quan hệ trực tiếp với `EmployeeProfile`.
+- **Cảnh báo hết hạn:** Tự động tính toán số ngày còn lại (`daysLeft`) và gắn nhãn cảnh báo vàng `EXPIRING_SOON` khi còn $\le 30$ ngày để phòng Nhân sự tiến hành thủ tục tái ký hoặc thanh lý hợp đồng.
+
+---
+*Tài liệu được cập nhật tự động và đồng bộ trực tiếp với mã nguồn HRMIS Enterprise v3.2 - Tập đoàn Công nghệ Nexustech.*
+
 
 

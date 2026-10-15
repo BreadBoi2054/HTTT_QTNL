@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || (role !== 'SYSTEM_ADMIN' && role !== 'HR')) {
+    if (!session || !['SYSTEM_ADMIN', 'BOD', 'HR'].includes(role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -32,7 +32,7 @@ export async function GET() {
   try {
     const session = await auth();
     const role = (session?.user as any)?.roleName;
-    if (!session || !['SYSTEM_ADMIN', 'HR', 'MANAGER'].includes(role)) {
+    if (!session || !['SYSTEM_ADMIN', 'BOD', 'HR', 'MANAGER'].includes(role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 

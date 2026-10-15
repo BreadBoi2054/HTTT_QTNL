@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPayrolls, createPayroll, calculateMonthlyPayroll } from "@/services/payroll.service";
+import { getPayrolls, createPayroll, calculateMonthlyPayroll, bulkDisbursePayrolls } from "@/services/payroll.service";
 import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
@@ -32,14 +32,13 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
-    
+
     const roleName = (session.user as any).roleName;
-    if (!["SYSTEM_ADMIN", "HR"].includes(roleName)) {
+    if (!["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(roleName)) {
       return new NextResponse("Không có quyền tính lương.", { status: 403 });
     }
 
     const body = await req.json();
-
     const actorName = session.user.name || "Kế toán / HR";
 
     if (body.action === "calculate") {
@@ -53,6 +52,26 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[PAYROLL_POST]", error);
+    return new NextResponse(error.message || "Lỗi hệ thống", { status: 400 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const session = await auth();
+    if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
+
+    const roleName = (session.user as any).roleName;
+    if (!["SYSTEM_ADMIN", "BOD"].includes(roleName)) {
+      return new NextResponse("Chỉ Tổng Giám Đốc (BOD) hoặc Quản trị viên mới có thẩm quyền duyệt chi hàng loạt.", { status: 403 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const actorName = session.user.name || "Ban Giám Đốc";
+    const result = await bulkDisbursePayrolls(body.ids || [], actorName);
+    return NextResponse.json(result);
+  } catch (error: any) {
+    console.error("[PAYROLL_PATCH]", error);
     return new NextResponse(error.message || "Lỗi hệ thống", { status: 400 });
   }
 }

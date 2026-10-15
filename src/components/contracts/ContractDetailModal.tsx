@@ -27,7 +27,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+      className="printable-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in overflow-y-auto"
       onClick={onClose}
     >
       <div 
@@ -35,7 +35,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky Top Action Bar */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
+        <div className="no-print sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
               Chi tiết hợp đồng
@@ -66,7 +66,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
         </div>
 
         {/* Printable Legal Contract */}
-        <div className="p-8 space-y-6 text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 print:p-0">
+        <div className="printable-area p-8 space-y-6 text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 print:p-0">
           
           {/* National Motto & Form Letterhead */}
           <div className="text-center space-y-1 pb-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -87,7 +87,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
               HỢP ĐỒNG LAO ĐỘNG
             </h1>
             <p className="text-xs text-zinc-500">
-              Loại hình: <strong>{contract.type === "INDEFINITE" ? "Hợp đồng không xác định thời hạn" : contract.type === "PROBATION" ? "Hợp đồng thử việc" : "Hợp đồng xác định thời hạn"}</strong>
+              Loại hình: <strong>{contract.type === "INDEFINITE" ? "Hợp đồng không xác định thời hạn" : contract.type === "PROBATION" ? "Hợp đồng thử việc" : (contract.type || "Hợp đồng xác định thời hạn")}</strong>
             </p>
           </div>
 
@@ -110,7 +110,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
               <div>Họ và tên: <strong>{contract.employeeName}</strong></div>
               <div>Mã định danh cán bộ: {contract.employeeCode}</div>
               <div>Vị trí chuyên môn: <strong>{contract.position}</strong></div>
-              <div>Đơn vị trực thuộc: {contract.departmentName}</div>
+              <div>Đơn vị trực thuộc: {contract.departmentName || contract.department || "Chưa phân bổ"}</div>
               <div>Email công vụ: {contract.employeeEmail}</div>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
               <div className="p-3 border border-zinc-200 dark:border-zinc-800 rounded-lg space-y-1">
                 <span className="text-[11px] text-zinc-400">Thời hạn hợp đồng:</span>
                 <div className="font-medium text-zinc-900 dark:text-zinc-100">
-                  Từ ngày {contract.startDate} {contract.endDate ? `đến ngày ${contract.endDate}` : "(Vô thời hạn)"}
+                  Từ ngày {contract.startDate} {contract.endDate && contract.endDate !== "Không xác định" ? `đến ngày ${contract.endDate}` : "(Vô thời hạn)"}
                 </div>
               </div>
 
@@ -174,7 +174,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
         </div>
 
         {/* Sticky Bottom Action Bar with Exit Button */}
-        <div className="sticky bottom-0 z-20 flex items-center justify-between px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
+        <div className="no-print sticky bottom-0 z-20 flex items-center justify-between px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-sm print:hidden">
           <div className="text-xs text-zinc-500">
             Bấm <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-zinc-200 dark:bg-zinc-800 rounded border border-zinc-300 dark:border-zinc-700">Esc</kbd> hoặc nút Thoát để đóng
           </div>

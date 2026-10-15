@@ -4,22 +4,35 @@ import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Calendar, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
 import LeaveModal from "@/components/leave/LeaveModal";
 import { useSession } from "next-auth/react";
+import { useConfirm, TableSkeleton } from "@/components/providers/ToastProvider";
 
 export default function LeavePage() {
+  const confirm = useConfirm();
   const [requests, setRequests] = useState<any[]>([]);
+  const [leaveBalance, setLeaveBalance] = useState<any>({ allowance: 12, usedDays: 0, remainingDays: 12 });
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<any>(null);
   
   const { data: session } = useSession();
-  const isAdminOrManager = ["SYSTEM_ADMIN", "MANAGER", "HR"].includes((session?.user as any)?.roleName || "");
+  const isAdminOrManager = ["SYSTEM_ADMIN", "BOD", "MANAGER", "HR"].includes((session?.user as any)?.roleName || "");
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/leave");
-      const data = await res.json();
-      setRequests(data);
+      const [res, resBal] = await Promise.all([
+        fetch("/api/leave"),
+        fetch("/api/leave/balance")
+      ]);
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(Array.isArray(data) ? data : []);
+      }
+      if (resBal.ok) {
+        const bal = await resBal.json();
+        setLeaveBalance(bal);
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -32,7 +45,7 @@ export default function LeavePage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn rút/xóa đơn xin nghỉ này?")) return;
+    if (!(await confirm("Bạn có chắc chắn muốn rút/xóa đơn xin nghỉ này?"))) return;
     try {
       const res = await fetch(`/api/leave/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(await res.text());
@@ -46,21 +59,21 @@ export default function LeavePage() {
     switch (status) {
       case "APPROVED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-mono uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Đã duyệt
           </span>
         );
       case "REJECTED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-mono uppercase bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono uppercase bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
             Từ chối
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-mono uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             Đang chờ
           </span>
@@ -72,6 +85,7 @@ export default function LeavePage() {
     switch (type) {
       case "ANNUAL_LEAVE": return "Phép năm (Có lương)";
       case "SICK_LEAVE": return "Nghỉ ốm (Có lương)";
+      case "MATERNITY_LEAVE": return "Nghỉ thai sản";
       case "UNPAID_LEAVE": return "Nghỉ không lương";
       default: return type;
     }
@@ -81,19 +95,15 @@ export default function LeavePage() {
     return new Date(dateString).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
 
+  const filteredRequests = statusFilter === "ALL" ? requests : requests.filter((r) => r.status === statusFilter);
+
   return (
     <>
       <div className="space-y-6 pb-12 animate-swiss-in max-w-7xl mx-auto">
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-                <Calendar className="w-3.5 h-3.5" />
-                Quản lý Nghỉ phép & Đơn từ
-              </span>
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
               Đơn Từ & Nghỉ Phép Doanh Nghiệp
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -109,61 +119,100 @@ export default function LeavePage() {
           </button>
         </div>
 
+        {/* PERSONAL ANNUAL LEAVE BALANCE SUMMARY */}
+        <div className="bento-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-l-4 border-l-blue-600">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+              Quỹ phép cá nhân năm {new Date().getFullYear()}
+            </span>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
+              Số dư ngày phép hưởng lương của bạn
+            </h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
+              <div className="text-[10px] text-zinc-500 uppercase font-mono">Định mức</div>
+              <div className="text-base font-mono font-bold text-zinc-900 dark:text-zinc-100">{leaveBalance?.allowance ?? 12} ngày</div>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+              <div className="text-[10px] text-amber-600 dark:text-amber-400 uppercase font-mono">Đã dùng</div>
+              <div className="text-base font-mono font-bold text-amber-700 dark:text-amber-300">{leaveBalance?.usedDays ?? 0} ngày</div>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-mono">Còn lại</div>
+              <div className="text-base font-mono font-bold text-emerald-700 dark:text-emerald-300">{leaveBalance?.remainingDays ?? 12} ngày</div>
+            </div>
+          </div>
+        </div>
+
         {/* METRICS STRIP */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bento-card p-5 group">
+          <div className="bento-card p-5">
             <div className="flex items-start justify-between">
               <div>
                 <span className="swiss-label">Tổng số đơn</span>
-                <div className="text-3xl font-mono font-extrabold text-zinc-900 dark:text-zinc-100 mt-2">
+                <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight mt-2">
                   {requests.length}
                 </div>
               </div>
-              <div className="squircle w-10 h-10 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <Calendar className="w-5 h-5" />
+              <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
               </div>
             </div>
             <span className="text-xs text-zinc-400 mt-2 block">Toàn bộ hồ sơ trong cơ sở dữ liệu</span>
           </div>
 
-          <div className="bento-card p-5 group">
+          <div className="bento-card p-5">
             <div className="flex items-start justify-between">
               <div>
-                <span className="swiss-label text-amber-600 dark:text-amber-400">Chờ phê duyệt</span>
-                <div className="text-3xl font-mono font-extrabold text-amber-600 dark:text-amber-400 mt-2">
+                <span className="swiss-label">Chờ phê duyệt</span>
+                <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight mt-2">
                   {requests.filter(r => r.status === "PENDING").length}
                 </div>
               </div>
-              <div className="squircle w-10 h-10 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                <Clock className="w-5 h-5" />
+              <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
               </div>
             </div>
-            <span className="text-xs text-zinc-400 mt-2 block">Hồ sơ đang chờ quản lý thẩm định</span>
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-2 block">Hồ sơ đang chờ quản lý thẩm định</span>
           </div>
 
-          <div className="bento-card p-5 group">
+          <div className="bento-card p-5">
             <div className="flex items-start justify-between">
               <div>
-                <span className="swiss-label text-emerald-600 dark:text-emerald-400">Tỷ lệ chấp thuận</span>
-                <div className="text-3xl font-mono font-extrabold text-emerald-600 dark:text-emerald-400 mt-2">
+                <span className="swiss-label">Tỷ lệ chấp thuận</span>
+                <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight mt-2">
                   {requests.length > 0 ? Math.round((requests.filter(r => r.status === "APPROVED").length / requests.length) * 100) : 0}%
                 </div>
               </div>
-              <div className="squircle w-10 h-10 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                <CheckCircle2 className="w-5 h-5" />
+              <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
-            <span className="text-xs text-zinc-400 mt-2 block">Đơn đã được ban hành phê duyệt</span>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 block">Đơn đã được ban hành phê duyệt</span>
           </div>
         </div>
 
         {/* TABLE */}
         <div className="bento-card rounded-2xl overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/70 dark:bg-zinc-900/40">
+          <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-50/70 dark:bg-zinc-900/40">
             <div>
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 Danh sách Đơn Nghỉ phép
               </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-500">Trạng thái:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-800 dark:text-zinc-200 outline-none"
+              >
+                <option value="ALL">Tất cả ({requests.length})</option>
+                <option value="PENDING">Chờ duyệt ({requests.filter(r => r.status === "PENDING").length})</option>
+                <option value="APPROVED">Đã duyệt ({requests.filter(r => r.status === "APPROVED").length})</option>
+                <option value="REJECTED">Từ chối ({requests.filter(r => r.status === "REJECTED").length})</option>
+              </select>
             </div>
           </div>
 
@@ -181,9 +230,8 @@ export default function LeavePage() {
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60 text-xs">
                 {loading ? (
                   <tr>
-                    <td colSpan={isAdminOrManager ? 5 : 4} className="px-6 py-12 text-center text-zinc-500 font-mono">
-                      <div className="w-5 h-5 border-2 border-zinc-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-2" />
-                      Đang tải danh sách đơn...
+                    <td colSpan={isAdminOrManager ? 5 : 4} className="p-4">
+                      <TableSkeleton rows={5} cols={isAdminOrManager ? 5 : 4} />
                     </td>
                   </tr>
                 ) : requests.length === 0 ? (
@@ -193,7 +241,7 @@ export default function LeavePage() {
                     </td>
                   </tr>
                 ) : (
-                  requests.map((req) => (
+                  filteredRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors group">
                       {isAdminOrManager && (
                         <td className="px-5 py-3">

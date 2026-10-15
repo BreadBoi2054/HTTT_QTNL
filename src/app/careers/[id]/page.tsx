@@ -24,6 +24,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       .then(data => {
         setJob(data);
         setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
       });
   }, [resolvedParams.id]);
 
@@ -45,7 +48,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         })
       });
 
-      if (!res.ok) throw new Error("Có lỗi xảy ra khi nộp hồ sơ.");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Có lỗi xảy ra khi nộp hồ sơ.");
+      }
       setSuccess(true);
     } catch (err: any) {
       setError(err.message);
@@ -54,13 +60,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải thông tin...</div>;
-  if (!job || job.error) return <div className="min-h-screen flex items-center justify-center">Không tìm thấy công việc này.</div>;
+  if (loading) return <div className="min-h-dvh flex items-center justify-center">Đang tải thông tin...</div>;
+  if (!job || job.error) return <div className="min-h-dvh flex items-center justify-center">Không tìm thấy công việc này.</div>;
 
   if (success) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
-        <div className="bento-card p-8 rounded-3xl shadow-xl max-w-md w-full text-center space-y-6 animate-swiss-in">
+      <div className="min-h-dvh bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+        <div className="bento-card p-8 rounded-2xl shadow-xl max-w-md w-full text-center space-y-6 animate-swiss-in">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 squircle flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
@@ -70,7 +76,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               Cảm ơn bạn đã ứng tuyển vào vị trí <strong className="text-blue-600 dark:text-blue-400">{job.title}</strong>. Phòng nhân sự Nexustech sẽ phản hồi kết quả sơ loại CV qua email của bạn trong thời gian sớm nhất.
             </p>
           </div>
-          <Link href="/careers" className="inline-block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95">
+          <Link href="/careers" className="inline-block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-[0.98]">
             Quay lại danh sách việc làm
           </Link>
         </div>
@@ -79,13 +85,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 py-12">
+    <div className="min-h-dvh bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <Link href="/careers" className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-500 hover:text-blue-600 mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Trở lại danh sách tuyển dụng
         </Link>
 
-        <div className="bento-card rounded-3xl overflow-hidden shadow-xs">
+        <div className="bento-card rounded-2xl overflow-hidden shadow-xs">
           {/* Job Header */}
           <div className="p-8 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/60 dark:bg-zinc-900/40">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 mb-2.5">
@@ -140,7 +146,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   <p className="text-[11px] text-zinc-500 mt-1">Vui lòng mở quyền xem liên kết đối với file CV của bạn.</p>
                 </div>
                 
-                <button disabled={submitting} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm active:scale-95 disabled:opacity-70 mt-2">
+                <button disabled={submitting} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm active:scale-[0.98] disabled:opacity-70 mt-2">
                   {submitting ? "Đang gửi hồ sơ..." : "Nộp đơn ứng tuyển"}
                 </button>
               </form>

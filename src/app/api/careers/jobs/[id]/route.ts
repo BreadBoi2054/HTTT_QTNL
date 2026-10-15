@@ -8,7 +8,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       where: { id },
       include: { department: true }
     });
-    if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    if (!job || job.status !== 'OPEN') {
+      return NextResponse.json({ error: 'Job not found or closed' }, { status: 404 });
+    }
     return NextResponse.json(job);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ShieldCheck, CheckCircle2, Copy, Check, Lock, Terminal, Clock, User, Globe } from "lucide-react";
+import { X, ShieldCheck, CheckCircle2, Clock, User, Globe } from "lucide-react";
 
 interface AuditLogDetailModalProps {
   isOpen: boolean;
@@ -10,7 +10,6 @@ interface AuditLogDetailModalProps {
 }
 
 export default function AuditLogDetailModal({ isOpen, onClose, log }: AuditLogDetailModalProps) {
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -23,21 +22,6 @@ export default function AuditLogDetailModal({ isOpen, onClose, log }: AuditLogDe
   }, [isOpen, onClose]);
 
   if (!isOpen || !log) return null;
-
-  // SHA-256 visual enterprise tamper-proof verification
-  const rawString = `${log.id}-${log.createdAt}-${log.userName}-${log.action}`;
-  let hashNum = 0;
-  for (let i = 0; i < rawString.length; i++) {
-    hashNum = (hashNum << 5) - hashNum + rawString.charCodeAt(i);
-    hashNum |= 0;
-  }
-  const mockSha256 = `0x${Math.abs(hashNum).toString(16).padStart(8, "0")}e92b8f44d18721c4fa92b5${log.id.replace(/-/g, "").slice(0, 16)}`;
-
-  const handleCopyHash = () => {
-    navigator.clipboard.writeText(mockSha256);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div 
@@ -100,7 +84,7 @@ export default function AuditLogDetailModal({ isOpen, onClose, log }: AuditLogDe
             <div>
               <span className="text-zinc-500 text-[11px] font-medium">Địa chỉ IP & Cổng:</span>
               <div className="font-mono text-zinc-800 dark:text-zinc-200 mt-0.5">
-                {log.ip || "127.0.0.1"} (Intranet VPN)
+                {log.ip || "Không ghi nhận"}
               </div>
             </div>
           </div>
@@ -127,27 +111,8 @@ export default function AuditLogDetailModal({ isOpen, onClose, log }: AuditLogDe
             </div>
           </div>
 
-          {/* Cryptographic Tamper-Proof Seal */}
-          <div className="p-3.5 bg-zinc-900 text-zinc-300 dark:bg-zinc-950 dark:text-zinc-300 rounded-xl border border-zinc-800 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
-                <Lock className="w-3.5 h-3.5" /> Chữ ký xác thực bất biến (SHA-256)
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyHash}
-                className="text-zinc-400 hover:text-white flex items-center gap-1 text-xs transition-colors"
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? "Đã sao chép" : "Sao chép hash"}
-              </button>
-            </div>
-            <div className="text-xs font-mono break-all text-zinc-100 bg-black/40 p-2.5 rounded-lg border border-zinc-800">
-              {mockSha256}
-            </div>
-            <div className="text-[11px] text-zinc-400">
-              Bản ghi đã được niêm phong chống sửa đổi theo tiêu chuẩn kiểm toán hệ thống SOC 2 Type II và ISO/IEC 27001.
-            </div>
+          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900 text-xs text-amber-900 dark:text-amber-200">
+            Mã sự kiện là mã bản ghi cơ sở dữ liệu. Hệ thống hiện chưa tạo chữ ký số hoặc cơ chế lưu trữ bất biến cho nhật ký.
           </div>
 
           <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">

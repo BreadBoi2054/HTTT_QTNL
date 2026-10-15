@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Target, 
   Award, 
@@ -173,14 +173,75 @@ const initialEvaluations: EvaluationItem[] = [
 ];
 
 export default function PerformancePage() {
-  const [evaluations, setEvaluations] = useState<EvaluationItem[]>(initialEvaluations);
+  const [evaluations, setEvaluations] = useState<EvaluationItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("ALL");
   const [selectedGrade, setSelectedGrade] = useState("ALL");
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationItem | null>(null);
 
-  const handleSaveEvaluation = (updated: EvaluationItem) => {
-    setEvaluations(evaluations.map(e => e.id === updated.id ? updated : e));
+  const fetchEvaluations = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/performance");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const mapped: EvaluationItem[] = data.map((e: any) => ({
+            id: e.id,
+            employeeName: e.employee?.user?.name || "Cán bộ nhân viên",
+            employeeCode: `NX-${e.employee?.id?.slice(-5).toUpperCase() || "00000"}`,
+            department: e.employee?.department?.name || "Khối Công Nghệ",
+            position: e.employee?.position || "Chuyên viên",
+            selfScore: e.selfScore,
+            managerScore: e.managerScore,
+            criterion1: e.criterion1,
+            criterion2: e.criterion2,
+            criterion3: e.criterion3,
+            totalScore: e.totalScore,
+            grade: e.grade,
+            bonus: e.bonusRate > 0 ? `+${Math.round(e.bonusRate * 100)}% Lương CB` : (e.bonusRate < 0 ? `-10% Phạt KPI` : "0% Lương CB"),
+            status: e.status,
+            managerNotes: e.managerNotes
+          }));
+          setEvaluations(mapped);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load evaluations", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvaluations();
+  }, []);
+
+  const handleSaveEvaluation = async (updated: EvaluationItem) => {
+    try {
+      const res = await fetch(`/api/performance/${updated.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          criterion1: updated.criterion1,
+          criterion2: updated.criterion2,
+          criterion3: updated.criterion3,
+          selfScore: updated.selfScore,
+          managerScore: updated.managerScore,
+          status: updated.status,
+          managerNotes: updated.managerNotes
+        })
+      });
+      if (res.ok) {
+        await fetchEvaluations();
+      } else {
+        setEvaluations(evaluations.map(e => e.id === updated.id ? updated : e));
+      }
+    } catch (err) {
+      console.error(err);
+      setEvaluations(evaluations.map(e => e.id === updated.id ? updated : e));
+    }
   };
 
   const filteredData = evaluations.filter(e => {
@@ -233,7 +294,7 @@ export default function PerformancePage() {
   const countGradeA = evaluations.filter(e => e.grade.includes("HẠNG A")).length;
   const countGradeB = evaluations.filter(e => e.grade.includes("HẠNG B")).length;
   const countGradeC = evaluations.filter(e => e.grade.includes("HẠNG C")).length;
-  const avgScore = Math.round(evaluations.reduce((acc, curr) => acc + curr.totalScore, 0) / evaluations.length * 10) / 10;
+  const avgScore = evaluations.length > 0 ? Math.round(evaluations.reduce((acc, curr) => acc + curr.totalScore, 0) / evaluations.length * 10) / 10 : 0;
 
   return (
     <>
@@ -241,13 +302,7 @@ export default function PerformancePage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
-                <Target className="w-3.5 h-3.5" />
-                Hiệu Suất & Đánh Giá KPI
-              </span>
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
               Đánh Giá Hiệu Suất & KPI Định Kỳ
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -267,60 +322,93 @@ export default function PerformancePage() {
           </div>
         </div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bento-card p-5 group">
-            <div className="flex items-start justify-between mb-2">
-              <span className="swiss-label">Tổng nhân sự đánh giá</span>
-              <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <Users className="w-4 h-4" />
+        {/* Asymmetric Bell Curve & KPI Distribution Strip */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          <div className="lg:col-span-5 rounded-2xl bg-zinc-900 dark:bg-zinc-950 text-white p-6 border border-zinc-800 flex flex-col justify-between shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400">
+                  Điểm hiệu suất trung bình · Quý 4/2026
+                </span>
+                <div className="flex items-baseline gap-2.5 mt-2">
+                  <span className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-white">
+                    {avgScore}
+                  </span>
+                  <span className="text-xs font-mono text-zinc-400">/ 100 điểm</span>
+                </div>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-blue-400 shrink-0">
+                <TrendingUp className="w-5 h-5" />
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
-              {evaluations.length}
+
+            <div className="mt-5 pt-4 border-t border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span>Phân bổ Bell Curve ({evaluations.length} nhân sự)</span>
+                <span className="text-emerald-400 font-semibold">Đạt chuẩn kỳ vọng</span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden flex">
+                <div
+                  className="h-full bg-emerald-500"
+                  style={{ width: `${evaluations.length > 0 ? (countGradeA / evaluations.length) * 100 : 0}%` }}
+                />
+                <div
+                  className="h-full bg-blue-500"
+                  style={{ width: `${evaluations.length > 0 ? (countGradeB / evaluations.length) * 100 : 0}%` }}
+                />
+                <div
+                  className="h-full bg-amber-500"
+                  style={{ width: `${evaluations.length > 0 ? (countGradeC / evaluations.length) * 100 : 0}%` }}
+                />
+              </div>
             </div>
-            <div className="text-xs text-zinc-400 mt-1">Đợt đánh giá Quý 4/2026</div>
           </div>
 
-          <div className="bento-card p-5 group">
-            <div className="flex items-start justify-between mb-2">
-              <span className="swiss-label">Điểm TB toàn công ty</span>
-              <div className="squircle w-9 h-9 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                <TrendingUp className="w-4 h-4" />
+          <div className="lg:col-span-7 bento-card p-0 overflow-hidden grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800">
+            <div className="p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="swiss-label">Hạng A · Xuất sắc</span>
+                <Award className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+                  {countGradeA} <span className="text-xs font-normal text-zinc-500 font-sans">nhân sự</span>
+                </div>
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                  Thưởng hiệu suất +25%
+                </div>
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
-              {avgScore} <span className="text-xs font-normal text-zinc-500 font-sans">/ 100</span>
-            </div>
-            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-semibold flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Đạt chuẩn kỳ vọng
-            </div>
-          </div>
 
-          <div className="bento-card p-5 group">
-            <div className="flex items-start justify-between mb-2">
-              <span className="swiss-label">Hạng A (Xuất sắc)</span>
-              <div className="squircle w-9 h-9 bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-colors">
-                <Award className="w-4 h-4" />
+            <div className="p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="swiss-label">Hạng B · Tốt</span>
+                <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+                  {countGradeB} <span className="text-xs font-normal text-zinc-500 font-sans">nhân sự</span>
+                </div>
+                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                  Thưởng hiệu suất +10%
+                </div>
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-violet-600 dark:text-violet-400 font-mono tracking-tight">
-              {countGradeA}
-            </div>
-            <div className="text-xs text-zinc-400 mt-1">Thưởng hiệu suất 25%</div>
-          </div>
 
-          <div className="bento-card p-5 group">
-            <div className="flex items-start justify-between mb-2">
-              <span className="swiss-label">Hạng B & C</span>
-              <div className="squircle w-9 h-9 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                <BarChart3 className="w-4 h-4" />
+            <div className="p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="swiss-label">Hạng C · Đạt chuẩn</span>
+                <Users className="w-4 h-4 text-zinc-400" />
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+                  {countGradeC} <span className="text-xs font-normal text-zinc-500 font-sans">nhân sự</span>
+                </div>
+                <div className="text-xs text-zinc-500 mt-1">
+                  Hệ số thưởng tiêu chuẩn 0%
+                </div>
               </div>
             </div>
-            <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400 font-mono tracking-tight">
-              {countGradeB + countGradeC}
-            </div>
-            <div className="text-xs text-zinc-400 mt-1">Hoàn thành tốt & Đạt</div>
           </div>
         </div>
 
@@ -334,7 +422,7 @@ export default function PerformancePage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm theo tên cán bộ, mã nhân sự..."
-                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs font-mono"
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs"
               />
             </div>
 
@@ -342,7 +430,7 @@ export default function PerformancePage() {
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
               >
                 <option value="ALL">Tất cả phòng ban</option>
                 <option value="Khối Công Nghệ & Phần Mềm">Khối Công Nghệ & Phần Mềm</option>
@@ -356,12 +444,13 @@ export default function PerformancePage() {
               <select
                 value={selectedGrade}
                 onChange={(e) => setSelectedGrade(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
               >
                 <option value="ALL">Tất cả xếp loại</option>
                 <option value="HẠNG A">Hạng A (Xuất sắc)</option>
                 <option value="HẠNG B">Hạng B (Hoàn thành tốt)</option>
                 <option value="HẠNG C">Hạng C (Đạt yêu cầu)</option>
+                <option value="HẠNG D">Hạng D (Cần cải thiện)</option>
               </select>
             </div>
           </div>

@@ -10,9 +10,12 @@ export default function JobManagementView() {
   const [editingJob, setEditingJob] = useState<any>(null);
 
   // Form states
+  const [departments, setDepartments] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [headcount, setHeadcount] = useState(1);
+  const [departmentId, setDepartmentId] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState("OPEN");
 
   const fetchJobs = async () => {
@@ -30,13 +33,19 @@ export default function JobManagementView() {
 
   useEffect(() => {
     fetchJobs();
+    fetch("/api/departments")
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        if (Array.isArray(data)) setDepartments(data);
+      })
+      .catch(console.error);
     setIsFormOpen(false);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = { title, description, headcount, status };
+      const payload = { title, description, headcount, status, departmentId: departmentId || null, dueDate: dueDate || null };
       const url = editingJob ? `/api/recruitment/jobs/${editingJob.id}` : "/api/recruitment/jobs";
       const method = editingJob ? "PATCH" : "POST";
       
@@ -68,6 +77,8 @@ export default function JobManagementView() {
     setTitle(job ? job.title : "");
     setDescription(job ? job.description : "");
     setHeadcount(job ? job.headcount : 1);
+    setDepartmentId(job?.departmentId || "");
+    setDueDate(job?.dueDate ? new Date(job.dueDate).toISOString().slice(0, 10) : "");
     setStatus(job ? job.status : "OPEN");
     setIsFormOpen(true);
   };
@@ -110,7 +121,35 @@ export default function JobManagementView() {
                   min={1} 
                   value={headcount} 
                   onChange={e => setHeadcount(Number(e.target.value))} 
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg font-mono text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors" 
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Phòng ban tuyển dụng
+                </label>
+                <select
+                  value={departmentId}
+                  onChange={e => setDepartmentId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
+                >
+                  <option value="">-- Tất cả / Văn phòng Tập đoàn --</option>
+                  {departments.map((d: any) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Hạn nộp hồ sơ
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={e => setDueDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
                 />
               </div>
 
@@ -232,7 +271,7 @@ export default function JobManagementView() {
                             </button>
                             <button 
                               onClick={() => handleDelete(job.id, job.title)} 
-                              className="p-1.5 rounded-md text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                              className="p-1.5 rounded-md text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                               title="Xóa"
                             >
                               <Trash2 className="w-3.5 h-3.5"/>

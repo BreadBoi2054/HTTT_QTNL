@@ -10,8 +10,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Nếu là USER bình thường, ta có thể hạn chế dữ liệu trả về
     const isUser = (session?.user as any)?.roleName === 'USER';
+    if (isUser) {
+      return NextResponse.json({
+        totalEmployees: null,
+        attendanceToday: null,
+        headcountByDept: null,
+        activeJobs: null,
+        recentApplications: null
+      });
+    }
 
     // 1. Tổng nhân sự
     const totalEmployees = await prisma.employeeProfile.count();
@@ -71,17 +79,6 @@ export async function GET() {
       status: app.status,
       createdAt: app.createdAt
     }));
-
-    if (isUser) {
-      // Ẩn dữ liệu nhạy cảm đối với tài khoản USER
-      return NextResponse.json({
-        totalEmployees,
-        attendanceToday: null,
-        headcountByDept: null,
-        activeJobs,
-        recentApplications: null
-      });
-    }
 
     return NextResponse.json({
       totalEmployees,

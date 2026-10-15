@@ -8,16 +8,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
 
     const roleName = (session.user as any).roleName;
-    if (!["SYSTEM_ADMIN", "HR"].includes(roleName)) {
-      return new NextResponse("Chỉ Quản trị viên hoặc Nhân sự (C&B) mới có quyền chỉnh sửa phiếu lương.", { status: 403 });
+    if (!["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(roleName)) {
+      return new NextResponse("Chỉ Quản trị viên, Ban Giám Đốc, Kế toán hoặc Nhân sự mới có quyền chỉnh sửa phiếu lương.", { status: 403 });
     }
 
     const { id } = await params;
     const body = await req.json();
 
-    // Duyệt chi trả (PAID) chỉ dành riêng cho SYSTEM_ADMIN
-    if (body.status === "PAID" && roleName !== "SYSTEM_ADMIN") {
-      return new NextResponse("Chỉ Quản trị viên cấp cao / Lãnh đạo mới có quyền duyệt chi trả (PAID).", { status: 403 });
+    // Duyệt chi trả (PAID) dành riêng cho Ban Giám Đốc (BOD) hoặc Quản trị viên cấp cao
+    if (body.status === "PAID" && !["SYSTEM_ADMIN", "BOD"].includes(roleName)) {
+      return new NextResponse("Chỉ Ban Giám Đốc (BOD) hoặc Quản trị viên cấp cao mới có quyền duyệt chi trả (PAID).", { status: 403 });
     }
 
     const actorName = session.user?.name || "Kế toán / HR";
@@ -35,8 +35,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
 
     const roleName = (session.user as any).roleName;
-    if (roleName !== "SYSTEM_ADMIN") {
-      return new NextResponse("Chỉ Quản trị viên hệ thống (SYSTEM_ADMIN) mới có quyền xóa phiếu lương khỏi sổ sách.", { status: 403 });
+    if (!["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(roleName)) {
+      return new NextResponse("Chỉ Quản trị viên, Ban Giám Đốc, Kế toán hoặc Nhân sự mới có quyền xóa phiếu lương nháp (DRAFT).", { status: 403 });
     }
 
     const { id } = await params;

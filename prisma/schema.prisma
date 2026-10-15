@@ -52,10 +52,14 @@ model EmployeeProfile {
   phone        String?
   address      String?
   joinDate     DateTime @default(now())
+  annualLeaveDays Float   @default(12)
+  dependentCount Int     @default(0)
   attendances  Attendance[]
   payrolls     Payroll[]
   leaveRequests LeaveRequest[]
   salaryConfig  EmployeeSalaryConfig?
+  evaluations   PerformanceEvaluation[]
+  contracts     Contract[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -222,6 +226,18 @@ model Survey {
   status      String   @default("ACTIVE") // "ACTIVE", "CLOSED"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  responses   SurveyResponse[]
+}
+
+model SurveyResponse {
+  id            String   @id @default(cuid())
+  surveyId      String
+  survey        Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  respondentKey String
+  score         Float
+  createdAt     DateTime @default(now())
+
+  @@unique([surveyId, respondentKey])
 }
 
 model SuccessionPlan {
@@ -249,5 +265,43 @@ model AuditLog {
   ip        String
   status    String   // "SUCCESS", "WARNING", "CRITICAL"
   createdAt DateTime @default(now())
+}
+
+model PerformanceEvaluation {
+  id           String          @id @default(cuid())
+  employeeId   String
+  employee     EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  period       String          @default("Q4-2026") // e.g. "Q4-2026", "2026-10"
+  year         Int             @default(2026)
+  selfScore    Float           @default(80)
+  managerScore Float           @default(80)
+  criterion1   Float           @default(80) // Mục tiêu công việc chính (50%)
+  criterion2   Float           @default(80) // Kỷ luật & Văn hóa tập đoàn (25%)
+  criterion3   Float           @default(80) // Sáng kiến & Đổi mới sáng tạo (25%)
+  totalScore   Float           @default(80)
+  grade        String          @default("HẠNG B (HOÀN THÀNH TỐT)") // HẠNG A (XUẤT SẮC), HẠNG B (HOÀN THÀNH TỐT), HẠNG C (ĐẠT YÊU CẦU), HẠNG D (CẦN CẢI THIỆN)
+  bonusRate    Float           @default(0.10) // 0.25 (25%), 0.10 (10%), 0.0, -0.10
+  status       String          @default("APPROVED") // APPROVED, PENDING_REVIEW, SELF_ASSESSED
+  managerNotes String?         @db.Text
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([employeeId, period, year])
+}
+
+model Contract {
+  id           String          @id @default(cuid())
+  code         String          @unique // e.g. "HĐLĐ-2024/NX-08942"
+  employeeId   String
+  employee     EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  contractType String          // "Hợp đồng Không xác định thời hạn", "Hợp đồng Xác định thời hạn 12 tháng", "Hợp đồng Thử việc (02 tháng)"
+  startDate    DateTime
+  endDate      DateTime?       // null nếu là Không xác định thời hạn
+  salary       Float           // Mức lương đóng BHXH / cơ bản theo hợp đồng
+  status       String          @default("ACTIVE") // "ACTIVE", "EXPIRING_SOON", "EXPIRED", "TERMINATED"
+  note         String?         @db.Text
+  fileUrl      String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 }
 

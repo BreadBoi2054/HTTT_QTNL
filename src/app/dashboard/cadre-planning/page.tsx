@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { 
   Award, 
   ShieldCheck, 
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Building2
 } from "lucide-react";
+import { CardGridSkeleton } from "@/components/providers/ToastProvider";
 
 interface SuccessionPlan {
   id: string;
@@ -32,6 +34,9 @@ interface SuccessionPlan {
 }
 
 export default function CadrePlanningPage() {
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.roleName || "USER";
+  const canApprovePlan = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
   const [activeView, setActiveView] = useState<"pipeline" | "nineBox">("pipeline");
   const [plans, setPlans] = useState<SuccessionPlan[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -107,9 +112,29 @@ export default function CadrePlanningPage() {
           mentor: "",
           plannedYear: "2026 - 2028",
         });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể tạo đề xuất quy hoạch cán bộ.");
       }
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleUpdatePlan = async (id: string, payload: { status?: string; readiness?: string }) => {
+    try {
+      const res = await fetch("/api/cadre-planning", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...payload }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Không thể cập nhật quy hoạch cán bộ.");
+      }
+      fetchPlans();
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -138,13 +163,7 @@ export default function CadrePlanningPage() {
       {/* Editorial Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-              <Award className="w-3.5 h-3.5" />
-              Chiến Lược Nhân Tài & Kế Nhiệm
-            </span>
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
             Quy Hoạch Cán Bộ & Lãnh Đạo Dự Nguồn
           </h1>
           <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -190,48 +209,60 @@ export default function CadrePlanningPage() {
 
       {/* 4 Stat Bento Tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Độ bao phủ quy hoạch</span>
-            <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-all">
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tổng vị trí quy hoạch</span>
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-blue-600 dark:text-blue-400">92%</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">11/12 vị trí trọng yếu có nguồn</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">{plans.length}</div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">
+            {new Set(plans.map((p) => p.department)).size} phòng ban trọng yếu
+          </div>
         </div>
 
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Cán bộ quy hoạch nguồn</span>
-            <div className="squircle w-9 h-9 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-all">
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sẵn sàng bổ nhiệm ngay</span>
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <Award className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">{plans.length || 18}</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Lãnh đạo dự nguồn tiềm năng</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+            {plans.filter((p) => p.readiness === "READY_NOW").length}
+          </div>
+          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+            {plans.length > 0 ? Math.round((plans.filter((p) => p.readiness === "READY_NOW").length / plans.length) * 100) : 0}% tổng nguồn kế cận
+          </div>
         </div>
 
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Chỉ số sẵn sàng</span>
-            <div className="squircle w-9 h-9 bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-all">
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tiềm năng phát triển cao</span>
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <Target className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-purple-600 dark:text-purple-400">85.4%</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Sẵn sàng tiếp quản công việc</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+            {plans.filter((p) => p.potentialScore === "HIGH").length}
+          </div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">
+            {plans.length > 0 ? Math.round((plans.filter((p) => p.potentialScore === "HIGH").length / plans.length) * 100) : 0}% đạt mức High Potential
+          </div>
         </div>
 
-        <div className="bento-card p-5 group">
+        <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tỷ lệ giữ chân</span>
-            <div className="squircle w-9 h-9 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 group-hover:scale-105 transition-all">
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Đã phê duyệt quy hoạch</span>
+            <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold font-mono tracking-tight text-teal-600 dark:text-teal-400">98%</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Chế độ đãi ngộ & thăng tiến</div>
+          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+            {plans.filter((p) => p.status === "APPROVED").length}/{plans.length}
+          </div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Hồ sơ quy hoạch chính thức</div>
         </div>
       </div>
 
@@ -239,9 +270,7 @@ export default function CadrePlanningPage() {
       {activeView === "pipeline" && (
         <div className="space-y-3">
           {loading ? (
-            <div className="p-16 text-center text-zinc-500 text-xs">
-              Đang tải danh sách quy hoạch...
-            </div>
+            <CardGridSkeleton count={3} />
           ) : (
             plans.map((item) => (
               <div
@@ -313,58 +342,52 @@ export default function CadrePlanningPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 text-center">
-            {/* Row 1: High Potential */}
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/30 text-left">
-              <div className="text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">Enigma / Hạt giống thô</div>
-              <p className="text-[11px] text-zinc-500 mb-3">Tiềm năng Cao - Hiệu suất TB</p>
-              <div className="text-xs bg-white dark:bg-zinc-900 p-2.5 rounded-xl font-semibold border border-zinc-200 dark:border-zinc-800 shadow-2xs">Lê Quốc Bảo</div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/30 text-left">
-              <div className="text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">Ngôi sao đang lên (Growth Star)</div>
-              <p className="text-[11px] text-zinc-500 mb-3">Tiềm năng Cao - Hiệu suất Khá</p>
-              <div className="text-xs bg-white dark:bg-zinc-900 p-2.5 rounded-xl font-semibold border border-zinc-200 dark:border-zinc-800 shadow-2xs">Trần Thị Mai</div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30 text-left">
-              <div className="text-xs font-extrabold text-blue-700 dark:text-blue-400 mb-0.5">Nhân sự hạt giống (Top Talent)</div>
-              <p className="text-[11px] text-blue-600/80 dark:text-blue-400/80 mb-3">Tiềm năng Xuất sắc - Hiệu suất Cao</p>
-              <div className="text-xs bg-white dark:bg-zinc-900 p-2.5 rounded-xl font-bold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shadow-2xs">
-                Nguyễn Văn An (Lead)
-              </div>
-            </div>
-
-            {/* Row 2: Medium Potential */}
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/20 text-left">
-              <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-0.5">Dilemma</div>
-              <p className="text-[11px] text-zinc-500">Tiềm năng TB - Hiệu suất TB</p>
-            </div>
-
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/20 text-left">
-              <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-0.5">Thành viên nòng cốt (Core Contributor)</div>
-              <p className="text-[11px] text-zinc-500">Tiềm năng TB - Hiệu suất Khá</p>
-            </div>
-
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/20 text-left">
-              <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-0.5">Hiệu suất cao (High Impact)</div>
-              <p className="text-[11px] text-zinc-500">Tiềm năng TB - Hiệu suất Cao</p>
-            </div>
-
-            {/* Row 3: Low Potential */}
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-800/10 text-left">
-              <div className="text-xs font-medium text-zinc-500 mb-0.5">Cần cải thiện (Underperformer)</div>
-              <p className="text-[11px] text-zinc-400">Cần kế hoạch cải thiện</p>
-            </div>
-
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-800/10 text-left">
-              <div className="text-xs font-medium text-zinc-500 mb-0.5">Chuyên môn ổn định (Effective Player)</div>
-              <p className="text-[11px] text-zinc-400">Chuyên môn ổn định</p>
-            </div>
-
-            <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-800/10 text-left">
-              <div className="text-xs font-medium text-zinc-500 mb-0.5">Chuyên gia tin cậy (Trusted Expert)</div>
-              <p className="font-mono text-[10px] text-zinc-400">Chuyên gia cốt cán</p>
-            </div>
+            {[
+              { title: "Enigma / Hạt giống thô", desc: "Tiềm năng Cao - Đang bồi dưỡng", pot: "HIGH", read: "DEVELOPING", highlight: false },
+              { title: "Ngôi sao đang lên (Growth Star)", desc: "Tiềm năng Cao - Dự nguồn 1-2 năm", pot: "HIGH", read: "READY_1_2_YEARS", highlight: false },
+              { title: "Nhân sự hạt giống (Top Talent)", desc: "Tiềm năng Cao - Sẵn sàng ngay", pot: "HIGH", read: "READY_NOW", highlight: true },
+              { title: "Dilemma", desc: "Tiềm năng TB - Đang bồi dưỡng", pot: "MEDIUM", read: "DEVELOPING", highlight: false },
+              { title: "Thành viên nòng cốt (Core Contributor)", desc: "Tiềm năng TB - Dự nguồn 1-2 năm", pot: "MEDIUM", read: "READY_1_2_YEARS", highlight: false },
+              { title: "Hiệu suất cao (High Impact)", desc: "Tiềm năng TB - Sẵn sàng ngay", pot: "MEDIUM", read: "READY_NOW", highlight: false },
+              { title: "Cần cải thiện (Underperformer)", desc: "Tiềm năng Thấp - Đang bồi dưỡng", pot: "LOW", read: "DEVELOPING", highlight: false },
+              { title: "Chuyên môn ổn định (Effective Player)", desc: "Tiềm năng Thấp - Dự nguồn 1-2 năm", pot: "LOW", read: "READY_1_2_YEARS", highlight: false },
+              { title: "Chuyên gia tin cậy (Trusted Expert)", desc: "Tiềm năng Thấp - Sẵn sàng ngay", pot: "LOW", read: "READY_NOW", highlight: false },
+            ].map((cell) => {
+              const cellPlans = plans.filter(
+                (p) => (p.potentialScore || "HIGH") === cell.pot && (p.readiness || "READY_1_2_YEARS") === cell.read
+              );
+              return (
+                <div
+                  key={cell.title}
+                  className={
+                    cell.highlight
+                      ? "p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30 text-left"
+                      : "p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 text-left"
+                  }
+                >
+                  <div className={cell.highlight ? "text-xs font-extrabold text-blue-700 dark:text-blue-400 mb-0.5" : "text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5"}>
+                    {cell.title}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mb-3">{cell.desc}</p>
+                  <div className="space-y-1.5">
+                    {cellPlans.length === 0 ? (
+                      <div className="text-[11px] text-zinc-400 italic">Chưa có nhân sự</div>
+                    ) : (
+                      cellPlans.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => setSelectedRoadmapItem(p)}
+                          className="cursor-pointer text-xs bg-white dark:bg-zinc-900 p-2 rounded-xl font-semibold border border-zinc-200 dark:border-zinc-800 shadow-2xs hover:border-blue-400 transition-colors"
+                        >
+                          <div>{p.successorName}</div>
+                          <div className="text-[10px] text-zinc-400 font-normal truncate">{p.position}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

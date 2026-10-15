@@ -16,10 +16,9 @@ export async function GET(req: Request) {
 
     let whereClause: any = {};
     if (month && year) {
-      const startDate = new Date(Number(year), Number(month) - 1, 1);
-      const lastDay = new Date(Number(year), Number(month), 0).getDate();
-      const endDate = new Date(Number(year), Number(month) - 1, lastDay, 23, 59, 59, 999);
-      
+      const startDate = new Date(Date.UTC(Number(year), Number(month) - 1, 1, 0, 0, 0, 0));
+      const endDate = new Date(Date.UTC(Number(year), Number(month), 0, 23, 59, 59, 999));
+
       whereClause.date = {
         gte: startDate,
         lte: endDate,
@@ -67,7 +66,7 @@ export async function GET(req: Request) {
       'Họ tên': record.employee.user.name,
       'Email': record.employee.user.email,
       'Phòng ban': record.employee.department?.name || 'N/A',
-      'Ngày làm việc': record.date.toISOString().split('T')[0],
+      'Ngày làm việc': record.date.toLocaleDateString("vi-VN", { timeZone: "UTC" }),
       'Giờ Check-in': record.checkIn ? new Date(record.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
       'Giờ Check-out': record.checkOut ? new Date(record.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
       'Trạng thái': record.status,

@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Search, ShieldCheck } from "lucide-react";
 import RoleModal from "@/components/roles/RoleModal";
+import { useConfirm, TableSkeleton } from "@/components/providers/ToastProvider";
+import { AVAILABLE_PERMISSIONS } from "@/lib/constants";
 
 export default function RolesPage() {
+  const confirm = useConfirm();
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -28,14 +31,21 @@ export default function RolesPage() {
     fetchRoles();
   }, []);
 
+  const CORE_ROLES = ["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "ACCOUNTANT", "USER"];
+
   const handleDelete = async (id: string, name: string) => {
-    if (name === "SYSTEM_ADMIN") {
-      alert("Không thể xóa vai trò quản trị hệ thống gốc.");
+    if (CORE_ROLES.includes(name)) {
+      alert("Không thể xóa vai trò lõi của hệ thống (" + name + ").");
       return;
     }
-    if (!confirm("Bạn có chắc chắn muốn xóa vai trò này?")) return;
+    if (!(await confirm("Bạn có chắc chắn muốn xóa vai trò này?"))) return;
     try {
-      await fetch(`/api/roles/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/roles/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const errText = await res.text();
+        alert(errText || "Không thể xóa vai trò này.");
+        return;
+      }
       fetchRoles();
     } catch (error) {
       console.error(error);
@@ -48,8 +58,8 @@ export default function RolesPage() {
   };
 
   const openEditModal = (role: any) => {
-    if (role.name === "SYSTEM_ADMIN") {
-      alert("Không thể chỉnh sửa vai trò quản trị hệ thống gốc.");
+    if (role.name === "SYSTEM_ADMIN" || role.name === "BOD") {
+      alert("Không thể chỉnh sửa vai trò quản trị hệ thống hoặc Ban Giám Đốc gốc.");
       return;
     }
     setSelectedRole(role);
@@ -59,17 +69,17 @@ export default function RolesPage() {
   const filteredData = roles.filter((r) => 
     r.name.toLowerCase().includes(search.toLowerCase())
   );
+  const getPermissionLabels = (role: { permissions?: string | null }) => {
+    const ids = String(role.permissions || "").split(",").map((permission) => permission.trim()).filter(Boolean);
+    return ids.map((id) => AVAILABLE_PERMISSIONS.find((permission) => permission.id === id)?.label || id);
+  };
 
   return (
     <div className="space-y-6 animate-swiss-in pb-12 max-w-7xl mx-auto">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
         <div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Phân Quyền Người Dùng & RBAC
-          </span>
-          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
             Quản Lý Vai Trò & Phân Quyền
           </h1>
           <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -103,8 +113,8 @@ export default function RolesPage() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="hidden lg:block overflow-x-auto">
+          <table className="min-w-[760px] w-full text-left border-collapse">
             <thead>
               <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-b border-zinc-100 dark:border-zinc-800 uppercase tracking-wider">
                 <th className="px-5 py-3.5">Tên vai trò</th>
@@ -116,9 +126,8 @@ export default function RolesPage() {
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-zinc-500 text-xs">
-                    <div className="w-5 h-5 border-2 border-zinc-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-2" />
-                    Đang tải cấu hình vai trò...
+                  <td colSpan={4} className="p-4">
+                    <TableSkeleton rows={5} cols={4} />
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (
@@ -147,8 +156,12 @@ export default function RolesPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-xs text-zinc-600 dark:text-zinc-400 max-w-md truncate">
-                      {role.permissions || "STANDARD_DEFAULT_ACCESS"}
+                    <td className="px-5 py-3.5 text-xs text-zinc-600 dark:text-zinc-400 max-w-xl">
+                      <div className="flex flex-wrap gap-1.5">
+                        {getPermissionLabels(role).length ? getPermissionLabels(role).map((permission) => (
+                          <span key={permission} className="rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-1 text-[11px] leading-snug">{permission}</span>
+                        )) : <span className="text-zinc-400">Quyền mặc định</span>}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full text-xs font-bold font-mono text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60">
@@ -165,13 +178,15 @@ export default function RolesPage() {
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button 
-                            onClick={() => handleDelete(role.id, role.name)} 
-                            className="p-1.5 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all shadow-2xs"
-                            title="Xóa"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {!CORE_ROLES.includes(role.name) && (
+                            <button 
+                              onClick={() => handleDelete(role.id, role.name)} 
+                              className="p-1.5 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all shadow-2xs"
+                              title="Xóa"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <span className="text-xs text-zinc-400 font-medium">
@@ -184,6 +199,28 @@ export default function RolesPage() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="grid grid-cols-1 gap-3 p-3 lg:hidden">
+          {loading ? <TableSkeleton rows={4} cols={2} /> : filteredData.length === 0 ? (
+            <p className="py-8 text-center text-sm text-zinc-500">Không tìm thấy vai trò phù hợp với điều kiện tìm kiếm.</p>
+          ) : filteredData.map((role) => (
+            <article key={role.id} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400"><ShieldCheck className="w-4 h-4" /></div>
+                  <div><h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{role.name}</h2><p className="text-xs text-zinc-500 mt-1">{role._count?.users || 0} tài khoản</p></div>
+                </div>
+                <div className="flex gap-1">
+                  {role.name !== "SYSTEM_ADMIN" && <button onClick={() => openEditModal(role)} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40" aria-label={`Sửa vai trò ${role.name}`}><Edit2 className="w-4 h-4" /></button>}
+                  {!CORE_ROLES.includes(role.name) && <button onClick={() => handleDelete(role.id, role.name)} className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40" aria-label={`Xóa vai trò ${role.name}`}><Trash2 className="w-4 h-4" /></button>}
+                </div>
+              </div>
+              <details className="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                <summary className="cursor-pointer text-xs font-medium text-zinc-600 dark:text-zinc-300">Xem {getPermissionLabels(role).length || "quyền mặc định"} quyền</summary>
+                <div className="flex flex-wrap gap-1.5 mt-3">{getPermissionLabels(role).length ? getPermissionLabels(role).map((permission) => <span key={permission} className="rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-1 text-[11px]">{permission}</span>) : <span className="text-xs text-zinc-400">Quyền mặc định</span>}</div>
+              </details>
+            </article>
+          ))}
         </div>
       </div>
 

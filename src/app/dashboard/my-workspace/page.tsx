@@ -28,30 +28,147 @@ import PayslipDetailModal from "@/components/payroll/PayslipDetailModal";
 export default function MyWorkspacePage() {
   const { data: session } = useSession();
   const user = session?.user;
+  const [myProfile, setMyProfile] = useState<any>(null);
+  const [userKpi, setUserKpi] = useState<any>(null);
+  const [userPayroll, setUserPayroll] = useState<any>(null);
+  const [userLeave, setUserLeave] = useState<any>({ allowance: 12, usedDays: 0, remainingDays: 12 });
+  const [userContract, setUserContract] = useState<any>(null);
+  const [recentAttendances, setRecentAttendances] = useState<any[]>([]);
+  const [myMonthlyAttendances, setMyMonthlyAttendances] = useState<any[]>([]);
+  const [recentRequests, setRecentRequests] = useState<any[]>([]);
 
-  // Mocked rich personal dataset for logged in employee
+  const fetchMyData = async () => {
+    try {
+      const [resEmp, resKpi, resPay, resLeave, resContract, resAtt, resReq] = await Promise.all([
+        fetch("/api/employees"),
+        fetch("/api/performance"),
+        fetch("/api/payroll"),
+        fetch("/api/leave/balance"),
+        fetch("/api/contracts"),
+        fetch("/api/attendance"),
+        fetch("/api/leave")
+      ]);
+
+      const currentEmail = session?.user?.email?.toLowerCase();
+      const currentUserId = (session?.user as any)?.id;
+      let matchedProfile: any = null;
+
+      if (resEmp.ok) {
+        const emps = await resEmp.json();
+        if (Array.isArray(emps)) {
+          matchedProfile = emps.find((e: any) =>
+            (currentEmail && e.user?.email?.toLowerCase() === currentEmail) ||
+            (currentUserId && (e.userId === currentUserId || e.user?.id === currentUserId))
+          ) || null;
+          setMyProfile(matchedProfile);
+        }
+      }
+
+      const belongsToMe = (item: any) => {
+        if (!currentEmail && !currentUserId && !matchedProfile) return false;
+        if (matchedProfile?.id && (item.employeeId === matchedProfile.id || item.employee?.id === matchedProfile.id)) return true;
+        if (currentEmail && (item.employee?.user?.email?.toLowerCase() === currentEmail || item.email?.toLowerCase() === currentEmail)) return true;
+        if (currentUserId && (item.employee?.userId === currentUserId || item.userId === currentUserId)) return true;
+        return false;
+      };
+
+      if (resKpi.ok) {
+        const kpis = await resKpi.json();
+        if (Array.isArray(kpis)) {
+          const myKpis = kpis.filter(belongsToMe);
+          setUserKpi(myKpis[0] || null);
+        }
+      }
+      if (resPay.ok) {
+        const pays = await resPay.json();
+        if (Array.isArray(pays)) {
+          const myPays = pays.filter(belongsToMe);
+          setUserPayroll(myPays[0] || null);
+        }
+      }
+      if (resLeave.ok) {
+        const leaveData = await resLeave.json();
+        setUserLeave(leaveData);
+      }
+      if (resContract.ok) {
+        const contracts = await resContract.json();
+        if (Array.isArray(contracts)) {
+          const myContracts = contracts.filter(belongsToMe);
+          setUserContract(myContracts[0] || null);
+        }
+      }
+      if (resAtt.ok) {
+        const atts = await resAtt.json();
+        if (Array.isArray(atts)) {
+          const myAtts = atts.filter(belongsToMe);
+          setMyMonthlyAttendances(myAtts);
+          setRecentAttendances(myAtts.slice(0, 5).map((a: any) => ({
+            date: new Date(a.date).toLocaleDateString("vi-VN"),
+            checkIn: a.checkIn ? new Date(a.checkIn).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "--:--",
+            checkOut: a.checkOut ? new Date(a.checkOut).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "Chưa Check-out",
+            rawStatus: a.status,
+            status: a.status === "PRESENT" ? "ĐÚNG GIỜ" : a.status === "LATE" ? "ĐI MUỘN" : a.status === "LEAVE" ? "NGHỈ PHÉP" : "VẮNG MẶT",
+            note: a.status === "PRESENT" ? "Smart Terminal GPS" : a.status === "LATE" ? "Vào muộn sau 08:30" : "Hệ thống ghi nhận"
+          })));
+        }
+      }
+      if (resReq.ok) {
+        const reqs = await resReq.json();
+        if (Array.isArray(reqs)) {
+          const myReqs = reqs.filter(belongsToMe);
+          setRecentRequests(myReqs.slice(0, 5).map((r: any) => ({
+            code: `NP-${r.id.slice(-6).toUpperCase()}`,
+            type: r.type === "ANNUAL_LEAVE" ? "Nghỉ phép thường niên" : r.type === "SICK_LEAVE" ? "Nghỉ ốm đau" : r.type === "MATERNITY_LEAVE" ? "Nghỉ thai sản" : "Nghỉ không hưởng lương",
+            range: `${new Date(r.startDate).toLocaleDateString("vi-VN")} - ${new Date(r.endDate).toLocaleDateString("vi-VN")}`,
+            rawStatus: r.status,
+            status: r.status === "APPROVED" ? "ĐÃ PHÊ DUYỆT" : r.status === "PENDING" ? "CHỜ DUYỆT" : "TỪ CHỐI",
+            approver: "Ban Lãnh Đạo / HR"
+          })));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchMyData();
+    }
+  }, [session?.user?.email]);
+
+  const workedCount = myMonthlyAttendances.filter((a: any) => a.status === "PRESENT" || a.status === "LATE" || a.status === "LEAVE").length;
+  const onTimeCount = myMonthlyAttendances.filter((a: any) => a.status === "PRESENT").length;
+  const computedOnTimeRate = myMonthlyAttendances.length > 0
+    ? `${Math.round((onTimeCount / myMonthlyAttendances.length) * 100)}%`
+    : "Chưa có dữ liệu";
+
+  const joinDateObj = myProfile?.joinDate ? new Date(myProfile.joinDate) : (myProfile?.createdAt ? new Date(myProfile.createdAt) : null);
+  const joinDateFormatted = joinDateObj ? joinDateObj.toLocaleDateString("vi-VN") : "Chưa cập nhật";
+  const tenureYears = joinDateObj ? Math.max(0, new Date().getFullYear() - joinDateObj.getFullYear()) : 0;
+
   const employeeData = {
-    name: user?.name || "Kỹ sư Phần mềm",
-    email: user?.email || "employee@nexustech.vn",
-    code: "NX-08942",
-    dept: "Khối Công Nghệ & Phần Mềm (Software Engineering)",
-    position: "Kỹ Sư Phần Mềm Cao Cấp (Senior Full-Stack)",
-    joinDate: "15/03/2022",
-    tenure: "4 năm 7 tháng cống hiến",
-    leaveAllowance: 12,
-    leaveUsed: 1.5,
-    leaveRemaining: 10.5,
-    attendanceThisMonth: 21.5,
+    name: myProfile?.user?.name || user?.name || "Cán bộ nhân viên",
+    email: myProfile?.user?.email || user?.email || "Chưa cập nhật",
+    code: `NX-${(myProfile?.id || (user as any)?.id || "00000").slice(-5).toUpperCase()}`,
+    dept: myProfile?.department?.name || "Chưa phân bổ phòng ban",
+    position: myProfile?.position || "Cán bộ chuyên môn",
+    joinDate: joinDateFormatted,
+    tenure: joinDateObj ? (tenureYears > 0 ? `${tenureYears} năm công tác` : "Nhân sự mới gia nhập") : "Đang công tác",
+    leaveAllowance: userLeave?.allowance ?? 12,
+    leaveUsed: userLeave?.usedDays ?? 0,
+    leaveRemaining: userLeave?.remainingDays ?? 12,
+    attendanceThisMonth: workedCount,
     standardDays: 22,
-    onTimeRate: "98.5%",
-    kpiScore: 94.2,
-    kpiGrade: "HẠNG A",
-    bonusFactor: "x1.15",
-    lastNetSalary: 28450000,
-    salaryMonth: 10,
-    salaryYear: 2026,
-    contractType: "Hợp đồng Không xác định thời hạn",
-    contractCode: "HĐLĐ-2024/NX-08942"
+    onTimeRate: computedOnTimeRate,
+    kpiScore: userKpi ? userKpi.totalScore : 0,
+    kpiGrade: userKpi ? (userKpi.grade.split(" ")[0] || "CHƯA ĐÁNH GIÁ") : "Chưa đánh giá",
+    bonusFactor: userKpi ? (userKpi.bonusRate > 0 ? `+${Math.round(userKpi.bonusRate * 100)}%` : (userKpi.bonusRate < 0 ? `${Math.round(userKpi.bonusRate * 100)}%` : "0%")) : "Chưa xét thưởng",
+    lastNetSalary: userPayroll ? userPayroll.netSalary : 0,
+    salaryMonth: userPayroll ? userPayroll.month : new Date().getMonth() + 1,
+    salaryYear: userPayroll ? userPayroll.year : new Date().getFullYear(),
+    contractType: userContract?.contractType || myProfile?.contracts?.[0]?.contractType || "Chưa cập nhật hợp đồng",
+    contractCode: userContract?.code || (myProfile?.contracts?.[0]?.id ? `HĐLĐ-${myProfile.contracts[0].id.slice(-5).toUpperCase()}` : "Chưa cấp mã HĐ")
   };
 
   const [activeTab, setActiveTab] = useState<"ATTENDANCE" | "REQUESTS">("ATTENDANCE");
@@ -60,55 +177,17 @@ export default function MyWorkspacePage() {
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
 
   // Form states for quick leave
+  const todayIso = new Date().toISOString().slice(0, 10);
   const [leaveType, setLeaveType] = useState("ANNUAL_LEAVE");
-  const [leaveDays, setLeaveDays] = useState(1);
+  const [leaveStartDate, setLeaveStartDate] = useState(todayIso);
+  const [leaveEndDate, setLeaveEndDate] = useState(todayIso);
   const [leaveReason, setLeaveReason] = useState("");
   const [leaveSubmitted, setLeaveSubmitted] = useState(false);
 
   // Form states for attendance dispute
-  const [disputeDate, setDisputeDate] = useState(new Date().toISOString().slice(0, 10));
+  const [disputeDate, setDisputeDate] = useState(todayIso);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeSubmitted, setDisputeSubmitted] = useState(false);
-
-  const samplePayrollRecord = {
-    id: "sample_pay_08942",
-    month: employeeData.salaryMonth,
-    year: employeeData.salaryYear,
-    baseSalary: 25000000,
-    bonus: 6075000,
-    deductions: 2625000,
-    netSalary: employeeData.lastNetSalary,
-    status: "PAID",
-    createdAt: new Date().toISOString(),
-    employee: {
-      id: "emp_08942",
-      position: employeeData.position,
-      user: { name: employeeData.name, email: employeeData.email },
-      department: { name: employeeData.dept }
-    },
-    details: [
-      { name: "Ngày công thực tế", type: "INFO", amount: 21.5, amountType: "DAYS" },
-      { name: "Nghỉ phép hưởng lương", type: "INFO", amount: 0.5, amountType: "DAYS" },
-      { name: "Phụ cấp ăn trưa & đi lại", type: "EARNING", amount: 1500000, amountType: "FIXED" },
-      { name: "Thưởng hiệu suất KPI (Hạng A)", type: "EARNING", amount: 4575000, amountType: "FIXED" },
-      { name: "Bảo hiểm Xã hội (BHXH 8%)", type: "DEDUCTION", amount: 2000000, amountType: "PERCENTAGE" },
-      { name: "Bảo hiểm Y tế (BHYT 1.5%)", type: "DEDUCTION", amount: 375000, amountType: "PERCENTAGE" },
-      { name: "Bảo hiểm Thất nghiệp (BHTN 1%)", type: "DEDUCTION", amount: 250000, amountType: "PERCENTAGE" }
-    ]
-  };
-
-  const recentAttendances = [
-    { date: "05/10/2026 (Hôm nay)", checkIn: "08:24", checkOut: "17:30 (Dự kiến)", status: "ĐÚNG GIỜ", note: "Smart Terminal GPS" },
-    { date: "04/10/2026", checkIn: "08:15", checkOut: "17:35", status: "ĐÚNG GIỜ", note: "Smart Terminal GPS" },
-    { date: "03/10/2026", checkIn: "08:29", checkOut: "17:42", status: "ĐÚNG GIỜ", note: "Smart Terminal GPS" },
-    { date: "02/10/2026", checkIn: "08:18", checkOut: "17:31", status: "ĐÚNG GIỜ", note: "Smart Terminal GPS" },
-    { date: "01/10/2026", checkIn: "08:20", checkOut: "17:30", status: "ĐÚNG GIỜ", note: "Smart Terminal GPS" }
-  ];
-
-  const recentRequests = [
-    { code: "NP-2026-081", type: "Nghỉ phép thường niên", range: "24/09/2026 (1 ngày)", status: "ĐÃ PHÊ DUYỆT", approver: "Trưởng Bộ Phận" },
-    { code: "BS-2026-012", type: "Giải trình bổ sung công", range: "12/09/2026", status: "ĐÃ PHÊ DUYỆT", approver: "Chuyên viên Nhân sự" }
-  ];
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -124,32 +203,31 @@ export default function MyWorkspacePage() {
 
   const handleSendLeave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (leaveEndDate < leaveStartDate) {
+      alert("Ngày kết thúc nghỉ phép không được nhỏ hơn ngày bắt đầu.");
+      return;
+    }
     setLeaveSubmitted(true);
     try {
-      const today = new Date();
-      const startDate = today.toISOString().split("T")[0];
-      const end = new Date(today);
-      end.setDate(today.getDate() + (leaveDays > 1 ? leaveDays - 1 : 0));
-      const endDate = end.toISOString().split("T")[0];
-
       const res = await fetch("/api/leave", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          startDate,
-          endDate,
+          startDate: leaveStartDate,
+          endDate: leaveEndDate,
           type: leaveType,
           reason: leaveReason || "Nghỉ phép từ cổng không gian cá nhân (ESS)"
         })
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || "Gửi đơn không thành công.");
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || "Gửi đơn không thành công.");
       }
 
       setIsLeaveModalOpen(false);
       setLeaveReason("");
+      await fetchMyData();
       alert("Đơn xin nghỉ phép đã được tạo thành công và chuyển tới Quản lý phê duyệt.");
     } catch (err: any) {
       alert(err.message || "Lỗi khi gửi đơn xin nghỉ phép.");
@@ -177,13 +255,7 @@ export default function MyWorkspacePage() {
       {/* Editorial Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-              <User className="w-3.5 h-3.5" />
-              Cổng thông tin nhân sự cá nhân (ESS)
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-2">
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
             Không Gian Làm Việc Số Cá Nhân
           </h1>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
@@ -212,7 +284,7 @@ export default function MyWorkspacePage() {
       {/* Digital Employee Badge Dossier Banner */}
       <div className="bento-card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-2xl font-extrabold font-mono shrink-0 shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl font-extrabold font-mono shrink-0 shadow-xs">
             {employeeData.name?.[0] || "N"}
           </div>
 
@@ -254,21 +326,19 @@ export default function MyWorkspacePage() {
         </div>
       </div>
 
-      {/* 4 Metric Bento Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Tile 1: Quỹ phép */}
-        <div className="bento-card p-5 flex flex-col justify-between group">
+      {/* Unified Swiss Personal Metric Strip */}
+      <div className="bento-card p-0 overflow-hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800">
+        {/* Cell 1: Quỹ phép */}
+        <div className="p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="swiss-label">Quỹ nghỉ phép năm</span>
-              <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <Calendar className="w-4 h-4" />
-              </div>
+              <Calendar className="w-4 h-4 text-zinc-400" />
             </div>
-            <div className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
               {employeeData.leaveRemaining} <span className="text-xs font-normal text-zinc-500 font-sans">/ {employeeData.leaveAllowance} ngày</span>
             </div>
-            <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full mt-3 overflow-hidden">
+            <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
               <div 
                 className="bg-blue-600 h-full rounded-full transition-all duration-500" 
                 style={{ width: `${(employeeData.leaveRemaining / employeeData.leaveAllowance) * 100}%` }}
@@ -276,82 +346,77 @@ export default function MyWorkspacePage() {
             </div>
           </div>
           <div className="pt-3 text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-            <span>Đã dùng: {employeeData.leaveUsed} ngày</span>
+            <span>Đã dùng: <span className="font-mono">{employeeData.leaveUsed}</span> ngày</span>
             <button onClick={() => setIsLeaveModalOpen(true)} className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
               Tạo đơn
             </button>
           </div>
         </div>
 
-        {/* Tile 2: Chấm công */}
-        <div className="bento-card p-5 flex flex-col justify-between group">
+        {/* Cell 2: Chấm công */}
+        <div className="p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="swiss-label">Chấm công tháng 10</span>
-              <div className="squircle w-9 h-9 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                <Clock className="w-4 h-4" />
-              </div>
+              <Clock className="w-4 h-4 text-zinc-400" />
             </div>
-            <div className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
               {employeeData.attendanceThisMonth} <span className="text-xs font-normal text-zinc-500 font-sans">/ {employeeData.standardDays} công</span>
             </div>
-            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5 flex items-center gap-1 font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Đúng giờ: {employeeData.onTimeRate}
+            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1 font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Đúng giờ: <span className="font-mono">{employeeData.onTimeRate}</span>
             </div>
           </div>
           <div className="pt-3 text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-            <span>Hôm nay: Check-in 08:24</span>
-            <Link href="/dashboard/attendance" className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
+            <span>Hôm nay: <span className="font-mono">{recentAttendances[0]?.checkIn || "Chưa ghi nhận"}</span></span>
+            <Link href="/dashboard/attendance" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
               Chấm công
             </Link>
           </div>
         </div>
 
-        {/* Tile 3: Hiệu suất KPI */}
-        <div className="bento-card p-5 flex flex-col justify-between group">
+        {/* Cell 3: Hiệu suất KPI */}
+        <div className="p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="swiss-label">Hiệu suất KPI</span>
-              <div className="squircle w-9 h-9 bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                <Target className="w-4 h-4" />
-              </div>
+              <Target className="w-4 h-4 text-zinc-400" />
             </div>
-            <div className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
               {employeeData.kpiGrade} <span className="text-xs font-normal text-zinc-500 font-sans">({employeeData.kpiScore}/100)</span>
             </div>
-            <div className="text-xs text-purple-600 dark:text-purple-400 mt-1.5 font-semibold">
-              Hệ số thưởng: {employeeData.bonusFactor}
+            <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 font-semibold">
+              Hệ số thưởng: <span className="font-mono text-emerald-600 dark:text-emerald-400">{employeeData.bonusFactor}</span>
             </div>
           </div>
           <div className="pt-3 text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
             <span>Kỳ đánh giá Q4 đang mở</span>
-            <Link href="/dashboard/performance" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
+            <Link href="/dashboard/performance" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
               Tự chấm
             </Link>
           </div>
         </div>
 
-        {/* Tile 4: Phiếu lương bí mật */}
-        <div className="bento-card p-5 flex flex-col justify-between group">
+        {/* Cell 4: Phiếu lương bảo mật */}
+        <div className="p-5 flex flex-col justify-between bg-zinc-50/40 dark:bg-zinc-900/40">
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="swiss-label">Thực lĩnh gần nhất</span>
-              <div className="squircle w-9 h-9 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                <Banknote className="w-4 h-4" />
-              </div>
+              <Banknote className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">
-              {formatVND(employeeData.lastNetSalary)}
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
+              {userPayroll ? formatVND(employeeData.lastNetSalary) : "Chưa phát hành"}
             </div>
-            <div className="text-xs text-zinc-500 mt-1">
-              Đã chi trả qua Techcombank
+            <div className="text-xs text-zinc-500 mt-2">
+              {userPayroll ? `Kỳ lương T${employeeData.salaryMonth}/${employeeData.salaryYear}` : "Chưa có phiếu lương phát hành"}
             </div>
           </div>
           <div className="pt-3 text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-            <span className="font-mono text-[11px]">PL-202610-08942</span>
+            <span className="font-mono text-[11px]">{userPayroll ? `PL-${employeeData.salaryYear}${employeeData.salaryMonth}-${employeeData.code}` : "--"}</span>
             <button 
-              onClick={() => setIsPayslipOpen(true)}
-              className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+              onClick={() => userPayroll && setIsPayslipOpen(true)}
+              disabled={!userPayroll}
+              className="text-blue-600 dark:text-blue-400 font-semibold hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
             >
               Xem phiếu lương
             </button>
@@ -404,7 +469,13 @@ export default function MyWorkspacePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {recentAttendances.map((item, idx) => (
+                {recentAttendances.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-8 text-center text-zinc-500">
+                      Chưa có bản ghi chấm công nào cho tài khoản của bạn.
+                    </td>
+                  </tr>
+                ) : recentAttendances.map((item, idx) => (
                   <tr key={idx} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
                     <td className="px-5 py-3.5 font-semibold text-zinc-900 dark:text-zinc-100">
                       {item.date}
@@ -419,9 +490,23 @@ export default function MyWorkspacePage() {
                       {item.note}
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> {item.status}
-                      </span>
+                      {item.rawStatus === "LATE" || item.status === "ĐI MUỘN" ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-medium">
+                          <Clock className="w-3.5 h-3.5" /> {item.status}
+                        </span>
+                      ) : item.rawStatus === "ABSENT" || item.status === "VẮNG MẶT" ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-medium">
+                          <AlertCircle className="w-3.5 h-3.5" /> {item.status}
+                        </span>
+                      ) : item.rawStatus === "LEAVE" || item.status === "NGHỈ PHÉP" ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium">
+                          <Calendar className="w-3.5 h-3.5" /> {item.status}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {item.status}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -441,7 +526,13 @@ export default function MyWorkspacePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {recentRequests.map((req, idx) => (
+                {recentRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-8 text-center text-zinc-500">
+                      Chưa có đơn xin nghỉ phép hoặc giải trình nào của bạn.
+                    </td>
+                  </tr>
+                ) : recentRequests.map((req, idx) => (
                   <tr key={idx} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
                     <td className="px-5 py-3.5 font-mono font-bold text-zinc-900 dark:text-zinc-100">
                       {req.code}
@@ -456,9 +547,19 @@ export default function MyWorkspacePage() {
                       {req.approver}
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> {req.status}
-                      </span>
+                      {req.rawStatus === "PENDING" || req.status === "CHỜ DUYỆT" ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-medium">
+                          <Clock className="w-3.5 h-3.5" /> {req.status}
+                        </span>
+                      ) : req.rawStatus === "REJECTED" || req.status === "TỪ CHỐI" ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-medium">
+                          <AlertCircle className="w-3.5 h-3.5" /> {req.status}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {req.status}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -501,23 +602,38 @@ export default function MyWorkspacePage() {
                   onChange={(e) => setLeaveType(e.target.value)}
                   className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
                 >
-                  <option value="ANNUAL_LEAVE">Nghỉ phép năm có hưởng lương (Còn 10.5 ngày)</option>
+                  <option value="ANNUAL_LEAVE">Nghỉ phép năm có hưởng lương (Còn {employeeData.leaveRemaining} ngày)</option>
                   <option value="SICK_LEAVE">Nghỉ ốm đau / Khám bệnh có bảo hiểm</option>
+                  <option value="MATERNITY_LEAVE">Nghỉ thai sản</option>
                   <option value="UNPAID_LEAVE">Nghỉ việc riêng không hưởng lương</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Số ngày đăng ký nghỉ</label>
-                <input
-                  type="number"
-                  min={0.5}
-                  max={10.5}
-                  step={0.5}
-                  value={leaveDays}
-                  onChange={(e) => setLeaveDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Từ ngày</label>
+                  <input
+                    type="date"
+                    required
+                    value={leaveStartDate}
+                    onChange={(e) => {
+                      setLeaveStartDate(e.target.value);
+                      if (leaveEndDate < e.target.value) setLeaveEndDate(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Đến ngày</label>
+                  <input
+                    type="date"
+                    required
+                    min={leaveStartDate}
+                    value={leaveEndDate}
+                    onChange={(e) => setLeaveEndDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
+                  />
+                </div>
               </div>
 
               <div>
@@ -629,7 +745,7 @@ export default function MyWorkspacePage() {
       <PayslipDetailModal
         isOpen={isPayslipOpen}
         onClose={() => setIsPayslipOpen(false)}
-        payroll={samplePayrollRecord}
+        payroll={userPayroll}
       />
     </div>
   );

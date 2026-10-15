@@ -11,8 +11,8 @@ export async function PUT(
     if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
 
     const roleName = (session.user as any).roleName;
-    if (!["SYSTEM_ADMIN", "HR"].includes(roleName)) {
-      return new NextResponse("Chỉ Quản trị viên hoặc Nhân sự mới có quyền cập nhật phòng ban.", { status: 403 });
+    if (!["SYSTEM_ADMIN", "BOD", "HR"].includes(roleName)) {
+      return new NextResponse("Chỉ Quản trị viên, Ban Giám Đốc hoặc Nhân sự mới có quyền cập nhật phòng ban.", { status: 403 });
     }
 
     const { id } = await params;
@@ -36,8 +36,8 @@ export async function DELETE(
     if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
 
     const roleName = (session.user as any).roleName;
-    if (roleName !== "SYSTEM_ADMIN") {
-      return new NextResponse("Chỉ Quản trị viên hệ thống (SYSTEM_ADMIN) mới có quyền xóa phòng ban.", { status: 403 });
+    if (!["SYSTEM_ADMIN", "BOD"].includes(roleName)) {
+      return new NextResponse("Chỉ Quản trị viên hệ thống (SYSTEM_ADMIN) hoặc Ban Giám Đốc (BOD) mới có quyền xóa phòng ban.", { status: 403 });
     }
 
     const { id } = await params;

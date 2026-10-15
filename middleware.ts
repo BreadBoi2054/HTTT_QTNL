@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
@@ -19,27 +19,48 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // 3. Phân quyền truy cập đa tầng theo vai trò (Role-Based Route Protection)
+  // 3. Phân quyền truy cập đa tầng theo 6 vai trò (Role-Based Route Protection)
   if (isProtectedPage && session) {
     const userRole = (session.user as any)?.roleName || "USER";
 
-    // Phân hệ Quản trị vai trò & Phân quyền: Độc quyền cho SYSTEM_ADMIN
-    if (pathname.startsWith("/dashboard/roles") && userRole !== "SYSTEM_ADMIN") {
+    // Phân hệ Quản trị vai trò & Phân quyền: Độc quyền cho SYSTEM_ADMIN và BOD
+    if (pathname.startsWith("/dashboard/roles") && !["SYSTEM_ADMIN", "BOD"].includes(userRole)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // Các phân hệ quản trị dành riêng cho cấp Quản lý / Điều hành (SYSTEM_ADMIN, HR, MANAGER)
+    // Phân hệ cấu hình hệ thống: SYSTEM_ADMIN và BOD
+    if (pathname.startsWith("/dashboard/settings") && !["SYSTEM_ADMIN", "BOD"].includes(userRole)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Các phân hệ quản trị dành riêng cho cấp Quản lý / Điều hành (chặn USER)
     const adminManagementOnlyPaths = [
+      "/dashboard/roles",
+      "/dashboard/settings",
       "/dashboard/departments",
       "/dashboard/employees",
       "/dashboard/contracts",
       "/dashboard/recruitment",
       "/dashboard/personnel-changes",
       "/dashboard/cadre-planning",
-      "/dashboard/audit-workflow"
+      "/dashboard/audit-workflow",
+      "/dashboard/payroll/components"
     ];
 
     if (userRole === "USER" && adminManagementOnlyPaths.some(p => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Kế toán (ACCOUNTANT) không can thiệp tuyển dụng, biến động nhân sự, quy hoạch cán bộ hay vai trò/cài đặt hệ thống
+    const accountantBlockedPaths = [
+      "/dashboard/roles",
+      "/dashboard/settings",
+      "/dashboard/recruitment",
+      "/dashboard/personnel-changes",
+      "/dashboard/cadre-planning"
+    ];
+
+    if (userRole === "ACCOUNTANT" && accountantBlockedPaths.some(p => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
