@@ -28,6 +28,13 @@ export function toUtcDateOnly(date: Date = new Date()): Date {
 }
 
 type Calendars = Map<number, WorkCalendar>;
+type LeaveInput = {
+  employeeId?: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  type: string;
+  reason?: string | null;
+};
 
 async function loadCalendars(startDate: Date, endDate: Date, client: Prisma.TransactionClient | typeof prisma = prisma): Promise<Calendars> {
   const calendars: Calendars = new Map();
@@ -67,6 +74,30 @@ function workingDates(startDate: Date, endDate: Date, configured?: Calendars): D
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return dates;
+}
+
+async function clearLeaveAttendance(tx: Prisma.TransactionClient, leaveRequestId: string): Promise<void> {
+  const linked = await tx.attendance.findMany({
+    where: { leaveRequestId },
+    select: { id: true, status: true, statusBeforeLeave: true, checkIn: true, checkOut: true },
+  });
+  for (const record of linked) {
+    if (record.status === "LEAVE" && !record.checkIn && !record.checkOut) {
+      if (record.statusBeforeLeave === null) {
+        await tx.attendance.delete({ where: { id: record.id } });
+      } else {
+        await tx.attendance.update({
+          where: { id: record.id },
+          data: { status: record.statusBeforeLeave, leaveRequestId: null, statusBeforeLeave: null },
+        });
+      }
+    } else {
+      await tx.attendance.update({
+        where: { id: record.id },
+        data: { leaveRequestId: null, statusBeforeLeave: null },
+      });
+    }
+  }
 }
 
 export function workingDaysInYear(startDate: Date, endDate: Date, year: number, configured?: Calendars): number {
@@ -213,7 +244,7 @@ export async function getLeaveBalance(
 
 export async function createLeaveRequest(
   userId: string,
-  data: any,
+  data: LeaveInput,
   userRole: string = "USER"
 ) {
   let employeeId = data.employeeId;
@@ -318,7 +349,7 @@ export async function createLeaveRequest(
 
 export async function updateLeaveRequestDetails(
   id: string,
-  data: any,
+  data: Partial<LeaveInput>,
   userRole: string = "USER",
   userId?: string
 ) {
@@ -498,35 +529,29 @@ export async function updateLeaveRequestStatus(
       const dates = workingDates(leave.startDate, leave.endDate, calendars);
       const existing = await tx.attendance.findMany({
         where: { employeeId: leave.employeeId, date: { in: dates } },
-        select: { id: true, date: true, checkIn: true },
+        select: { id: true, date: true, status: true, checkIn: true, checkOut: true, leaveRequestId: true },
       });
       const existingDates = new Set(existing.map((record) => record.date.toISOString().slice(0, 10)));
       const missingDates = dates.filter((date) => !existingDates.has(date.toISOString().slice(0, 10)));
       if (missingDates.length > 0) {
         await tx.attendance.createMany({
-          data: missingDates.map((date) => ({ employeeId: leave.employeeId, date, status: "LEAVE" })),
+          data: missingDates.map((date) => ({ employeeId: leave.employeeId, date, status: "LEAVE", leaveRequestId: leave.id })),
           skipDuplicates: true,
         });
       }
-      const withoutCheckIn = existing.filter((record) => !record.checkIn).map((record) => record.id);
-      if (withoutCheckIn.length > 0) {
-        await tx.attendance.updateMany({
-          where: { id: { in: withoutCheckIn }, checkIn: null },
-          data: { status: "LEAVE" },
-        });
+      for (const record of existing) {
+        if (!record.checkIn && !record.checkOut && record.status !== "LEAVE" && !record.leaveRequestId) {
+          await tx.attendance.update({
+            where: { id: record.id },
+            data: { status: "LEAVE", leaveRequestId: leave.id, statusBeforeLeave: record.status },
+          });
+        }
       }
     } else if (
       leave.status === "APPROVED" &&
       (status === "REJECTED" || status === "PENDING")
     ) {
-      await tx.attendance.deleteMany({
-        where: {
-          employeeId: leave.employeeId,
-          date: { gte: toUtcDateOnly(leave.startDate), lte: toUtcDateOnly(leave.endDate) },
-          status: "LEAVE",
-          checkIn: null,
-        },
-      });
+      await clearLeaveAttendance(tx, leave.id);
     }
 
     await tx.auditLog.create({
@@ -597,14 +622,7 @@ export async function deleteLeaveRequest(
     }
 
     if (leave.status === "APPROVED") {
-      await tx.attendance.deleteMany({
-        where: {
-          employeeId: leave.employeeId,
-          date: { gte: toUtcDateOnly(leave.startDate), lte: toUtcDateOnly(leave.endDate) },
-          status: "LEAVE",
-          checkIn: null,
-        },
-      });
+      await clearLeaveAttendance(tx, leave.id);
     }
 
     const deleted = await tx.leaveRequest.delete({ where: { id } });

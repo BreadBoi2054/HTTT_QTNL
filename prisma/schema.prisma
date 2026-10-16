@@ -73,10 +73,14 @@ model Attendance {
   checkIn    DateTime?
   checkOut   DateTime?
   status     String   // "PRESENT", "ABSENT", "LATE", "LEAVE"
+  leaveRequestId String?
+  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: SetNull)
+  statusBeforeLeave String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@unique([employeeId, date])
+  @@index([leaveRequestId])
 }
 
 model OvertimeRequest {
@@ -114,6 +118,7 @@ model LeaveRequest {
   type       String          // ANNUAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE
   status     String          @default("PENDING") // PENDING, APPROVED, REJECTED
   reason     String?
+  attendances Attendance[]
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 }

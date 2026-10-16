@@ -31,7 +31,7 @@
 1. Đã thêm đơn OT `PENDING → APPROVED/REJECTED`, cấm tự duyệt, kiểm tra phạm vi quản lý và chỉ đưa OT đã duyệt vào bảng lương tự động. Hệ số đang dùng 150% ngày thường, 200% cuối tuần, 300% ngày lễ. Cần rà soát thêm ca đêm, nghỉ bù, giới hạn OT và chứng từ/chấm công trước khi vận hành thật.
 2. Nghỉ ốm đã được tách khỏi ngày công công ty trả lương. Ứng dụng hiện chỉ hiển thị số ngày; số tiền trợ cấp và hồ sơ BHXH phải do bộ phận nhân sự đối chiếu, chưa được tự động chi trả.
 3. Mức đóng bảo hiểm, nền tính đóng và khoản miễn thuế vẫn mã hóa trong công thức. Kế toán/HR cần duyệt bảng quy tắc cho từng kỳ, đặc biệt trường hợp nghỉ không hưởng lương dài ngày và mức đóng BHXH theo hợp đồng. Trạng thái `PAID` chỉ là ghi nhận trong ứng dụng; không có tích hợp chuyển tiền.
-4. Bảng chấm công chưa ghi nguồn gốc bản ghi `LEAVE`; khi rút đơn đã duyệt, hệ thống chưa phân biệt chắc chắn ngày công do đơn tạo với ngày `LEAVE` được nhập thủ công từ trước.
+4. Bản ghi `LEAVE` có trước migration ngày 17/10 không xác định chắc chắn được nguồn gốc nên được giữ nguyên khi rút đơn cũ. HR cần đối chiếu thủ công những bản ghi lịch sử này nếu muốn làm sạch.
 
 ## Cập nhật theo chính sách công ty (16/10/2026)
 
@@ -49,4 +49,10 @@
 - Đã bổ sung migration khởi tạo để có thể dựng cơ sở dữ liệu mới từ đầu; cơ sở dữ liệu đang dùng được đánh dấu migration khởi tạo là đã áp dụng vì bảng đã tồn tại. Migration lịch công đã áp dụng thành công.
 - Đã chạy kiểm thử tích hợp trên PostgreSQL thử nghiệm riêng: ngày làm bù, OT đã duyệt, nghỉ ốm không hưởng lương công ty và rollback lô tính lương. Dữ liệu thật không bị kiểm thử ghi sửa.
 - `npx tsc --noEmit`, build sản xuất (45 trang tĩnh và route động), 9 kiểm thử nghiệp vụ và 1 kiểm thử tích hợp đều đạt; lint các file lịch công/kiểm thử mới đạt.
-- Còn cần đối chiếu nghiệp vụ bảo hiểm/thuế, quy định OT chi tiết và nguồn gốc bản ghi chấm công `LEAVE` trước khi dùng bảng lương làm căn cứ chi trả thực tế.
+- Còn cần đối chiếu nghiệp vụ bảo hiểm/thuế, quy định OT chi tiết và các bản ghi chấm công `LEAVE` lịch sử trước khi dùng bảng lương làm căn cứ chi trả thực tế.
+
+## Cập nhật truy vết chấm công nghỉ phép (17/10/2026)
+
+- Bản ghi chấm công do đơn nghỉ đã duyệt tạo mới được gắn `leaveRequestId`. Nếu đơn chuyển bản ghi `ABSENT` hoặc trạng thái khác thành `LEAVE`, hệ thống lưu `statusBeforeLeave`.
+- Khi rút duyệt hoặc xóa đơn, chỉ bản ghi gắn đúng ID đơn được hoàn tác: bản ghi tạo mới bị xóa, bản ghi có sẵn được trả về trạng thái cũ. Bản ghi `LEAVE` nhập thủ công và bản ghi lịch sử chưa có ID nguồn được giữ nguyên.
+- Migration `20261017000000_leave_attendance_origin` đã chạy trên database thử nghiệm mới và database `hrmis` hiện tại; kiểm thử tích hợp xác nhận cả rút duyệt và xóa đơn đều giữ ngày nghỉ nhập thủ công, khôi phục ngày vắng mặt và xóa ngày nghỉ do đơn tạo. TypeScript, build sản xuất, lint phần vừa sửa và 9 kiểm thử nghiệp vụ đều đạt.
