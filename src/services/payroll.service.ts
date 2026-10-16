@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { holidayDatesForYear, isScheduledWorkday, monthlyWorkdays } from "@/lib/work-calendar";
+import { isScheduledWorkday, monthlyWorkdays } from "@/lib/work-calendar";
+import { getWorkCalendar } from "@/services/work-calendar.service";
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -35,14 +36,7 @@ function buildManualPayrollDetails(
 ) {
   const dayItems = Array.isArray(existingDetails)
     ? existingDetails.filter((d: any) => d && d.amountType === "DAYS")
-    : [
-        {
-          name: "Ngày công thực tế",
-          type: "INFO",
-          amount: monthlyWorkdays(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1),
-          amountType: "DAYS",
-        },
-      ];
+    : [];
 
   const details: any[] = [...dayItems];
 
@@ -329,10 +323,11 @@ export async function calculateMonthlyPayroll(
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = new Date(Date.UTC(year, month - 1, lastDay, 23, 59, 59, 999));
-  const holidays = holidayDatesForYear(year);
-  const standardWorkingDays = monthlyWorkdays(year, month, holidays);
-
-  const employeeConfigs = await prisma.employeeSalaryConfig.findMany({
+  return prisma.$transaction(async (tx) => {
+  const { holidays, extraWorkdays } = await getWorkCalendar(year, tx);
+  const standardWorkingDays = monthlyWorkdays(year, month, holidays, extraWorkdays);
+  const employeeConfigs = await tx.employeeSalaryConfig.findMany({
+    orderBy: { createdAt: "asc" },
     include: {
       employee: {
         include: {
@@ -390,7 +385,7 @@ export async function calculateMonthlyPayroll(
       employee.contracts[0].salary > 0
     ) {
       baseSalary = employee.contracts[0].salary;
-      await prisma.employeeSalaryConfig.update({
+      await tx.employeeSalaryConfig.update({
         where: { id: config.id },
         data: { baseSalary },
       });
@@ -398,13 +393,13 @@ export async function calculateMonthlyPayroll(
 
     const workedDateKeys = new Set(
       employee.attendances
-        .filter((a) => (a.status === "PRESENT" || a.status === "LATE") && isScheduledWorkday(a.date, holidays))
+        .filter((a) => (a.status === "PRESENT" || a.status === "LATE") && isScheduledWorkday(a.date, holidays, extraWorkdays))
         .map((a) => a.date.toISOString().slice(0, 10))
     );
     const workedDays = workedDateKeys.size;
 
     const unexcusedAbsences = employee.attendances.filter(
-      (a) => a.status === "ABSENT" && isScheduledWorkday(a.date, holidays)
+      (a) => a.status === "ABSENT" && isScheduledWorkday(a.date, holidays, extraWorkdays)
     ).length;
 
     let calculatedPaidLeaveDays = 0;
@@ -417,7 +412,7 @@ export async function calculateMonthlyPayroll(
       const leaveEnd = new Date(leave.endDate < endDate ? leave.endDate : endDate);
       while (cur <= leaveEnd) {
         const dateKey = cur.toISOString().slice(0, 10);
-        if (isScheduledWorkday(cur, holidays) &&
+        if (isScheduledWorkday(cur, holidays, extraWorkdays) &&
             !workedDateKeys.has(dateKey) && !leaveDateKeys.has(dateKey)) {
           leaveDateKeys.add(dateKey);
           if (leave.type === "UNPAID_LEAVE") {
@@ -654,7 +649,7 @@ export async function calculateMonthlyPayroll(
       Math.round(proRatedBaseSalary + totalBonus - totalDeduction)
     );
 
-    const existing = await prisma.payroll.findUnique({
+    const existing = await tx.payroll.findUnique({
       where: {
         employeeId_month_year: {
           employeeId: employee.id,
@@ -669,7 +664,7 @@ export async function calculateMonthlyPayroll(
       continue;
     }
 
-    const payroll = await prisma.payroll.upsert({
+    const payroll = await tx.payroll.upsert({
       where: {
         employeeId_month_year: {
           employeeId: employee.id,
@@ -701,7 +696,7 @@ export async function calculateMonthlyPayroll(
     payrollsCreated.push(payroll);
   }
 
-  await prisma.auditLog.create({
+  await tx.auditLog.create({
     data: {
       userName: actorName,
       userRole: actorRole,
@@ -713,6 +708,7 @@ export async function calculateMonthlyPayroll(
   });
 
   return payrollsCreated;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 15000, timeout: 120000 });
 }
 
 export async function bulkDisbursePayrolls(ids: string[], actorName: string = "Ban Giám Đốc", actorRole: string = "BOD") {

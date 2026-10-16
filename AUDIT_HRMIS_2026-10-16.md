@@ -26,15 +26,12 @@
 - `npx tsx --test tests/business-rules.test.ts`: 7/7 đạt.
 - `npm run lint`: còn 493 vấn đề (378 lỗi, 115 cảnh báo), chủ yếu là kiểu `any`, hooks và mã trong `scratch/`; cần một đợt chuẩn hóa riêng trước khi dùng lint làm cổng phát hành.
 
-## Rủi ro nghiệp vụ còn cần quyết định
+## Rủi ro nghiệp vụ còn cần quyết định (đã rà lại 17/10/2026)
 
-1. Đã thay 22 ngày cố định bằng lịch làm việc từng tháng, trừ cuối tuần và ngày lễ 2026. Các năm khác phải cấu hình `PAYROLL_HOLIDAYS_YYYY` trong môi trường trước khi tính lương/phép; lịch 2026 có thể ghi đè nếu doanh nghiệp chọn lịch Tết hoặc Quốc khánh khác, hoặc có ngày nghỉ riêng. Chưa có giao diện quản trị lịch và chưa xử lý ngày làm bù cuối tuần.
-2. Đã thêm đơn OT `PENDING → APPROVED/REJECTED`, cấm tự duyệt, kiểm tra phạm vi quản lý và chỉ đưa OT đã duyệt vào bảng lương tự động. Hệ số đang dùng 150% ngày thường, 200% cuối tuần, 300% ngày lễ. Cần rà soát thêm ca đêm, nghỉ bù, giới hạn OT và chứng từ/chấm công trước khi vận hành thật.
-3. Nghỉ ốm đã được tách khỏi ngày công công ty trả lương. Ứng dụng hiện chỉ hiển thị số ngày; số tiền trợ cấp và hồ sơ BHXH phải do bộ phận nhân sự đối chiếu, chưa được tự động chi trả.
-4. Mức đóng bảo hiểm, nền tính đóng và khoản miễn thuế vẫn mã hóa trong công thức. Kế toán/HR cần duyệt bảng quy tắc cho từng kỳ, đặc biệt trường hợp nghỉ không hưởng lương dài ngày và mức đóng BHXH theo hợp đồng. Trạng thái `PAID` chỉ là ghi nhận trong ứng dụng; không có tích hợp chuyển tiền.
-5. Bảng chấm công chưa ghi nguồn gốc bản ghi `LEAVE`; khi rút đơn đã duyệt, hệ thống chưa phân biệt chắc chắn ngày công do đơn tạo với ngày `LEAVE` được nhập thủ công từ trước.
-6. Chưa có kiểm thử tích hợp trong cơ sở dữ liệu thử nghiệm riêng và chưa chạy quy trình tạo/duyệt OT/tính lương từ đầu đến cuối trên dữ liệu cách ly.
-7. Chạy tính lương tự động cho nhiều nhân viên vẫn lưu từng phiếu lần lượt; nếu một phiếu lỗi giữa chừng, những phiếu trước đó đã được cập nhật. Cần cơ chế lô có thể kiểm tra và chạy lại an toàn.
+1. Đã thêm đơn OT `PENDING → APPROVED/REJECTED`, cấm tự duyệt, kiểm tra phạm vi quản lý và chỉ đưa OT đã duyệt vào bảng lương tự động. Hệ số đang dùng 150% ngày thường, 200% cuối tuần, 300% ngày lễ. Cần rà soát thêm ca đêm, nghỉ bù, giới hạn OT và chứng từ/chấm công trước khi vận hành thật.
+2. Nghỉ ốm đã được tách khỏi ngày công công ty trả lương. Ứng dụng hiện chỉ hiển thị số ngày; số tiền trợ cấp và hồ sơ BHXH phải do bộ phận nhân sự đối chiếu, chưa được tự động chi trả.
+3. Mức đóng bảo hiểm, nền tính đóng và khoản miễn thuế vẫn mã hóa trong công thức. Kế toán/HR cần duyệt bảng quy tắc cho từng kỳ, đặc biệt trường hợp nghỉ không hưởng lương dài ngày và mức đóng BHXH theo hợp đồng. Trạng thái `PAID` chỉ là ghi nhận trong ứng dụng; không có tích hợp chuyển tiền.
+4. Bảng chấm công chưa ghi nguồn gốc bản ghi `LEAVE`; khi rút đơn đã duyệt, hệ thống chưa phân biệt chắc chắn ngày công do đơn tạo với ngày `LEAVE` được nhập thủ công từ trước.
 
 ## Cập nhật theo chính sách công ty (16/10/2026)
 
@@ -44,3 +41,12 @@
 - Lịch 2026 dựa trên [thông báo nghỉ Tết](https://xaydungchinhsach.chinhphu.vn/lich-nghi-tet-nguyen-dan-2026-cua-hoc-sinh-giao-vien-can-bo-cong-chuc-vien-chuc-tp-ha-noi-119251217121327126.htm), [nghỉ bù Giỗ Tổ](https://xaydungchinhsach.chinhphu.vn/lich-nghi-le-gio-to-hung-vuong-30-4-1-5-quoc-khanh-2-9-nam-2026-119260222115822151.htm), [Quốc khánh](https://xaydungchinhsach.chinhphu.vn/thong-bao-lich-nghi-le-quoc-khanh-2026-119260729092042494.htm) và [Ngày Văn hóa Việt Nam](https://xaydungchinhsach.chinhphu.vn/ngay-24-11-hang-nam-la-ngay-van-hoa-viet-nam-nguoi-lao-dong-duoc-nghi-huong-nguyen-luong-119260113152642414.htm). Doanh nghiệp cần xác nhận lựa chọn ngày 1/9 hay 3/9 và các ngày hoán đổi riêng.
 
 **Kết luận:** Các lỗi phân quyền và phép tính rõ ràng tìm thấy trong lần rà soát này đã được sửa, nhưng chưa đủ bằng chứng để khẳng định toàn bộ nghiệp vụ nhân sự và bảng lương đã sẵn sàng cho vận hành thực tế. Các quy tắc trong mục trên cần được người phụ trách nghiệp vụ xác nhận.
+
+## Cập nhật 17/10/2026
+
+- Đã thêm lịch công lưu trong PostgreSQL và màn hình HR quản lý ngày nghỉ, ngày làm bù cuối tuần. Lương, nghỉ phép và lịch công chuẩn cùng đọc lịch này. Không cho thay đổi ngày thuộc tháng đã có phiếu lương `PAID`; phiếu `DRAFT` cần tính lại sau khi sửa lịch.
+- Đã đặt toàn bộ lần tính lương tự động cho nhiều nhân viên trong một transaction. Nếu bất kỳ phiếu nào lỗi, mọi cập nhật của lần chạy được khôi phục.
+- Đã bổ sung migration khởi tạo để có thể dựng cơ sở dữ liệu mới từ đầu; cơ sở dữ liệu đang dùng được đánh dấu migration khởi tạo là đã áp dụng vì bảng đã tồn tại. Migration lịch công đã áp dụng thành công.
+- Đã chạy kiểm thử tích hợp trên PostgreSQL thử nghiệm riêng: ngày làm bù, OT đã duyệt, nghỉ ốm không hưởng lương công ty và rollback lô tính lương. Dữ liệu thật không bị kiểm thử ghi sửa.
+- `npx tsc --noEmit`, build sản xuất (45 trang tĩnh và route động), 9 kiểm thử nghiệp vụ và 1 kiểm thử tích hợp đều đạt; lint các file lịch công/kiểm thử mới đạt.
+- Còn cần đối chiếu nghiệp vụ bảo hiểm/thuế, quy định OT chi tiết và nguồn gốc bản ghi chấm công `LEAVE` trước khi dùng bảng lương làm căn cứ chi trả thực tế.

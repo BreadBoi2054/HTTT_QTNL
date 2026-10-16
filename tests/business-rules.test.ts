@@ -4,6 +4,7 @@ import { calculateWorkingDays, workingDaysInYear } from "../src/services/leave.s
 import { bulkDisbursePayrolls, calculateVietnamesePIT, getPayrolls } from "../src/services/payroll.service";
 import { holidayDatesForYear, monthlyWorkdays } from "../src/lib/work-calendar";
 import { createOvertimeRequest } from "../src/services/overtime.service";
+import { saveWorkCalendar } from "../src/services/work-calendar.service";
 
 test("phép năm vắt qua năm được tính riêng theo từng năm, kể cả ngày cuối tuần", () => {
   process.env.PAYROLL_HOLIDAYS_2027 = "2027-01-01";
@@ -26,6 +27,16 @@ test("công chuẩn tháng thay đổi theo thứ cuối tuần và lễ 2026", 
 
 test("không tự tính lương khi chưa cấu hình lịch lễ năm mới", () => {
   assert.throws(() => monthlyWorkdays(2028, 1), /Chưa cấu hình lịch nghỉ lễ/);
+});
+
+test("ngày làm bù cuối tuần được tính vào công chuẩn", () => {
+  assert.equal(monthlyWorkdays(2026, 1, holidayDatesForYear(2026), new Set(["2026-01-10"])), 22);
+});
+
+test("lịch công từ chối ngày ngoài năm và ngày vừa nghỉ vừa làm", async () => {
+  await assert.rejects(saveWorkCalendar(2026, ["2027-01-01"], [], "HR", "HR"), /không hợp lệ/);
+  await assert.rejects(saveWorkCalendar(2026, ["2026-01-01"], ["2026-01-01"], "HR", "HR"), /vừa nghỉ vừa làm/);
+  await assert.rejects(saveWorkCalendar(2026, [], ["2026-09-07"], "HR", "HR"), /thứ Bảy hoặc Chủ nhật/);
 });
 
 test("đơn OT từ chối số giờ sai trước khi truy cập cơ sở dữ liệu", async () => {

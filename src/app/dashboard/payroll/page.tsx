@@ -32,6 +32,7 @@ import PayrollModal from "@/components/payroll/PayrollModal";
 import AutoCalculateModal from "@/components/payroll/AutoCalculateModal";
 import PayslipDetailModal from "@/components/payroll/PayslipDetailModal";
 import OvertimePanel from "@/components/payroll/OvertimePanel";
+import CalendarPanel from "@/components/payroll/CalendarPanel";
 import { useConfirm, TableSkeleton } from "@/components/providers/ToastProvider";
 
 export default function PayrollPage() {
@@ -504,6 +505,7 @@ export default function PayrollPage() {
         )}
 
         <OvertimePanel userId={session?.user?.id} roleName={userRole} onApproved={fetchPayrolls} />
+        {["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole) && <CalendarPanel />}
 
         {/* Asymmetric Financial Ledger Strip (Swiss Treasury Layout) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">

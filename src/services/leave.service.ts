@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { holidayDatesForYear, isScheduledWorkday } from "@/lib/work-calendar";
+import { defaultWorkCalendar, isScheduledWorkday, type WorkCalendar } from "@/lib/work-calendar";
+import { getWorkCalendar } from "@/services/work-calendar.service";
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -26,15 +27,26 @@ export function toUtcDateOnly(date: Date = new Date()): Date {
   return new Date(`${y}-${m}-${d}T00:00:00.000Z`);
 }
 
-export function calculateWorkingDays(startDate: Date, endDate: Date): number {
+type Calendars = Map<number, WorkCalendar>;
+
+async function loadCalendars(startDate: Date, endDate: Date, client: Prisma.TransactionClient | typeof prisma = prisma): Promise<Calendars> {
+  const calendars: Calendars = new Map();
+  for (let year = startDate.getUTCFullYear(); year <= endDate.getUTCFullYear(); year++) {
+    calendars.set(year, await getWorkCalendar(year, client));
+  }
+  return calendars;
+}
+
+export function calculateWorkingDays(startDate: Date, endDate: Date, configured?: Calendars): number {
   let count = 0;
   const cur = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
   const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
-  const calendars = new Map<number, Set<string>>();
+  const calendars = configured ?? new Map<number, WorkCalendar>();
   while (cur <= end) {
     const year = cur.getUTCFullYear();
-    if (!calendars.has(year)) calendars.set(year, holidayDatesForYear(year));
-    if (isScheduledWorkday(cur, calendars.get(year)!)) {
+    if (!calendars.has(year)) calendars.set(year, defaultWorkCalendar(year));
+    const calendar = calendars.get(year)!;
+    if (isScheduledWorkday(cur, calendar.holidays, calendar.extraWorkdays)) {
       count++;
     }
     cur.setUTCDate(cur.getUTCDate() + 1);
@@ -42,26 +54,27 @@ export function calculateWorkingDays(startDate: Date, endDate: Date): number {
   return count;
 }
 
-function workingDates(startDate: Date, endDate: Date): Date[] {
+function workingDates(startDate: Date, endDate: Date, configured?: Calendars): Date[] {
   const dates: Date[] = [];
   const cur = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
   const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
-  const calendars = new Map<number, Set<string>>();
+  const calendars = configured ?? new Map<number, WorkCalendar>();
   while (cur <= end) {
     const year = cur.getUTCFullYear();
-    if (!calendars.has(year)) calendars.set(year, holidayDatesForYear(year));
-    if (isScheduledWorkday(cur, calendars.get(year)!)) dates.push(new Date(cur));
+    if (!calendars.has(year)) calendars.set(year, defaultWorkCalendar(year));
+    const calendar = calendars.get(year)!;
+    if (isScheduledWorkday(cur, calendar.holidays, calendar.extraWorkdays)) dates.push(new Date(cur));
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return dates;
 }
 
-export function workingDaysInYear(startDate: Date, endDate: Date, year: number): number {
+export function workingDaysInYear(startDate: Date, endDate: Date, year: number, configured?: Calendars): number {
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
   const start = startDate > yearStart ? startDate : yearStart;
   const end = endDate < yearEnd ? endDate : yearEnd;
-  return start <= end ? calculateWorkingDays(start, end) : 0;
+  return start <= end ? calculateWorkingDays(start, end, configured) : 0;
 }
 
 function leaveYears(startDate: Date, endDate: Date): number[] {
@@ -162,6 +175,7 @@ export async function getLeaveBalance(
 
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const endOfYear = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+  const calendars = await loadCalendars(startOfYear, endOfYear, client);
 
   const leaves = await client.leaveRequest.findMany({
     where: {
@@ -178,7 +192,7 @@ export async function getLeaveBalance(
   for (const l of leaves) {
     const s = l.startDate < startOfYear ? startOfYear : l.startDate;
     const e = l.endDate > endOfYear ? endOfYear : l.endDate;
-    const days = calculateWorkingDays(s, e);
+    const days = calculateWorkingDays(s, e, calendars);
     if (l.status === "APPROVED") {
       usedDays += days;
     } else if (l.status === "PENDING") {
@@ -241,12 +255,11 @@ export async function createLeaveRequest(
     throw new Error("Loại nghỉ phép không hợp lệ.");
   }
 
-  const requestedWorkingDays = calculateWorkingDays(start, end);
-  if (requestedWorkingDays <= 0) {
-    throw new Error("Khoảng thời gian nghỉ chỉ rơi vào Thứ 7 hoặc Chủ Nhật (không tính ngày làm việc).");
-  }
-
   return prisma.$transaction(async (tx) => {
+    const calendars = await loadCalendars(start, end, tx);
+    if (calculateWorkingDays(start, end, calendars) <= 0) {
+      throw new Error("Khoảng nghỉ không có ngày làm việc theo lịch công đã cấu hình.");
+    }
     const overlapping = await tx.leaveRequest.findFirst({
       where: {
         employeeId,
@@ -266,7 +279,7 @@ export async function createLeaveRequest(
 
     if (type === "ANNUAL_LEAVE") {
       for (const year of leaveYears(start, end)) {
-        const requestedDays = workingDaysInYear(start, end, year);
+        const requestedDays = workingDaysInYear(start, end, year, calendars);
         if (requestedDays === 0) continue;
         const balance = await getLeaveBalance(employeeId, year, tx);
         if (requestedDays > balance.remainingDays) {
@@ -320,6 +333,7 @@ export async function updateLeaveRequestDetails(
     });
 
     if (!leave) throw new Error("Không tìm thấy đơn nghỉ phép.");
+
     if (leave.status !== "PENDING") {
       throw new Error("Chỉ có thể chỉnh sửa thông tin đơn nghỉ phép đang ở trạng thái chờ duyệt (PENDING).");
     }
@@ -354,18 +368,19 @@ export async function updateLeaveRequestDetails(
       throw new Error("Khoảng thời gian cập nhật bị trùng với một đơn nghỉ phép khác.");
     }
 
-    const requestedWorkingDays = calculateWorkingDays(start, end);
+    const calendars = await loadCalendars(start, end, tx);
+    const requestedWorkingDays = calculateWorkingDays(start, end, calendars);
     if (requestedWorkingDays <= 0) {
-      throw new Error("Khoảng thời gian nghỉ chỉ rơi vào Thứ 7 hoặc Chủ Nhật (không tính ngày làm việc).");
+      throw new Error("Khoảng nghỉ không có ngày làm việc theo lịch công đã cấu hình.");
     }
 
     if (type === "ANNUAL_LEAVE") {
       for (const year of leaveYears(start, end)) {
-        const requestedDays = workingDaysInYear(start, end, year);
+        const requestedDays = workingDaysInYear(start, end, year, calendars);
         if (requestedDays === 0) continue;
         const balance = await getLeaveBalance(leave.employeeId, year, tx);
         const oldDays = leave.type === "ANNUAL_LEAVE"
-          ? workingDaysInYear(leave.startDate, leave.endDate, year)
+          ? workingDaysInYear(leave.startDate, leave.endDate, year, await loadCalendars(leave.startDate, leave.endDate, tx))
           : 0;
         if (requestedDays > balance.remainingDays + oldDays) {
           throw new Error(`Phép năm ${year} không đủ cho khoảng thời gian cập nhật.`);
@@ -411,6 +426,8 @@ export async function updateLeaveRequestStatus(
     });
 
     if (!leave) throw new Error("Không tìm thấy đơn nghỉ phép.");
+
+    const calendars = await loadCalendars(leave.startDate, leave.endDate, tx);
 
     if (
       actorUserId &&
@@ -458,7 +475,7 @@ export async function updateLeaveRequestStatus(
 
       if (leave.type === "ANNUAL_LEAVE") {
         for (const year of leaveYears(leave.startDate, leave.endDate)) {
-          const requestedDays = workingDaysInYear(leave.startDate, leave.endDate, year);
+          const requestedDays = workingDaysInYear(leave.startDate, leave.endDate, year, calendars);
           if (requestedDays === 0) continue;
           const balance = await getLeaveBalance(leave.employeeId, year, tx);
           if (leave.status === "PENDING" &&
@@ -478,7 +495,7 @@ export async function updateLeaveRequestStatus(
     });
 
     if (status === "APPROVED" && leave.status !== "APPROVED") {
-      const dates = workingDates(leave.startDate, leave.endDate);
+      const dates = workingDates(leave.startDate, leave.endDate, calendars);
       const existing = await tx.attendance.findMany({
         where: { employeeId: leave.employeeId, date: { in: dates } },
         select: { id: true, date: true, checkIn: true },

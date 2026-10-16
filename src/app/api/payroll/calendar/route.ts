@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { holidayDatesForYear, monthlyWorkdays } from "@/lib/work-calendar";
+import { monthlyWorkdays } from "@/lib/work-calendar";
+import { getWorkCalendar } from "@/services/work-calendar.service";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -12,8 +13,8 @@ export async function GET(req: Request) {
     return new NextResponse("Kỳ lương không hợp lệ.", { status: 400 });
   }
   try {
-    const holidays = holidayDatesForYear(year);
-    return NextResponse.json({ month, year, workingDays: monthlyWorkdays(year, month, holidays), holidays: [...holidays].filter((day) => Number(day.slice(5, 7)) === month) });
+    const { holidays, extraWorkdays } = await getWorkCalendar(year);
+    return NextResponse.json({ month, year, workingDays: monthlyWorkdays(year, month, holidays, extraWorkdays), holidays: [...holidays].filter((day) => Number(day.slice(5, 7)) === month) });
   } catch (error) {
     return new NextResponse(error instanceof Error ? error.message : "Chưa có lịch công.", { status: 400 });
   }

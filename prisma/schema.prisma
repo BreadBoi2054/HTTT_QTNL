@@ -96,6 +96,15 @@ model OvertimeRequest {
   @@index([status, date])
 }
 
+model WorkCalendarYear {
+  year          Int @id
+  holidays      Json
+  extraWorkdays Json
+  note          String?
+  updatedBy     String
+  updatedAt     DateTime @updatedAt
+}
+
 model LeaveRequest {
   id         String          @id @default(cuid())
   employeeId String
