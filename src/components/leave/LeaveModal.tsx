@@ -9,9 +9,11 @@ interface LeaveModalProps {
   onSuccess: () => void;
   leaveRequest?: any;
   isAdmin?: boolean;
+  canManageEmployee?: boolean;
+  canEditDetails?: boolean;
 }
 
-export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, isAdmin }: LeaveModalProps) {
+export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, isAdmin, canManageEmployee = false, canEditDetails = true }: LeaveModalProps) {
   const [formData, setFormData] = useState({
     employeeId: "",
     startDate: "",
@@ -35,7 +37,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
 
   useEffect(() => {
     if (isOpen) {
-      if (isAdmin) {
+      if (canManageEmployee) {
         fetch("/api/employees")
           .then(res => res.ok ? res.json() : [])
           .then(data => {
@@ -65,9 +67,14 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
       }
       setError("");
     }
-  }, [leaveRequest, isOpen, isAdmin]);
+  }, [leaveRequest, isOpen, canManageEmployee]);
 
   if (!isOpen) return null;
+
+  const isReviewAction = Boolean(leaveRequest && isAdmin && formData.status !== leaveRequest.status);
+  const isFieldsLocked = Boolean((leaveRequest && (leaveRequest.status !== "PENDING" || !canEditDetails)) || isReviewAction);
+  const isViewOnly = Boolean(leaveRequest && !isAdmin && leaveRequest.status !== "PENDING");
+  const canSubmit = !isViewOnly && (!leaveRequest || isReviewAction || (leaveRequest.status === "PENDING" && canEditDetails));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +88,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(isReviewAction ? { status: formData.status } : formData)
       });
 
       if (!res.ok) {
@@ -97,8 +104,6 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
       setLoading(false);
     }
   };
-
-  const isViewOnly = Boolean(leaveRequest && !isAdmin && leaveRequest.status !== "PENDING");
 
   return (
     <div 
@@ -148,7 +153,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
             </div>
           )}
 
-          {!leaveRequest && isAdmin && (
+          {!leaveRequest && canManageEmployee && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Nhân viên làm đơn (Tạo hộ) <span className="text-red-500">*</span>
@@ -157,7 +162,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
                 value={formData.employeeId}
                 onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                 className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:border-blue-500 outline-none transition-colors"
-                required={isAdmin}
+                required={canManageEmployee}
               >
                 <option value="">-- Chọn nhân viên --</option>
                 {employees.map(emp => (
@@ -177,7 +182,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
               <input
                 type="date"
                 required
-                disabled={isViewOnly}
+                disabled={isFieldsLocked}
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                 className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:border-blue-500 outline-none transition-colors disabled:opacity-60"
@@ -190,7 +195,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
               <input
                 type="date"
                 required
-                disabled={isViewOnly}
+                disabled={isFieldsLocked}
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                 className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:border-blue-500 outline-none transition-colors disabled:opacity-60"
@@ -203,7 +208,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
               Loại hình nghỉ phép
             </label>
             <select
-              disabled={isViewOnly}
+              disabled={isFieldsLocked}
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
               className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:border-blue-500 outline-none transition-colors disabled:opacity-60"
@@ -222,7 +227,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
             <textarea
               required
               rows={3}
-              disabled={isViewOnly}
+              disabled={isFieldsLocked}
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
               placeholder="Ghi rõ lý do nghỉ phép..."
@@ -246,6 +251,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
                 <option value="APPROVED">Chấp thuận (Duyệt đơn)</option>
                 <option value="REJECTED">Từ chối đơn</option>
               </select>
+              {isReviewAction && <p className="text-[11px] text-zinc-500">Thao tác xét duyệt chỉ cập nhật trạng thái. Hãy lưu nội dung đơn trước khi đổi quyết định.</p>}
             </div>
           )}
 
@@ -257,7 +263,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
             >
               Thoát
             </button>
-            {!isViewOnly && (
+            {canSubmit && (
               <button
                 type="submit"
                 disabled={loading}
@@ -265,7 +271,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
               >
                 {loading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : leaveRequest ? "Lưu quyết định" : "Gửi yêu cầu"}
+                ) : isReviewAction ? "Xác nhận quyết định" : leaveRequest ? "Lưu thay đổi" : "Gửi yêu cầu"}
               </button>
             )}
           </div>

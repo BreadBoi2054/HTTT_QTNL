@@ -3,568 +3,122 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { 
-  Users, Briefcase, Clock, Calendar, AlertCircle, Lock, Building2,
-  TrendingUp, CheckCircle2, UserCheck, ArrowUpRight,
-  ChevronRight, ArrowRight, ShieldCheck, Banknote, Target, FileText, BookOpen
-} from "lucide-react";
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
-} from "recharts";
-import { CardGridSkeleton, TableSkeleton } from "@/components/providers/ToastProvider";
+import { ArrowRight, ArrowUpRight, CalendarDays, Clock3, FileText, UsersRound } from "lucide-react";
+
+type DashboardData = {
+  totalEmployees: number | null;
+  attendanceToday: { PRESENT: number; LATE: number; ABSENT: number; LEAVE: number } | null;
+  headcountByDept: { name: string; value: number }[] | null;
+  activeJobs: number | null;
+  recentApplications: { id: string; candidateName: string; jobTitle: string; status: string; createdAt: string }[] | null;
+};
+
+const statusNames: Record<string, string> = {
+  APPLIED: "Mới tiếp nhận", REVIEWING: "Đang sàng lọc", INTERVIEWING: "Phỏng vấn",
+  OFFERED: "Đã đề nghị", HIRED: "Đã tuyển", REJECTED: "Đã từ chối",
+};
+
+const personalLinks = [
+  { title: "Không gian của tôi", note: "Hồ sơ và hoạt động cá nhân", href: "/dashboard/my-workspace" },
+  { title: "Chấm công", note: "Ghi nhận và xem ngày làm việc", href: "/dashboard/attendance" },
+  { title: "Nghỉ phép", note: "Quỹ phép và đơn chờ xét duyệt", href: "/dashboard/leave" },
+  { title: "Phiếu lương", note: "Thu nhập theo từng kỳ", href: "/dashboard/payroll" },
+  { title: "Đánh giá", note: "Tiến độ và kết quả hiệu suất", href: "/dashboard/performance" },
+];
+
+const managementLinks = [
+  { title: "Hồ sơ nhân sự", note: "Danh sách và tình trạng lao động", href: "/dashboard/employees" },
+  { title: "Chấm công", note: "Sổ công trong ngày", href: "/dashboard/attendance" },
+  { title: "Nghỉ phép", note: "Đơn cần theo dõi", href: "/dashboard/leave" },
+  { title: "Bảng lương", note: "Kỳ lương và phiếu chi", href: "/dashboard/payroll" },
+];
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const user = session?.user as any;
-  const isUser = user?.roleName === 'USER';
-  const [data, setData] = useState<any>(null);
+  const roleName = (session?.user as { roleName?: string } | undefined)?.roleName || "USER";
+  const isUser = roleName === "USER";
+  const canSeeRecruitment = ["BOD", "SYSTEM_ADMIN", "HR", "MANAGER"].includes(roleName);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Lời chào theo thời gian trong ngày
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Chào buổi sáng";
-    if (hour < 18) return "Chào buổi chiều";
-    return "Chào buổi tối";
-  };
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch('/api/dashboard');
-        const json = await res.json();
-        setData(json);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    const controller = new AbortController();
+    fetch("/api/dashboard", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Không tải được dữ liệu tổng quan");
+        return response.json();
+      })
+      .then((result: DashboardData) => setData(result))
+      .catch((cause) => { if (cause.name !== "AbortError") setError(true); })
+      .finally(() => setLoading(false));
+    return () => controller.abort();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="space-y-6 pb-10 max-w-7xl mx-auto">
-        <CardGridSkeleton count={4} />
-        <div className="bento-card p-6">
-          <TableSkeleton rows={6} cols={4} />
-        </div>
-      </div>
-    );
-  }
-
-  // Dữ liệu biểu đồ chấm công
-  const presentCount = data?.attendanceToday?.PRESENT || 0;
-  const lateCount = data?.attendanceToday?.LATE || 0;
-  const absentCount = (data?.attendanceToday?.ABSENT || 0) + (data?.attendanceToday?.LEAVE || 0);
-  const totalReported = presentCount + lateCount + absentCount;
-  const attendanceRate = totalReported > 0 
-    ? Math.round((presentCount / totalReported) * 100) 
-    : null;
-
-  const pieData = [
-    { name: 'Đúng giờ', value: presentCount, color: '#2563EB' },
-    { name: 'Đi muộn', value: lateCount, color: '#F59E0B' },
-    { name: 'Vắng/Nghỉ', value: absentCount, color: '#EF4444' }
-  ];
-
-  // Custom Tooltip cho BarChart
-  const CustomBarTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="backdrop-blur-md bg-zinc-950/90 text-white border border-zinc-700/60 rounded-xl px-3.5 py-2 shadow-xl text-xs">
-          <p className="font-semibold text-zinc-200">{label}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            <span className="text-zinc-400">Nhân sự chính thức:</span>
-            <span className="font-mono font-bold text-white">{payload[0].value} người</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
+  const today = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "long", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+  const period = new Intl.DateTimeFormat("en-GB", { month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+  const attendance = data?.attendanceToday;
+  const present = (attendance?.PRESENT || 0) + (attendance?.LATE || 0);
+  const recorded = present + (attendance?.ABSENT || 0) + (attendance?.LEAVE || 0);
+  const punctuality = present > 0 ? Math.round(((attendance?.PRESENT || 0) / present) * 100) : null;
+  const departments = data?.headcountByDept || [];
+  const maxDepartment = Math.max(1, ...departments.map((item) => item.value));
+  const links = isUser ? personalLinks : managementLinks;
 
   return (
-    <div className="space-y-6 animate-swiss-in pb-10 max-w-7xl mx-auto">
-      
-      {/* 1. ENTERPRISE OPERATIONAL HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+    <div className="folio-page animate-swiss-in space-y-8">
+      <section className="folio-rule grid gap-6 pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div>
-          <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-1 flex-wrap">
-            <span className="whitespace-nowrap">Hệ thống</span>
-            <span>/</span>
-            <span className="text-zinc-900 dark:text-zinc-200 font-medium whitespace-nowrap">Bàn điều hành trung tâm</span>
-            <span className="text-zinc-300 dark:text-zinc-700">•</span>
-            <span className="font-mono text-[11px] text-zinc-500 whitespace-nowrap">
-              Kỳ làm việc: {new Date().toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' })}
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Tổng Quan Điều Hành Nhân Lực
-          </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            {getGreeting()}, <span className="font-semibold text-zinc-800 dark:text-zinc-200">{user?.name || "Người dùng"}</span> (Vai trò: {user?.roleName || "Nhân viên"}). {isUser ? "Truy cập nhanh các tiện ích cá nhân của bạn." : "Cập nhật trạng thái tác nghiệp toàn doanh nghiệp."}
+          <div className="folio-kicker mb-4 flex items-center gap-3"><span className="inline-block h-px w-8 bg-[#ba7146]" /> Sổ điều hành / {isUser ? "Cá nhân" : "Toàn doanh nghiệp"}</div>
+          <h1 className="text-zinc-900 dark:text-zinc-100">{isUser ? "Một nơi cho công việc của bạn." : "Nhân sự, trong một góc nhìn."}</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+            {isUser ? "Theo dõi ngày công, đơn nghỉ, thu nhập và các việc cần hoàn tất." : "Bức tranh vận hành của kỳ làm việc hiện tại, từ quân số đến chuyên cần và tuyển dụng."}
           </p>
         </div>
-
-        {/* Action Toolbar */}
-        <div className="flex items-center flex-wrap gap-2 shrink-0">
-          <Link
-            href="/dashboard/attendance"
-            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300/80 dark:border-zinc-700 transition-colors"
-          >
-            <span>Chấm công</span>
-          </Link>
-
-          <Link
-            href="/dashboard/leave"
-            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300/80 dark:border-zinc-700 transition-colors"
-          >
-            <span>{isUser ? "Đơn nghỉ phép" : "Duyệt đơn"}</span>
-          </Link>
-
-          <Link
-            href="/dashboard/my-workspace"
-            className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-xs transition-colors"
-          >
-            <span>Cổng cá nhân</span>
-          </Link>
+        <div className="flex items-center gap-3 text-xs text-zinc-600 dark:text-zinc-400 lg:justify-end">
+          <CalendarDays className="h-4 w-4 text-[#ba7146]" /><span>{today}</span><span className="h-4 w-px bg-zinc-300 dark:bg-zinc-700" /><span className="font-mono">KỲ {period}</span>
         </div>
+      </section>
+
+      {error && <div role="alert" className="folio-panel border-red-300 p-5 text-sm text-red-700">Chưa thể tải số liệu. Hãy thử tải lại trang sau khi kiểm tra kết nối dữ liệu.</div>}
+
+      <div className="grid gap-5 xl:grid-cols-12">
+        <section className="folio-panel-dark relative overflow-hidden p-6 sm:p-8 xl:col-span-5">
+          <div className="absolute -right-14 -top-16 h-64 w-64 rounded-full border border-white/10" />
+          <div className="absolute -right-4 -top-5 h-44 w-44 rounded-full border border-white/10" />
+          <div className="relative flex h-full min-h-64 flex-col justify-between">
+            <div className="flex items-center justify-between gap-4"><span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#c9dfd0]">{isUser ? "Bàn làm việc" : "Quân số hiện tại"}</span><span className="font-mono text-xs text-[#d59b70]">NT / HR 01</span></div>
+            <div className="py-7">
+              {isUser ? <><p className="folio-display text-3xl leading-tight sm:text-4xl">Xin chào,<br />{session?.user?.name || "đồng nghiệp"}.</p><p className="mt-4 max-w-xs text-sm leading-relaxed text-[#c9dfd0]">Các công cụ và thông tin dành riêng cho bạn nằm ngay bên dưới.</p></> : <><div className="folio-number text-7xl sm:text-8xl">{loading ? "—" : (data?.totalEmployees ?? "—")}</div><p className="mt-4 text-sm text-[#c9dfd0]">nhân sự đang làm việc</p></>}
+            </div>
+            <Link href={isUser ? "/dashboard/my-workspace" : "/dashboard/employees"} className="relative flex items-center justify-between border-t border-white/20 pt-4 text-sm font-medium hover:text-[#e4aa7d]">{isUser ? "Vào không gian cá nhân" : "Mở danh sách nhân sự"}<ArrowUpRight className="h-4 w-4" /></Link>
+          </div>
+        </section>
+
+        <section className="folio-panel p-6 sm:p-8 xl:col-span-7">
+          <div className="mb-7 flex items-start justify-between gap-4"><div><span className="folio-kicker">Chỉ mục / 02</span><h2 className="mt-2 folio-display text-2xl text-zinc-900 dark:text-zinc-100">Đi thẳng đến công việc</h2></div><ArrowRight className="h-5 w-5 text-[#ba7146]" /></div>
+          <div>{links.map((item, index) => <Link key={item.href} href={item.href} className="folio-link-row group flex items-center gap-4 py-3.5"><span className="folio-index w-8 shrink-0">{String(index + 1).padStart(2, "0")}</span><span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{item.title}</strong><span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{item.note}</span></span><ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-blue-600" /></Link>)}</div>
+        </section>
       </div>
 
-      {/* 2. ASYMMETRIC EXECUTIVE COMMAND SPLIT (Swiss Focal Point + 3 Ledger Cells) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* Left Hero Block: Operational Pulse */}
-        <div className="lg:col-span-5 rounded-2xl bg-zinc-900 dark:bg-zinc-950 text-white p-6 border border-zinc-800 flex flex-col justify-between shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400">
-                Nhịp độ vận hành hôm nay · Operational Pulse
-              </span>
-              <div className="flex items-baseline gap-3 mt-2">
-                <span className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-white">
-                  {isUser || attendanceRate === null ? "--" : `${attendanceRate}%`}
-                </span>
-                <span className="text-xs font-medium text-blue-400">
-                  {isUser ? "Chế độ cá nhân" : attendanceRate === null ? "Chưa có dữ liệu chấm công" : "Tỷ lệ chuyên cần đúng giờ"}
-                </span>
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-blue-400 shrink-0">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
+      {!isUser && <div className="grid gap-5 xl:grid-cols-12">
+        <section className="folio-panel p-6 sm:p-8 xl:col-span-5">
+          <div className="mb-6 flex items-end justify-between gap-4"><div><span className="folio-kicker">Chuyên cần / hôm nay</span><h2 className="mt-2 folio-display text-2xl">Nhịp làm việc</h2></div><Clock3 className="h-5 w-5 text-[#ba7146]" /></div>
+          <div className="grid grid-cols-2 border-y border-zinc-200 py-5 dark:border-zinc-700"><div className="border-r border-zinc-200 pr-4 dark:border-zinc-700"><div className="folio-number text-5xl">{loading ? "—" : present}</div><p className="mt-2 text-xs text-zinc-500">Đã chấm công</p></div><div className="pl-5"><div className="folio-number text-5xl">{loading ? "—" : (punctuality === null ? "—" : `${punctuality}%`)}</div><p className="mt-2 text-xs text-zinc-500">Đúng giờ trong số đã chấm</p></div></div>
+          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400"><span>Đúng giờ <b className="font-mono text-zinc-900 dark:text-zinc-100">{attendance?.PRESENT ?? 0}</b></span><span>Đi muộn <b className="font-mono text-zinc-900 dark:text-zinc-100">{attendance?.LATE ?? 0}</b></span><span>Ghi nhận <b className="font-mono text-zinc-900 dark:text-zinc-100">{recorded}</b></span></div>
+          <Link href="/dashboard/attendance" className="mt-7 flex items-center justify-between border-t border-zinc-200 pt-4 text-xs font-semibold text-blue-600 dark:border-zinc-700">Xem sổ công <ArrowRight className="h-4 w-4" /></Link>
+        </section>
 
-          <div className="mt-5 pt-4 border-t border-zinc-800 space-y-2.5">
-            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden flex">
-              <div
-                className="h-full bg-blue-500 transition-all duration-300"
-                style={{ width: `${isUser || attendanceRate === null ? 0 : attendanceRate}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
-              <span>Đúng giờ: <strong className="text-white">{isUser ? "--" : presentCount}</strong></span>
-              <span>Đi muộn: <strong className="text-amber-400">{isUser ? "--" : lateCount}</strong></span>
-              <span>Vắng/Nghỉ: <strong className="text-rose-400">{isUser ? "--" : absentCount}</strong></span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right 3-Cell Swiss Metric Strip */}
-        {isUser ? (
-          <div className="lg:col-span-7 bento-card p-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { href: "/dashboard/my-workspace", label: "Hồ sơ của bạn", detail: "Thông tin cá nhân" },
-              { href: "/dashboard/attendance", label: "Chấm công", detail: "Xem lịch sử công" },
-              { href: "/dashboard/leave", label: "Đơn nghỉ phép", detail: "Gửi hoặc theo dõi đơn" },
-            ].map((item) => (
-              <Link key={item.href} href={item.href} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors">
-                <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{item.label}</span>
-                <span className="block text-xs text-zinc-500 mt-1">{item.detail}</span>
-              </Link>
-            ))}
-          </div>
-        ) : <div className="lg:col-span-7 bento-card p-0 overflow-hidden grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800">
-          {/* Cell 1: Tổng nhân sự */}
-          <div className="p-5 flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Tổng quân số</span>
-                <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight mt-1.5">
-                  {data?.totalEmployees || 0}
-                </p>
-              </div>
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60">
-                <Users className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500 font-mono">{data?.departmentDistribution?.length || data?.headcountByDept?.length || 0} phòng ban</span>
-              <Link href="/dashboard/employees" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center font-medium">
-                Danh sách <ArrowUpRight className="w-3 h-3 ml-0.5" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Cell 2: Có mặt hôm nay */}
-          <div className="p-5 flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Có mặt hôm nay</span>
-                  {isUser && <Lock className="w-3 h-3 text-zinc-400" />}
-                </div>
-                {isUser ? (
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2 italic">Giới hạn theo quyền</p>
-                ) : (
-                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight mt-1.5">
-                    {presentCount}
-                  </p>
-                )}
-              </div>
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px]">
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                {isUser ? "Cá nhân" : `Báo cáo: ${totalReported}`}
-              </span>
-              <Link href="/dashboard/attendance" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center font-medium">
-                Sổ công <ArrowUpRight className="w-3 h-3 ml-0.5" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Cell 3: Vị trí tuyển dụng */}
-          <div className="p-5 flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Vị trí mở tuyển</span>
-                <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight mt-1.5">
-                  {data?.activeJobs || 0}
-                </p>
-              </div>
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60">
-                <Briefcase className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500">Đang nhận CV</span>
-              <Link href="/dashboard/recruitment" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center font-medium">
-                Tuyển dụng <ArrowUpRight className="w-3 h-3 ml-0.5" />
-              </Link>
-            </div>
-          </div>
-        </div>}
-      </div>
-
-      {/* 3. BENTO SECTION: BIỂU ĐỒ TRỰC QUAN HÓA (2/3 & 1/3) */}
-      {!isUser && <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Biểu đồ phân bổ nhân sự (Chiếm 2 cột) */}
-        <div className="lg:col-span-2 bento-card p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800/80">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                    Phân Bố Nhân Sự Theo Phòng Ban
-                  </h3>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/60 font-mono">
-                    Headcount
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Số lượng nhân viên chính thức đang công tác tại các khối phòng ban
-                </p>
-              </div>
-
-              {isUser && (
-                <span className="flex items-center gap-1.5 text-xs text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-lg">
-                  <Lock className="w-3.5 h-3.5" /> Phân quyền bảo mật
-                </span>
-              )}
-            </div>
-
-            <div className="h-[300px] w-full pt-4">
-              {!data?.headcountByDept ? (
-                <div className="h-full flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 space-y-2">
-                  <Lock className="w-8 h-8 text-zinc-300 dark:text-zinc-700" />
-                  <p className="text-xs">Dữ liệu tổng quan phòng ban chỉ hiển thị cho Quản lý & HR.</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.headcountByDept} margin={{ top: 20, right: 10, left: -20, bottom: 25 }}>
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#71717A', fontSize: 11, fontWeight: 500 }} 
-                      interval={0}
-                      angle={-15}
-                      textAnchor="end"
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#71717A', fontSize: 11, fontFamily: 'monospace' }} 
-                    />
-                    <Tooltip content={<CustomBarTooltip />} />
-                    <Bar 
-                      dataKey="value" 
-                      fill="#2563EB" 
-                      radius={[6, 6, 0, 0]} 
-                      maxBarSize={42} 
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Đơn vị tính: Nhân viên</span>
-            <Link href="/dashboard/departments" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center font-medium">
-              Quản lý cơ cấu tổ chức <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Biểu đồ Donut Chuyên Cần (Chiếm 1 cột) */}
-        <div className="lg:col-span-1 bento-card p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100 dark:border-zinc-800/80">
-              <div>
-                <h3 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                  Tình Hình Chuyên Cần
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Hôm nay ({new Date().toLocaleDateString('vi-VN')})</p>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            </div>
-
-            {/* Donut Chart with Center Metric */}
-            <div className="relative h-[200px] flex items-center justify-center my-2">
-              {!data?.attendanceToday || totalReported === 0 ? (
-                <div className="text-center text-zinc-400 dark:text-zinc-500 text-xs">Chưa có dữ liệu chấm công hôm nay</div>
-              ) : (
-                <>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie 
-                        data={pieData} 
-                        cx="50%" 
-                        cy="50%" 
-                        innerRadius={55} 
-                        outerRadius={78} 
-                        paddingAngle={4} 
-                        dataKey="value" 
-                        stroke="none"
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  
-                  {/* Center Metric */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
-                      {attendanceRate === null ? "--" : `${attendanceRate}%`}
-                    </span>
-                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-semibold tracking-wider">
-                      Có mặt
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Legend Details */}
-          {!isUser && data?.attendanceToday && (
-            <div className="space-y-2 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-blue-50/70 dark:bg-blue-950/40 p-2 rounded-xl border border-blue-100/80 dark:border-blue-900/40">
-                  <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Đúng giờ</div>
-                  <div className="text-sm font-bold text-blue-700 dark:text-blue-300 font-mono mt-0.5">{presentCount}</div>
-                </div>
-                <div className="bg-amber-50/70 dark:bg-amber-950/40 p-2 rounded-xl border border-amber-100/80 dark:border-amber-900/40">
-                  <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Đi muộn</div>
-                  <div className="text-sm font-bold text-amber-700 dark:text-amber-300 font-mono mt-0.5">{lateCount}</div>
-                </div>
-                <div className="bg-red-50/70 dark:bg-red-950/40 p-2 rounded-xl border border-red-100/80 dark:border-red-900/40">
-                  <div className="text-[10px] text-red-600 dark:text-red-400 font-medium">Vắng/Nghỉ</div>
-                  <div className="text-sm font-bold text-red-700 dark:text-red-300 font-mono mt-0.5">{absentCount}</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
+        <section className="folio-panel p-6 sm:p-8 xl:col-span-7">
+          <div className="mb-6 flex items-end justify-between gap-4"><div><span className="folio-kicker">Cơ cấu / phòng ban</span><h2 className="mt-2 folio-display text-2xl">Phân bố nhân sự</h2></div><UsersRound className="h-5 w-5 text-[#ba7146]" /></div>
+          {departments.length === 0 ? <p className="py-12 text-sm text-zinc-500">Chưa có dữ liệu phòng ban.</p> : <div className="space-y-5">{departments.slice(0, 6).map((item, index) => <div key={item.name} className="grid grid-cols-[1.5rem_minmax(0,1fr)_2rem] items-center gap-3"><span className="folio-index">{String(index + 1).padStart(2, "0")}</span><div className="min-w-0"><div className="mb-1.5 truncate text-xs font-medium text-zinc-800 dark:text-zinc-200">{item.name}</div><div className="folio-progress"><span style={{ width: `${Math.max(4, (item.value / maxDepartment) * 100)}%` }} /></div></div><span className="text-right font-mono text-sm font-semibold">{item.value}</span></div>)}</div>}
+          <Link href="/dashboard/departments" className="mt-7 flex items-center justify-between border-t border-zinc-200 pt-4 text-xs font-semibold text-blue-600 dark:border-zinc-700">Xem cơ cấu tổ chức <ArrowRight className="h-4 w-4" /></Link>
+        </section>
       </div>}
 
-      {/* 4. BENTO SECTION: LỐI TẮT PHÂN HỆ VÀ DANH SÁCH ỨNG VIÊN MỚI */}
-      <div className={`grid grid-cols-1 ${isUser ? "" : "lg:grid-cols-3"} gap-6`}>
-        
-        {/* Phím Tắt Phân Hệ (Chiếm 1 cột) */}
-        <div className={`${isUser ? "" : "lg:col-span-1"} bento-card p-6 flex flex-col justify-between`}>
-          <div>
-            <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100 dark:border-zinc-800/80 mb-4">
-              <h3 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                Lối Tắt Phân Hệ
-              </h3>
-              <span className="text-[11px] text-zinc-400">Truy cập nhanh</span>
-            </div>
+      {!isUser && canSeeRecruitment && <section className="folio-panel overflow-hidden"><div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8"><div><span className="folio-kicker">Tuyển dụng / cập nhật</span><h2 className="mt-2 folio-display text-2xl">Hồ sơ mới tiếp nhận</h2><p className="mt-1 text-xs text-zinc-500">{data?.activeJobs ?? 0} vị trí đang mở</p></div><Link href="/dashboard/recruitment" className="inline-flex items-center gap-2 text-xs font-semibold text-blue-600">Đến phân hệ tuyển dụng <ArrowUpRight className="h-4 w-4" /></Link></div>{!data?.recentApplications?.length ? <div className="border-t border-zinc-200 p-8 text-sm text-zinc-500 dark:border-zinc-700">Chưa có hồ sơ ứng tuyển mới.</div> : <div className="divide-y divide-zinc-200 border-t border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">{data.recentApplications.map((item, index) => <div key={item.id} className="grid gap-2 px-6 py-4 sm:grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_8rem] sm:items-center sm:gap-4 sm:px-8"><span className="folio-index">{String(index + 1).padStart(2, "0")}</span><strong className="truncate text-sm">{item.candidateName}</strong><span className="truncate text-xs text-zinc-600 dark:text-zinc-400">{item.jobTitle}</span><span className="text-xs font-medium text-blue-700 dark:text-blue-300">{statusNames[item.status] || item.status}</span></div>)}</div>}</section>}
 
-            <div className="grid grid-cols-2 gap-3">
-              <Link
-                href="/dashboard/departments"
-                className="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                  <Building2 className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 transition-colors">Cơ cấu tổ chức</div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">Sơ đồ phòng ban</div>
-              </Link>
-
-              <Link
-                href="/dashboard/payroll"
-                className="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                  <Banknote className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-600 transition-colors">Bảng tính lương</div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">Kỳ lương & thuế</div>
-              </Link>
-
-              <Link
-                href="/dashboard/performance"
-                className="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-amber-500/50 dark:hover:border-amber-500/50 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                  <Target className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-amber-600 transition-colors">Hiệu suất KPI</div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">Đánh giá chu kỳ</div>
-              </Link>
-
-              <Link
-                href="/dashboard/contracts"
-                className="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 transition-colors">Hợp đồng</div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">Pháp lý & thời hạn</div>
-              </Link>
-            </div>
-          </div>
-
-          <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
-            <Link href="/dashboard/guide" className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center justify-between font-medium">
-              <span className="flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-zinc-400" />
-                Sổ tay quy trình nghiệp vụ
-              </span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Ứng viên mới nhất (Chiếm 2 cột) */}
-        <div className={`${isUser ? "hidden" : "lg:col-span-2 bento-card p-6 flex flex-col justify-between"}`}>
-          <div>
-            <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100 dark:border-zinc-800/80 mb-4">
-              <div>
-                <h3 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                  Ứng Viên Mới Ứng Tuyển
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Danh sách hồ sơ nộp gần nhất cần thẩm định</p>
-              </div>
-              <Link 
-                href="/dashboard/recruitment" 
-                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center"
-              >
-                Xem tất cả ({data?.recentApplications?.length || 0}) <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Link>
-            </div>
-
-            <div className="space-y-2.5">
-              {!data?.recentApplications ? (
-                <div className="py-8 text-center text-zinc-400 dark:text-zinc-500 text-xs">Chưa có dữ liệu ứng viên.</div>
-              ) : data.recentApplications.length === 0 ? (
-                <div className="py-8 text-center text-zinc-400 text-xs">
-                  Hiện chưa có ứng viên mới nộp đơn trong hôm nay.
-                </div>
-              ) : (
-                data.recentApplications.slice(0, 4).map((app: any) => {
-                  const initials = app.candidateName
-                    ? app.candidateName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
-                    : "UV";
-                  
-                  const statusConfig: Record<string, { label: string; color: string }> = {
-                    APPLIED: { label: 'Mới nộp', color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900' },
-                    REVIEWING: { label: 'Đang lọc CV', color: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700' },
-                    INTERVIEW: { label: 'Phỏng vấn', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900' },
-                    INTERVIEWING: { label: 'Phỏng vấn', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900' },
-                    OFFER: { label: 'Đề nghị', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900' },
-                    OFFERED: { label: 'Gửi Offer', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900' },
-                    HIRED: { label: 'Đã tuyển', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900' },
-                    REJECTED: { label: 'Từ chối', color: 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700' },
-                  };
-
-                  const currentStatus = statusConfig[app.status] || { label: app.status, color: 'bg-zinc-100 text-zinc-600' };
-
-                  return (
-                    <div 
-                      key={app.id} 
-                      className="flex items-center justify-between p-3 rounded-xl border border-zinc-200/70 dark:border-zinc-800/70 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-xs transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/60 font-mono flex items-center justify-center font-bold text-xs shadow-xs">
-                          {initials}
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                            {app.candidateName}
-                          </div>
-                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 mt-0.5">
-                            <span className="font-medium text-zinc-700 dark:text-zinc-300">{app.jobTitle}</span>
-                            <span>•</span>
-                            <span>Nộp: {(app.appliedDate || app.createdAt) ? new Date(app.appliedDate || app.createdAt).toLocaleDateString('vi-VN') : 'Gần đây'}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${currentStatus.color}`}>
-                        {currentStatus.label}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          <div className="pt-3.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Tiến trình thẩm định hồ sơ ứng viên tự động</span>
-            <Link href="/dashboard/recruitment" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center font-medium">
-              Đến phòng Tuyển dụng <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Link>
-          </div>
-        </div>
-
-      </div>
-
+      {isUser && <div className="flex flex-wrap gap-3 border-t border-zinc-200 pt-5 text-xs text-zinc-500 dark:border-zinc-700"><FileText className="h-4 w-4" /><span>Cần hỗ trợ? Xem <Link href="/dashboard/guide" className="font-semibold text-blue-600 underline underline-offset-2">sổ tay nghiệp vụ</Link>.</span></div>}
     </div>
   );
 }

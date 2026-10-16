@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toUtcDateOnly } from '@/services/attendance.service';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -8,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       where: { id },
       include: { department: true }
     });
-    if (!job || job.status !== 'OPEN') {
+    if (!job || job.status !== 'OPEN' || (job.dueDate && job.dueDate < toUtcDateOnly())) {
       return NextResponse.json({ error: 'Job not found or closed' }, { status: 404 });
     }
     return NextResponse.json(job);

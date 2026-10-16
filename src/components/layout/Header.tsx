@@ -235,7 +235,7 @@ export default function Header({ session }: { session: any }) {
         liveItems.push({
           id: 205,
           title: "Cổng thông tin cá nhân (ESS)",
-          desc: "Tra cứu phiếu lương, chấm công GPS và quỹ phép năm trực tuyến.",
+          desc: "Tra cứu phiếu lương, ngày công và quỹ phép năm trực tuyến.",
           time: "Hệ thống trực tuyến",
           icon: Target,
           href: "/dashboard/my-workspace",
@@ -383,7 +383,7 @@ export default function Header({ session }: { session: any }) {
     : "U";
 
   return (
-    <header className="h-16 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 transition-colors duration-200 no-print gap-3">
+    <header className="folio-header h-16 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 transition-colors duration-200 no-print gap-3">
       <div className="flex items-center gap-2.5 flex-1 max-w-md" ref={searchRef}>
         <button
           type="button"

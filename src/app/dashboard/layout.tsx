@@ -15,7 +15,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-dvh print:h-auto overflow-hidden print:overflow-visible bg-zinc-50 dark:bg-zinc-950 print:bg-white text-zinc-900 dark:text-zinc-100 print:text-black transition-colors duration-200">
+    <div className="hr-workbench flex h-dvh print:h-auto overflow-hidden print:overflow-visible bg-zinc-50 dark:bg-zinc-950 print:bg-white text-zinc-900 dark:text-zinc-100 print:text-black transition-colors duration-200">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible min-w-0">
         <Header session={session} />

@@ -27,6 +27,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     if (!existingEval) return new NextResponse("Không tìm thấy hồ sơ đánh giá.", { status: 404 });
+    if (existingEval.status === "APPROVED" && ["USER", "MANAGER"].includes(roleName)) {
+      return new NextResponse("Đánh giá đã phê duyệt không thể chỉnh sửa ở cấp nhân viên hoặc trưởng phòng.", { status: 400 });
+    }
 
     if (roleName === "USER") {
       if (existingEval.employee.userId !== session.user.id) {
@@ -81,7 +84,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         where: { userId: session.user.id },
         include: { managedDept: true }
       });
-      const managedDeptId = callerProfile?.managedDept?.id || callerProfile?.departmentId;
+      const managedDeptId = callerProfile?.managedDept?.id;
       if (!managedDeptId || existingEval.employee.departmentId !== managedDeptId) {
         return new NextResponse("Trưởng phòng chỉ được phép đánh giá KPI cho nhân sự thuộc phòng ban mình quản lý.", { status: 403 });
       }

@@ -2,7 +2,7 @@
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const session = await auth();
   const { pathname } = request.nextUrl;
 
@@ -21,7 +21,9 @@ export async function middleware(request: NextRequest) {
 
   // 3. Phân quyền truy cập đa tầng theo 6 vai trò (Role-Based Route Protection)
   if (isProtectedPage && session) {
-    const userRole = (session.user as any)?.roleName || "USER";
+    const assignedRole = (session.user as any)?.roleName;
+    const userRole = ["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "ACCOUNTANT", "USER"]
+      .includes(assignedRole) ? assignedRole : "USER";
 
     // Phân hệ Quản trị vai trò & Phân quyền: Độc quyền cho SYSTEM_ADMIN và BOD
     if (pathname.startsWith("/dashboard/roles") && !["SYSTEM_ADMIN", "BOD"].includes(userRole)) {

@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { holidayDatesForYear, isScheduledWorkday } from "@/lib/work-calendar";
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -26,16 +28,61 @@ export function toUtcDateOnly(date: Date = new Date()): Date {
 
 export function calculateWorkingDays(startDate: Date, endDate: Date): number {
   let count = 0;
-  const cur = new Date(startDate);
-  const end = new Date(endDate);
+  const cur = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+  const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+  const calendars = new Map<number, Set<string>>();
   while (cur <= end) {
-    const day = cur.getDay();
-    if (day !== 0 && day !== 6) {
+    const year = cur.getUTCFullYear();
+    if (!calendars.has(year)) calendars.set(year, holidayDatesForYear(year));
+    if (isScheduledWorkday(cur, calendars.get(year)!)) {
       count++;
     }
-    cur.setDate(cur.getDate() + 1);
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return count;
+}
+
+function workingDates(startDate: Date, endDate: Date): Date[] {
+  const dates: Date[] = [];
+  const cur = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+  const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+  const calendars = new Map<number, Set<string>>();
+  while (cur <= end) {
+    const year = cur.getUTCFullYear();
+    if (!calendars.has(year)) calendars.set(year, holidayDatesForYear(year));
+    if (isScheduledWorkday(cur, calendars.get(year)!)) dates.push(new Date(cur));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+export function workingDaysInYear(startDate: Date, endDate: Date, year: number): number {
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const yearEnd = new Date(Date.UTC(year, 11, 31));
+  const start = startDate > yearStart ? startDate : yearStart;
+  const end = endDate < yearEnd ? endDate : yearEnd;
+  return start <= end ? calculateWorkingDays(start, end) : 0;
+}
+
+function leaveYears(startDate: Date, endDate: Date): number[] {
+  const years: number[] = [];
+  for (let year = startDate.getUTCFullYear(); year <= endDate.getUTCFullYear(); year++) {
+    years.push(year);
+  }
+  return years;
+}
+
+function validateLeaveDateRange(start: Date, end: Date): void {
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    throw new Error("Ngày bắt đầu hoặc ngày kết thúc không hợp lệ.");
+  }
+  if (start > end) {
+    throw new Error("Ngày kết thúc không hợp lệ (nhỏ hơn ngày bắt đầu).");
+  }
+  if (start.getUTCFullYear() < 2000 || end.getUTCFullYear() > 2100 ||
+      end.getTime() - start.getTime() > 366 * 24 * 60 * 60 * 1000) {
+    throw new Error("Khoảng thời gian nghỉ phép không hợp lệ hoặc dài quá một năm.");
+  }
 }
 
 export async function getLeaveRequests(userId: string, roleName: string) {
@@ -103,19 +150,20 @@ export async function getLeaveRequests(userId: string, roleName: string) {
 
 export async function getLeaveBalance(
   employeeId: string,
-  year: number = new Date().getFullYear()
+  year: number = new Date().getFullYear(),
+  client: Prisma.TransactionClient | typeof prisma = prisma
 ) {
-  const profile = await prisma.employeeProfile.findUnique({
+  const profile = await client.employeeProfile.findUnique({
     where: { id: employeeId },
     select: { annualLeaveDays: true },
   });
 
   const allowance = profile?.annualLeaveDays ?? 12;
 
-  const startOfYear = new Date(year, 0, 1);
-  const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const endOfYear = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
 
-  const leaves = await prisma.leaveRequest.findMany({
+  const leaves = await client.leaveRequest.findMany({
     where: {
       employeeId,
       type: "ANNUAL_LEAVE",
@@ -188,67 +236,71 @@ export async function createLeaveRequest(
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  if (start > end) {
-    throw new Error("Ngày kết thúc không hợp lệ (nhỏ hơn ngày bắt đầu).");
-  }
-
-  const overlapping = await prisma.leaveRequest.findFirst({
-    where: {
-      employeeId,
-      status: { in: ["PENDING", "APPROVED"] },
-      startDate: { lte: end },
-      endDate: { gte: start },
-    },
-  });
-
-  if (overlapping) {
-    throw new Error(
-      `Đã có đơn nghỉ phép (${overlapping.type} - trạng thái ${
-        overlapping.status === "APPROVED" ? "Đã duyệt" : "Đang chờ duyệt"
-      }) trùng khoảng thời gian này.`
-    );
+  validateLeaveDateRange(start, end);
+  if (!["ANNUAL_LEAVE", "SICK_LEAVE", "UNPAID_LEAVE"].includes(type)) {
+    throw new Error("Loại nghỉ phép không hợp lệ.");
   }
 
   const requestedWorkingDays = calculateWorkingDays(start, end);
   if (requestedWorkingDays <= 0) {
-    throw new Error(
-      "Khoảng thời gian nghỉ chỉ rơi vào Thứ 7 hoặc Chủ Nhật (không tính ngày làm việc)."
-    );
+    throw new Error("Khoảng thời gian nghỉ chỉ rơi vào Thứ 7 hoặc Chủ Nhật (không tính ngày làm việc).");
   }
 
-  if (type === "ANNUAL_LEAVE") {
-    const year = start.getFullYear();
-    const balance = await getLeaveBalance(employeeId, year);
-    if (requestedWorkingDays > balance.remainingDays) {
+  return prisma.$transaction(async (tx) => {
+    const overlapping = await tx.leaveRequest.findFirst({
+      where: {
+        employeeId,
+        status: { in: ["PENDING", "APPROVED"] },
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+    });
+
+    if (overlapping) {
       throw new Error(
-        `Đã vượt quá Quỹ phép năm được cấp (${balance.allowance} ngày/năm). Số ngày phép còn lại: ${balance.remainingDays} ngày, số ngày bạn xin nghỉ: ${requestedWorkingDays} ngày. Vui lòng chuyển sang Nghỉ không lương (UNPAID_LEAVE) hoặc rút ngắn ngày nghỉ.`
+        `Đã có đơn nghỉ phép (${overlapping.type} - trạng thái ${
+          overlapping.status === "APPROVED" ? "Đã duyệt" : "Đang chờ duyệt"
+        }) trùng khoảng thời gian này.`
       );
     }
-  }
 
-  const newRequest = await prisma.leaveRequest.create({
-    data: {
-      employeeId,
-      startDate: start,
-      endDate: end,
-      type,
-      reason,
-      status: "PENDING",
-    },
-  });
+    if (type === "ANNUAL_LEAVE") {
+      for (const year of leaveYears(start, end)) {
+        const requestedDays = workingDaysInYear(start, end, year);
+        if (requestedDays === 0) continue;
+        const balance = await getLeaveBalance(employeeId, year, tx);
+        if (requestedDays > balance.remainingDays) {
+          throw new Error(
+            `Phép năm ${year} không đủ: còn ${balance.remainingDays} ngày, đơn xin ${requestedDays} ngày trong năm này.`
+          );
+        }
+      }
+    }
 
-  await prisma.auditLog.create({
-    data: {
-      userName: applicantName,
-      userRole: userRole,
-      action: `Khởi tạo đơn xin nghỉ phép [${type}] cho nhân sự ${applicantName} từ ngày ${startDate} đến ${endDate}`,
-      target: "LeaveRequest",
-      ip: "127.0.0.1",
-      status: "SUCCESS",
-    },
-  });
+    const newRequest = await tx.leaveRequest.create({
+      data: {
+        employeeId,
+        startDate: start,
+        endDate: end,
+        type,
+        reason,
+        status: "PENDING",
+      },
+    });
 
-  return newRequest;
+    await tx.auditLog.create({
+      data: {
+        userName: applicantName,
+        userRole: userRole,
+        action: `Khởi tạo đơn xin nghỉ phép [${type}] cho nhân sự ${applicantName} từ ngày ${startDate} đến ${endDate}`,
+        target: "LeaveRequest",
+        ip: "127.0.0.1",
+        status: "SUCCESS",
+      },
+    });
+
+    return newRequest;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
 export async function updateLeaveRequestDetails(
@@ -257,77 +309,80 @@ export async function updateLeaveRequestDetails(
   userRole: string = "USER",
   userId?: string
 ) {
-  const leave = await prisma.leaveRequest.findUnique({
-    where: { id },
-    include: {
-      employee: {
-        include: { user: { select: SAFE_USER_SELECT } },
+  return prisma.$transaction(async (tx) => {
+    const leave = await tx.leaveRequest.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          include: { user: { select: SAFE_USER_SELECT } },
+        },
       },
-    },
-  });
+    });
 
-  if (!leave) throw new Error("Không tìm thấy đơn nghỉ phép.");
-  if (leave.status !== "PENDING") {
-    throw new Error("Chỉ có thể chỉnh sửa thông tin đơn nghỉ phép đang ở trạng thái chờ duyệt (PENDING).");
-  }
-
-  const isOwner = userId && leave.employee.userId === userId;
-  const isHighPrivilege = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
-  if (!isOwner && !isHighPrivilege) {
-    throw new Error("Bạn không có quyền chỉnh sửa đơn nghỉ phép này.");
-  }
-
-  const start = data.startDate ? new Date(data.startDate) : leave.startDate;
-  const end = data.endDate ? new Date(data.endDate) : leave.endDate;
-  const type = data.type ?? leave.type;
-  const reason = data.reason !== undefined ? data.reason : leave.reason;
-
-  if (start > end) {
-    throw new Error("Ngày kết thúc không hợp lệ (nhỏ hơn ngày bắt đầu).");
-  }
-
-  const overlapping = await prisma.leaveRequest.findFirst({
-    where: {
-      id: { not: id },
-      employeeId: leave.employeeId,
-      status: { in: ["PENDING", "APPROVED"] },
-      startDate: { lte: end },
-      endDate: { gte: start },
-    },
-  });
-
-  if (overlapping) {
-    throw new Error("Khoảng thời gian cập nhật bị trùng với một đơn nghỉ phép khác.");
-  }
-
-  const requestedWorkingDays = calculateWorkingDays(start, end);
-  if (requestedWorkingDays <= 0) {
-    throw new Error("Khoảng thời gian nghỉ chỉ rơi vào Thứ 7 hoặc Chủ Nhật (không tính ngày làm việc).");
-  }
-
-  if (type === "ANNUAL_LEAVE") {
-    const year = start.getFullYear();
-    const balance = await getLeaveBalance(leave.employeeId, year);
-    const oldDaysInSameYear =
-      leave.type === "ANNUAL_LEAVE" && leave.startDate.getFullYear() === year
-        ? calculateWorkingDays(leave.startDate, leave.endDate)
-        : 0;
-    if (requestedWorkingDays > balance.remainingDays + oldDaysInSameYear) {
-      throw new Error(
-        `Đã vượt quá Quỹ phép năm được cấp (${balance.allowance} ngày/năm).`
-      );
+    if (!leave) throw new Error("Không tìm thấy đơn nghỉ phép.");
+    if (leave.status !== "PENDING") {
+      throw new Error("Chỉ có thể chỉnh sửa thông tin đơn nghỉ phép đang ở trạng thái chờ duyệt (PENDING).");
     }
-  }
 
-  return await prisma.leaveRequest.update({
-    where: { id },
-    data: {
-      startDate: start,
-      endDate: end,
-      type,
-      reason,
-    },
-  });
+    const isOwner = userId && leave.employee.userId === userId;
+    const isHighPrivilege = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
+    if (!isOwner && !isHighPrivilege) {
+      throw new Error("Bạn không có quyền chỉnh sửa đơn nghỉ phép này.");
+    }
+
+    const start = data.startDate ? new Date(data.startDate) : leave.startDate;
+    const end = data.endDate ? new Date(data.endDate) : leave.endDate;
+    const type = data.type ?? leave.type;
+    const reason = data.reason !== undefined ? data.reason : leave.reason;
+
+    validateLeaveDateRange(start, end);
+    if (!["ANNUAL_LEAVE", "SICK_LEAVE", "UNPAID_LEAVE"].includes(type)) {
+      throw new Error("Loại nghỉ phép không hợp lệ.");
+    }
+
+    const overlapping = await tx.leaveRequest.findFirst({
+      where: {
+        id: { not: id },
+        employeeId: leave.employeeId,
+        status: { in: ["PENDING", "APPROVED"] },
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+    });
+
+    if (overlapping) {
+      throw new Error("Khoảng thời gian cập nhật bị trùng với một đơn nghỉ phép khác.");
+    }
+
+    const requestedWorkingDays = calculateWorkingDays(start, end);
+    if (requestedWorkingDays <= 0) {
+      throw new Error("Khoảng thời gian nghỉ chỉ rơi vào Thứ 7 hoặc Chủ Nhật (không tính ngày làm việc).");
+    }
+
+    if (type === "ANNUAL_LEAVE") {
+      for (const year of leaveYears(start, end)) {
+        const requestedDays = workingDaysInYear(start, end, year);
+        if (requestedDays === 0) continue;
+        const balance = await getLeaveBalance(leave.employeeId, year, tx);
+        const oldDays = leave.type === "ANNUAL_LEAVE"
+          ? workingDaysInYear(leave.startDate, leave.endDate, year)
+          : 0;
+        if (requestedDays > balance.remainingDays + oldDays) {
+          throw new Error(`Phép năm ${year} không đủ cho khoảng thời gian cập nhật.`);
+        }
+      }
+    }
+
+    return await tx.leaveRequest.update({
+      where: { id, status: "PENDING" },
+      data: {
+        startDate: start,
+        endDate: end,
+        type,
+        reason,
+      },
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
 export async function updateLeaveRequestStatus(
@@ -345,159 +400,137 @@ export async function updateLeaveRequestStatus(
     throw new Error("Trạng thái phê duyệt không hợp lệ.");
   }
 
-  const leave = await prisma.leaveRequest.findUnique({
-    where: { id },
-    include: {
-      employee: {
-        include: { user: { select: SAFE_USER_SELECT }, department: true },
-      },
-    },
-  });
-
-  if (!leave) throw new Error("Không tìm thấy đơn nghỉ phép.");
-
-  if (
-    actorUserId &&
-    leave.employee.userId === actorUserId &&
-    userRole !== "SYSTEM_ADMIN" &&
-    userRole !== "BOD"
-  ) {
-    throw new Error("Bạn không thể tự phê duyệt đơn nghỉ phép của chính mình.");
-  }
-
-  if (userRole === "MANAGER") {
-    const managerProfile = actorUserId
-      ? await prisma.employeeProfile.findUnique({
-          where: { userId: actorUserId },
-          include: { managedDept: true },
-        })
-      : null;
-
-    const deptId = managerProfile?.managedDept?.id;
-    if (!deptId || leave.employee.departmentId !== deptId) {
-      throw new Error(
-        "Bạn chỉ có quyền phê duyệt đơn nghỉ phép của nhân sự thuộc phòng ban mình phụ trách."
-      );
-    }
-  }
-
-  if (status === "APPROVED" && leave.status !== "APPROVED") {
-    const overlappingApproved = await prisma.leaveRequest.findFirst({
-      where: {
-        id: { not: id },
-        employeeId: leave.employeeId,
-        status: "APPROVED",
-        startDate: { lte: leave.endDate },
-        endDate: { gte: leave.startDate },
+  return prisma.$transaction(async (tx) => {
+    const leave = await tx.leaveRequest.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          include: { user: { select: SAFE_USER_SELECT }, department: true },
+        },
       },
     });
 
-    if (overlappingApproved) {
-      throw new Error(
-        "Nhân sự này đã có đơn nghỉ phép Đã duyệt trùng khoảng thời gian này."
-      );
+    if (!leave) throw new Error("Không tìm thấy đơn nghỉ phép.");
+
+    if (
+      actorUserId &&
+      leave.employee.userId === actorUserId &&
+      userRole !== "SYSTEM_ADMIN" &&
+      userRole !== "BOD"
+    ) {
+      throw new Error("Bạn không thể tự phê duyệt đơn nghỉ phép của chính mình.");
     }
 
-    if (leave.type === "ANNUAL_LEAVE") {
-      const requestedWorkingDays = calculateWorkingDays(leave.startDate, leave.endDate);
-      const balance = await getLeaveBalance(
-        leave.employeeId,
-        new Date(leave.startDate).getFullYear()
-      );
-      if (leave.status === "PENDING") {
-        if (balance.usedDays + requestedWorkingDays > balance.totalAllowance) {
-          throw new Error(
-            `Không thể phê duyệt: Tổng số ngày phép năm đã sử dụng vượt quá hạn mức (${balance.totalAllowance} ngày/năm).`
-          );
-        }
-      } else if (leave.status === "REJECTED") {
-        if (requestedWorkingDays > balance.remainingDays) {
-          throw new Error(
-            `Không thể phê duyệt: Số ngày xin nghỉ (${requestedWorkingDays} ngày) vượt quá số ngày phép còn lại (${balance.remainingDays} ngày).`
-          );
+    if (userRole === "MANAGER") {
+      const managerProfile = actorUserId
+        ? await tx.employeeProfile.findUnique({
+            where: { userId: actorUserId },
+            include: { managedDept: true },
+          })
+        : null;
+
+      const deptId = managerProfile?.managedDept?.id;
+      if (!deptId || leave.employee.departmentId !== deptId) {
+        throw new Error(
+          "Bạn chỉ có quyền phê duyệt đơn nghỉ phép của nhân sự thuộc phòng ban mình phụ trách."
+        );
+      }
+    }
+
+    if (status === leave.status) return leave;
+
+    if (status === "APPROVED" && leave.status !== "APPROVED") {
+      const overlappingApproved = await tx.leaveRequest.findFirst({
+        where: {
+          id: { not: id },
+          employeeId: leave.employeeId,
+          status: "APPROVED",
+          startDate: { lte: leave.endDate },
+          endDate: { gte: leave.startDate },
+        },
+      });
+
+      if (overlappingApproved) {
+        throw new Error(
+          "Nhân sự này đã có đơn nghỉ phép Đã duyệt trùng khoảng thời gian này."
+        );
+      }
+
+      if (leave.type === "ANNUAL_LEAVE") {
+        for (const year of leaveYears(leave.startDate, leave.endDate)) {
+          const requestedDays = workingDaysInYear(leave.startDate, leave.endDate, year);
+          if (requestedDays === 0) continue;
+          const balance = await getLeaveBalance(leave.employeeId, year, tx);
+          if (leave.status === "PENDING" &&
+              balance.usedDays + balance.pendingDays > balance.totalAllowance) {
+            throw new Error(`Không thể phê duyệt: quỹ phép năm ${year} đã vượt hạn mức.`);
+          }
+          if (leave.status === "REJECTED" && requestedDays > balance.remainingDays) {
+            throw new Error(`Không thể phê duyệt: phép năm ${year} chỉ còn ${balance.remainingDays} ngày.`);
+          }
         }
       }
     }
-  }
 
-  const updated = await prisma.leaveRequest.update({
-    where: { id },
-    data: { status },
-  });
+    const updated = await tx.leaveRequest.update({
+      where: { id },
+      data: { status },
+    });
 
-  if (status === "APPROVED" && leave.status !== "APPROVED") {
-    const cur = new Date(leave.startDate);
-    const end = new Date(leave.endDate);
-
-    while (cur <= end) {
-      const dayOfWeek = cur.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        const recordDate = toUtcDateOnly(cur);
-
-        const existingAtt = await prisma.attendance.findUnique({
-          where: {
-            employeeId_date: {
-              employeeId: leave.employeeId,
-              date: recordDate,
-            },
-          },
+    if (status === "APPROVED" && leave.status !== "APPROVED") {
+      const dates = workingDates(leave.startDate, leave.endDate);
+      const existing = await tx.attendance.findMany({
+        where: { employeeId: leave.employeeId, date: { in: dates } },
+        select: { id: true, date: true, checkIn: true },
+      });
+      const existingDates = new Set(existing.map((record) => record.date.toISOString().slice(0, 10)));
+      const missingDates = dates.filter((date) => !existingDates.has(date.toISOString().slice(0, 10)));
+      if (missingDates.length > 0) {
+        await tx.attendance.createMany({
+          data: missingDates.map((date) => ({ employeeId: leave.employeeId, date, status: "LEAVE" })),
+          skipDuplicates: true,
         });
-
-        if (!existingAtt) {
-          await prisma.attendance.create({
-            data: {
-              employeeId: leave.employeeId,
-              date: recordDate,
-              status: "LEAVE",
-            },
-          });
-        } else if (!existingAtt.checkIn) {
-          await prisma.attendance.update({
-            where: { id: existingAtt.id },
-            data: { status: "LEAVE" },
-          });
-        }
       }
-      cur.setDate(cur.getDate() + 1);
-    }
-  } else if (
-    leave.status === "APPROVED" &&
-    (status === "REJECTED" || status === "PENDING")
-  ) {
-    const cur = new Date(leave.startDate);
-    const end = new Date(leave.endDate);
-    while (cur <= end) {
-      const recordDate = toUtcDateOnly(cur);
-      await prisma.attendance.deleteMany({
+      const withoutCheckIn = existing.filter((record) => !record.checkIn).map((record) => record.id);
+      if (withoutCheckIn.length > 0) {
+        await tx.attendance.updateMany({
+          where: { id: { in: withoutCheckIn }, checkIn: null },
+          data: { status: "LEAVE" },
+        });
+      }
+    } else if (
+      leave.status === "APPROVED" &&
+      (status === "REJECTED" || status === "PENDING")
+    ) {
+      await tx.attendance.deleteMany({
         where: {
           employeeId: leave.employeeId,
-          date: recordDate,
+          date: { gte: toUtcDateOnly(leave.startDate), lte: toUtcDateOnly(leave.endDate) },
           status: "LEAVE",
           checkIn: null,
         },
       });
-      cur.setDate(cur.getDate() + 1);
     }
-  }
 
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName || "Người xét duyệt",
-      userRole: userRole,
-      action: `${
-        status === "APPROVED"
-          ? "Phê duyệt"
-          : status === "REJECTED"
-          ? "Từ chối"
-          : "Chuyển chờ duyệt"
-      } đơn nghỉ phép (${leave.employee.user.name} - ${leave.type})`,
-      target: "LeaveRequest",
-      ip: "127.0.0.1",
-      status: status === "APPROVED" ? "SUCCESS" : "WARNING",
-    },
-  });
+    await tx.auditLog.create({
+      data: {
+        userName: actorName || "Người xét duyệt",
+        userRole: userRole,
+        action: `${
+          status === "APPROVED"
+            ? "Phê duyệt"
+            : status === "REJECTED"
+            ? "Từ chối"
+            : "Chuyển chờ duyệt"
+        } đơn nghỉ phép (${leave.employee.user.name} - ${leave.type})`,
+        target: "LeaveRequest",
+        ip: "127.0.0.1",
+        status: status === "APPROVED" ? "SUCCESS" : "WARNING",
+      },
+    });
 
-  return updated;
+    return updated;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
 export async function deleteLeaveRequest(
@@ -505,75 +538,71 @@ export async function deleteLeaveRequest(
   userId: string,
   userRole: string
 ) {
-  const leave = await prisma.leaveRequest.findUnique({
-    where: { id },
-    include: {
-      employee: {
-        include: { user: { select: SAFE_USER_SELECT } },
+  return prisma.$transaction(async (tx) => {
+    const leave = await tx.leaveRequest.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          include: { user: { select: SAFE_USER_SELECT } },
+        },
       },
-    },
-  });
-
-  if (!leave) throw new Error("Không tìm thấy đơn.");
-
-  const isOwner = leave.employee.userId === userId;
-  const isHighPrivilege = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
-  let isDeptManager = false;
-
-  if (userRole === "MANAGER") {
-    const managerProfile = await prisma.employeeProfile.findUnique({
-      where: { userId },
-      include: { managedDept: true },
     });
-    const deptId = managerProfile?.managedDept?.id;
-    if (deptId && leave.employee.departmentId === deptId) {
-      isDeptManager = true;
+
+    if (!leave) throw new Error("Không tìm thấy đơn.");
+
+    const isOwner = leave.employee.userId === userId;
+    const isHighPrivilege = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
+    let isDeptManager = false;
+
+    if (userRole === "MANAGER") {
+      const managerProfile = await tx.employeeProfile.findUnique({
+        where: { userId },
+        include: { managedDept: true },
+      });
+      const deptId = managerProfile?.managedDept?.id;
+      if (deptId && leave.employee.departmentId === deptId) {
+        isDeptManager = true;
+      }
     }
-  }
 
-  if (!isOwner && !isHighPrivilege && !isDeptManager) {
-    throw new Error("Không có quyền xóa đơn này.");
-  }
+    if (!isOwner && !isHighPrivilege && !isDeptManager) {
+      throw new Error("Không có quyền xóa đơn này.");
+    }
 
-  if (leave.status === "APPROVED" && !isHighPrivilege) {
-    throw new Error(
-      "Chỉ Ban Giám Đốc, HR hoặc Quản trị viên hệ thống mới có quyền xóa đơn nghỉ phép đã được phê duyệt."
-    );
-  }
+    if (leave.status === "APPROVED" && !isHighPrivilege) {
+      throw new Error(
+        "Chỉ Ban Giám Đốc, HR hoặc Quản trị viên hệ thống mới có quyền xóa đơn nghỉ phép đã được phê duyệt."
+      );
+    }
 
-  if (leave.status !== "PENDING" && !isHighPrivilege && !isDeptManager) {
-    throw new Error("Chỉ có thể xóa đơn đang chờ duyệt.");
-  }
+    if (leave.status !== "PENDING" && !isHighPrivilege && !isDeptManager) {
+      throw new Error("Chỉ có thể xóa đơn đang chờ duyệt.");
+    }
 
-  if (leave.status === "APPROVED") {
-    const cur = new Date(leave.startDate);
-    const end = new Date(leave.endDate);
-    while (cur <= end) {
-      const recordDate = toUtcDateOnly(cur);
-      await prisma.attendance.deleteMany({
+    if (leave.status === "APPROVED") {
+      await tx.attendance.deleteMany({
         where: {
           employeeId: leave.employeeId,
-          date: recordDate,
+          date: { gte: toUtcDateOnly(leave.startDate), lte: toUtcDateOnly(leave.endDate) },
           status: "LEAVE",
           checkIn: null,
         },
       });
-      cur.setDate(cur.getDate() + 1);
     }
-  }
 
-  const deleted = await prisma.leaveRequest.delete({ where: { id } });
+    const deleted = await tx.leaveRequest.delete({ where: { id } });
 
-  await prisma.auditLog.create({
-    data: {
-      userName: leave.employee.user.name,
-      userRole: userRole,
-      action: `Rút / Xóa đơn xin nghỉ phép mã #${id.slice(-6)}`,
-      target: "LeaveRequest",
-      ip: "127.0.0.1",
-      status: "WARNING",
-    },
-  });
+    await tx.auditLog.create({
+      data: {
+        userName: leave.employee.user.name,
+        userRole: userRole,
+        action: `Rút / Xóa đơn xin nghỉ phép mã #${id.slice(-6)}`,
+        target: "LeaveRequest",
+        ip: "127.0.0.1",
+        status: "WARNING",
+      },
+    });
 
-  return deleted;
+    return deleted;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }

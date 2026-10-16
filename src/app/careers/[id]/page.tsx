@@ -44,7 +44,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           name,
           email,
           phone,
-          cvUrl: cvUrl || "https://example.com/dummy-cv.pdf" // Fallback for testing
+          cvUrl: cvUrl.trim()
         })
       });
 
@@ -65,7 +65,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   if (success) {
     return (
-      <div className="min-h-dvh bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+      <div className="career-page min-h-dvh bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
         <div className="bento-card p-8 rounded-2xl shadow-xl max-w-md w-full text-center space-y-6 animate-swiss-in">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 squircle flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
@@ -85,7 +85,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <div className="min-h-dvh bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 py-12">
+    <div className="career-page min-h-dvh bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <Link href="/careers" className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-500 hover:text-blue-600 mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Trở lại danh sách tuyển dụng

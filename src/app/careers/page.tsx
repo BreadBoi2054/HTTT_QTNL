@@ -60,7 +60,7 @@ export default function CareersPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+    <div className="career-page min-h-dvh bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       
       {/* Top Corporate Nav */}
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md sticky top-0 z-30">
@@ -90,36 +90,12 @@ export default function CareersPage() {
         </div>
       </header>
 
-      {/* Enterprise Portal Hero */}
-      <div className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-8 sm:py-10 px-4 text-center">
-        <div className="max-w-3xl mx-auto space-y-3">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
-            Công ty Cổ phần Công nghệ Nexustech • Mã số thuế: 0108992341
-          </span>
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Cơ Hội Nghề Nghiệp & Tuyển Dụng Nhân Tài
-          </h1>
-          <p className="text-zinc-600 dark:text-zinc-400 text-xs sm:text-sm leading-relaxed max-w-2xl mx-auto">
-            Trụ sở chính: Hà Nội (Khu công nghệ cao Cầu Giấy) & Chi nhánh TP.HCM (Quận 1). Chính sách đãi ngộ minh bạch, tuân thủ Luật Lao động và chế độ phát triển nhân tài dài hạn.
-          </p>
-
-          {/* Benefits strip - Clean Typographic Badges */}
-          <div className="flex flex-wrap justify-center gap-2 pt-3 max-w-4xl mx-auto text-xs font-medium">
-            <span className="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700">
-              Lương thưởng cạnh tranh (13-15 tháng lương/năm)
-            </span>
-            <span className="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700">
-              Đóng đầy đủ BHXH, BHYT, BHTN theo luật định
-            </span>
-            <span className="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700">
-              Lộ trình quy hoạch cán bộ kế nhiệm minh bạch
-            </span>
-            <span className="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700">
-              Trợ cấp thiết bị & Đào tạo chuyên môn nội bộ
-            </span>
-          </div>
+      <section className="border-b border-zinc-200 bg-[#efe8dc] px-4 py-14 dark:border-zinc-800 dark:bg-[#1b2d24] sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[minmax(0,1fr)_15rem] md:items-end">
+          <div><span className="folio-kicker">Nexustech / cùng làm việc</span><h1 className="mt-5 max-w-3xl text-4xl text-zinc-900 dark:text-zinc-100 sm:text-6xl">Công việc tốt bắt đầu từ những người cùng chí hướng.</h1><p className="mt-6 max-w-xl text-sm leading-7 text-zinc-600 dark:text-zinc-400">Khám phá các vị trí đang tuyển và gửi hồ sơ trực tiếp cho đội ngũ nhân sự Nexustech.</p></div>
+          <div className="border-t border-[#ba7146] pt-4 text-xs leading-6 text-zinc-600 dark:text-zinc-300"><span className="block font-mono text-[#a86239]">GHI CHÚ / 01</span><p className="mt-2">Mỗi vị trí là một cơ hội để tạo ra công việc có ích cùng một đội ngũ lâu dài.</p></div>
         </div>
-      </div>
+      </section>
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10">

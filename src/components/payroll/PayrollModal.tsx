@@ -12,13 +12,11 @@ interface PayrollModalProps {
 
 function calculatePIT(taxableIncome: number): number {
   if (taxableIncome <= 0) return 0;
-  if (taxableIncome <= 5000000) return Math.round(taxableIncome * 0.05);
-  if (taxableIncome <= 10000000) return Math.round(taxableIncome * 0.1 - 250000);
-  if (taxableIncome <= 18000000) return Math.round(taxableIncome * 0.15 - 750000);
-  if (taxableIncome <= 32000000) return Math.round(taxableIncome * 0.2 - 1650000);
-  if (taxableIncome <= 52000000) return Math.round(taxableIncome * 0.25 - 3250000);
-  if (taxableIncome <= 80000000) return Math.round(taxableIncome * 0.3 - 5850000);
-  return Math.round(taxableIncome * 0.35 - 9850000);
+  if (taxableIncome <= 10000000) return Math.round(taxableIncome * 0.05);
+  if (taxableIncome <= 30000000) return Math.round(taxableIncome * 0.1 - 500000);
+  if (taxableIncome <= 60000000) return Math.round(taxableIncome * 0.2 - 3500000);
+  if (taxableIncome <= 100000000) return Math.round(taxableIncome * 0.3 - 9500000);
+  return Math.round(taxableIncome * 0.35 - 14500000);
 }
 
 export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: PayrollModalProps) {
@@ -27,8 +25,9 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [contractBase, setContractBase] = useState<number>(0);
-  const [workedDays, setWorkedDays] = useState<number>(22);
-  const [otHours, setOtHours] = useState<number>(0);
+  const [workedDays, setWorkedDays] = useState<number>(0);
+  const [standardDays, setStandardDays] = useState<number>(0);
+  const [calendarError, setCalendarError] = useState("");
   const [dependents, setDependents] = useState<number>(0);
   const [autoStatutory, setAutoStatutory] = useState<boolean>(true);
 
@@ -71,8 +70,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
                 (d?.name?.includes("thực tế") || d?.name?.includes("th?c t?"))
             )
           : null;
-        setWorkedDays(dayItem ? Number(dayItem.amount) : 22);
-        setOtHours(0);
+        setWorkedDays(dayItem ? Number(dayItem.amount) : 0);
         setAutoStatutory(false);
       } else {
         setEmployeeId("");
@@ -80,8 +78,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
         setMonth(new Date().getMonth() + 1);
         setYear(new Date().getFullYear());
         setContractBase(0);
-        setWorkedDays(22);
-        setOtHours(0);
+        setWorkedDays(0);
         setDependents(0);
         setAutoStatutory(true);
         setBaseSalary("0");
@@ -91,6 +88,28 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
       setError("");
     }
   }, [payroll, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !Number.isInteger(month) || !Number.isInteger(year)) return;
+    let cancelled = false;
+    fetch(`/api/payroll/calendar?month=${month}&year=${year}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setStandardDays(data.workingDays);
+        setCalendarError("");
+        if (!payroll) setWorkedDays(data.workingDays);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setStandardDays(0);
+        setCalendarError(err.message || "Chưa có lịch công cho kỳ này.");
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, month, year, payroll]);
 
   const selectedEmployee = useMemo(
     () => employees.find((e) => e.id === employeeId),
@@ -123,16 +142,16 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
         : 12000000;
 
     setContractBase(configuredSalary);
-    setWorkedDays(22);
-    setOtHours(0);
+    setWorkedDays(standardDays);
+    setDependents(Number(emp.dependentCount) || 0);
 
-    const proRated = Math.round((configuredSalary / 22) * 22);
+    const proRated = configuredSalary;
     setBaseSalary(String(proRated));
     setBonus("0");
 
     if (autoStatutory) {
       const bhxh = Math.round(proRated * 0.105);
-      const taxable = Math.max(0, proRated - bhxh - 11000000 - dependents * 4400000);
+      const taxable = Math.max(0, proRated - bhxh - 15500000 - (Number(emp.dependentCount) || 0) * 6200000);
       const pit = calculatePIT(taxable);
       setDeductions(String(bhxh + pit));
     }
@@ -141,25 +160,19 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
   useEffect(() => {
     if (!employeeId || payroll) return;
     if (contractBase <= 0) return;
-    const proRated = Math.round((contractBase / 22) * Math.max(0, Math.min(26, workedDays)));
+    if (standardDays <= 0) return;
+    const proRated = Math.round((contractBase / standardDays) * Math.max(0, Math.min(standardDays, workedDays)));
     setBaseSalary(String(proRated));
-  }, [workedDays, contractBase, employeeId, payroll]);
-
-  const otPay = useMemo(() => {
-    const baseNum = contractBase > 0 ? contractBase : Number(baseSalary) || 0;
-    if (otHours <= 0 || baseNum <= 0) return 0;
-    const hourlyRate = baseNum / 22 / 8;
-    return Math.round(hourlyRate * 1.5 * otHours);
-  }, [contractBase, baseSalary, otHours]);
+  }, [workedDays, standardDays, contractBase, employeeId, payroll]);
 
   const statutoryBreakdown = useMemo(() => {
     const baseNum = Number(baseSalary) || 0;
-    const bonusNum = (Number(bonus) || 0) + otPay;
+    const bonusNum = Number(bonus) || 0;
     const bhxh = Math.round(baseNum * 0.08);
     const bhyt = Math.round(baseNum * 0.015);
     const bhtn = Math.round(baseNum * 0.01);
     const totalInsurance = bhxh + bhyt + bhtn;
-    const personalRelief = 11000000 + dependents * 4400000;
+    const personalRelief = 15500000 + dependents * 6200000;
     const taxableIncome = Math.max(0, baseNum + bonusNum - totalInsurance - personalRelief);
     const pit = calculatePIT(taxableIncome);
     return {
@@ -170,7 +183,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
       pit,
       totalStatutory: totalInsurance + pit,
     };
-  }, [baseSalary, bonus, otPay, dependents]);
+  }, [baseSalary, bonus, dependents]);
 
   useEffect(() => {
     if (autoStatutory && (Number(baseSalary) > 0 || Number(bonus) > 0)) {
@@ -183,7 +196,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
   const formatVND = (val: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val || 0);
 
-  const totalBonusWithOt = (Number(bonus) || 0) + otPay;
+  const totalBonusWithOt = Number(bonus) || 0;
   const netSalary = Math.max(0, (Number(baseSalary) || 0) + totalBonusWithOt - (Number(deductions) || 0));
 
   const applyQuickBonus = (amountToAdd: number) => {
@@ -224,15 +237,6 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
           name: "Phụ cấp & Thưởng hiệu suất",
           type: "EARNING",
           amount: Number(bonus),
-          amountType: "FIXED",
-        });
-      }
-
-      if (otPay > 0) {
-        details.push({
-          name: `Lương làm thêm giờ (OT ${otHours}h x 150%)`,
-          type: "EARNING",
-          amount: otPay,
           amountType: "FIXED",
         });
       }
@@ -322,7 +326,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
                 {payroll ? "Điều Chỉnh Phiếu Lương Nhân Sự" : "Khởi Tạo Phiếu Lương Thông Minh"}
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Tự động đồng bộ lương Hợp đồng, tính công chuẩn 22 ngày, OT 150% và trích nộp BHXH 10.5% + Thuế TNCN
+                Công chuẩn theo từng tháng sau khi trừ ngày lễ; OT chỉ tính trong bảng lương tự động khi đã duyệt.
               </p>
             </div>
           </div>
@@ -341,6 +345,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
               {error}
             </div>
           )}
+          {calendarError && <div className="p-3 rounded-xl bg-amber-50 text-amber-800 text-xs">{calendarError}</div>}
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div className="md:col-span-7 space-y-1.5">
@@ -462,55 +467,42 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-blue-600" />
-                2. Bảng tính Công thực tế, Làm thêm giờ (OT 150%) & Giảm trừ gia cảnh
+                2. Ngày công hưởng lương và giảm trừ gia cảnh
               </span>
               <span className="text-[11px] text-zinc-500">
-                Công chuẩn: <strong className="font-mono">22 ngày/tháng</strong> (8h/ngày)
+                Công chuẩn: <strong className="font-mono">{standardDays || "—"} ngày/tháng</strong> (8h/ngày)
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
                 <label className="block text-[11px] font-semibold text-zinc-500 mb-1">
-                  Số ngày công hưởng lương (0 - 26)
+                  Số ngày công hưởng lương (0 - {standardDays || "—"})
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     min="0"
-                    max="26"
+                    max={standardDays || undefined}
                     step="0.5"
                     value={workedDays}
                     onChange={(e) => setWorkedDays(Number(e.target.value))}
                     className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-500"
                   />
-                  <span className="text-xs font-mono text-zinc-400 shrink-0">/ 22 công</span>
+                  <span className="text-xs font-mono text-zinc-400 shrink-0">/ {standardDays || "—"} công</span>
                 </div>
               </div>
 
               <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
                 <label className="block text-[11px] font-semibold text-zinc-500 mb-1">
-                  Số giờ tăng ca OT (150% lương giờ)
+                  Làm thêm giờ
                 </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={otHours}
-                    onChange={(e) => setOtHours(Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg font-mono font-bold text-emerald-600 dark:text-emerald-400 outline-none focus:border-blue-500"
-                  />
-                  <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 shrink-0">
-                    +{formatVND(otPay)}
-                  </span>
-                </div>
+                <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">Tạo và duyệt đơn OT trong mục “Duyệt OT” của trang lương, rồi chạy tính lương tự động để lấy đúng mức 150%, 200% hoặc 300%.</p>
               </div>
 
               <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
                 <label className="block text-[11px] font-semibold text-zinc-500 mb-1">
-                  Số người phụ thuộc (4.4tr/người)
+                  Số người phụ thuộc (6,2tr/người)
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -551,7 +543,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                  Thưởng & Phụ cấp ngoài OT
+                  Thưởng & Phụ cấp khác
                 </label>
               </div>
               <input
@@ -641,7 +633,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
                 <div className="font-mono font-bold text-zinc-100 mt-0.5">{formatVND(Number(baseSalary) || 0)}</div>
               </div>
               <div>
-                <div className="text-zinc-400 text-[11px]">Thưởng + Tăng ca ({otHours}h OT)</div>
+                <div className="text-zinc-400 text-[11px]">Thưởng / phụ cấp</div>
                 <div className="font-mono font-bold text-emerald-400 mt-0.5">+{formatVND(totalBonusWithOt)}</div>
               </div>
               <div>

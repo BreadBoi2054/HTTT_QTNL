@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toUtcDateOnly } from '@/services/attendance.service';
 
 export async function POST(req: Request) {
   try {
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
       where: { id: jobPostingId }
     });
 
-    if (!job || job.status !== 'OPEN') {
+    if (!job || job.status !== 'OPEN' || (job.dueDate && job.dueDate < toUtcDateOnly())) {
       return NextResponse.json({ error: 'Vị trí tuyển dụng không tồn tại hoặc đã ngừng nhận hồ sơ' }, { status: 400 });
     }
 

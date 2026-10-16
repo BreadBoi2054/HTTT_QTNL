@@ -19,6 +19,11 @@ export async function GET(req: Request) {
 
     const where: any = {};
     if (applicationId) where.applicationId = applicationId;
+    if (roleName === "MANAGER") {
+      const managedDept = await prisma.department.findFirst({ where: { manager: { userId: session.user.id } }, select: { id: true } });
+      if (!managedDept) return NextResponse.json([]);
+      where.application = { jobPosting: { departmentId: managedDept.id } };
+    }
 
     const interviews = await prisma.interview.findMany({
       where,
@@ -54,6 +59,9 @@ export async function POST(req: Request) {
     if (!applicationId || !scheduledAt) {
       return new NextResponse("Thiếu thông tin bắt buộc (Hồ sơ ứng viên và Thời gian phỏng vấn).", { status: 400 });
     }
+    if (!Number.isFinite(new Date(scheduledAt).getTime())) {
+      return new NextResponse("Thời gian phỏng vấn không hợp lệ.", { status: 400 });
+    }
 
     const app = await prisma.application.findUnique({
       where: { id: applicationId },
@@ -61,6 +69,12 @@ export async function POST(req: Request) {
     });
 
     if (!app) return new NextResponse("Không tìm thấy hồ sơ ứng viên.", { status: 404 });
+    if (roleName === "MANAGER") {
+      const managedDept = await prisma.department.findFirst({ where: { manager: { userId: session.user.id } }, select: { id: true } });
+      if (!managedDept || app.jobPosting.departmentId !== managedDept.id) {
+        return new NextResponse("Chỉ được lên lịch phỏng vấn cho phòng ban đang phụ trách.", { status: 403 });
+      }
+    }
 
     const targetInterviewerId = interviewerId || session.user.id;
 

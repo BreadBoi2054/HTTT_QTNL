@@ -108,7 +108,7 @@ export default function MyWorkspacePage() {
             checkOut: a.checkOut ? new Date(a.checkOut).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "Chưa Check-out",
             rawStatus: a.status,
             status: a.status === "PRESENT" ? "ĐÚNG GIỜ" : a.status === "LATE" ? "ĐI MUỘN" : a.status === "LEAVE" ? "NGHỈ PHÉP" : "VẮNG MẶT",
-            note: a.status === "PRESENT" ? "Smart Terminal GPS" : a.status === "LATE" ? "Vào muộn sau 08:30" : "Hệ thống ghi nhận"
+            note: a.status === "PRESENT" ? "Đã ghi nhận giờ vào" : a.status === "LATE" ? "Vào muộn sau 08:30" : "Hệ thống ghi nhận"
           })));
         }
       }

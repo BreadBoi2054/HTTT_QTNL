@@ -26,6 +26,9 @@ export async function GET(req: Request) {
     }
 
     const roleName = (session.user as any)?.roleName || "USER";
+    if (!["USER", "MANAGER", "HR", "ACCOUNTANT", "BOD", "SYSTEM_ADMIN"].includes(roleName)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const userEmail = session.user?.email;
     const userId = session.user?.id;
 

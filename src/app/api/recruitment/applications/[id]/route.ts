@@ -14,6 +14,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id } = await params;
     const body = await req.json();
     const { status } = body;
+    if (!["APPLIED", "REVIEWING", "INTERVIEWING", "OFFERED", "HIRED", "REJECTED"].includes(status)) {
+      return NextResponse.json({ error: "Trạng thái ứng viên không hợp lệ." }, { status: 400 });
+    }
 
     const currentApplication = await prisma.application.findUnique({
       where: { id },
@@ -37,8 +40,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         where: { userId: session.user?.id },
         include: { managedDept: true }
       });
-      const deptId = managerProfile?.managedDept?.id || managerProfile?.departmentId;
-      if (deptId && currentApplication.jobPosting.departmentId !== deptId) {
+      const deptId = managerProfile?.managedDept?.id;
+      if (!deptId || currentApplication.jobPosting.departmentId !== deptId) {
         return NextResponse.json({ error: 'Bạn chỉ có quyền đánh giá hồ sơ ứng viên thuộc phòng ban mình phụ trách.' }, { status: 403 });
       }
     }

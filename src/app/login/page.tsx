@@ -3,289 +3,76 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { 
-  ArrowRight, Lock, Mail, AlertCircle, CheckCircle2, 
-  ShieldCheck, Fingerprint, Building2, User, KeyRound
-} from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ArrowUpRight, Eye, EyeOff } from "lucide-react";
+
+const demoAccounts = [
+  { label: "Điều hành", email: "ceo@nexustech.vn", code: "BOD" },
+  { label: "Nhân sự", email: "hr@nexustech.vn", code: "HR" },
+  { label: "Kế toán", email: "accountant@nexustech.vn", code: "ACC" },
+  { label: "Trưởng phòng", email: "manager@nexustech.vn", code: "MGR" },
+  { label: "Quản trị", email: "admin@nexustech.vn", code: "ADM" },
+  { label: "Nhân viên", email: "user@nexustech.vn", code: "ESS" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setLoading(true);
     setError("");
-
     try {
-      const res = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (res?.error) {
-        if (res.error === "CredentialsSignin" || res.error.includes("CredentialsSignin")) {
-          setError(process.env.NODE_ENV === "development" ? "Tài khoản hoặc mật khẩu không chính xác. Mật khẩu demo: password123" : "Tài khoản hoặc mật khẩu không chính xác.");
-        } else if (res.error === "Configuration") {
-          setError("Không tìm thấy tài khoản tương ứng trên hệ thống.");
-        } else {
-          setError("Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.");
-        }
+      const result = await signIn("credentials", { email, password, redirect: false });
+      if (result?.error) {
+        setError("Email hoặc mật khẩu không chính xác. Vui lòng thử lại.");
       } else {
         router.push("/dashboard");
         router.refresh();
       }
     } catch {
-      setError("Đã xảy ra lỗi kết nối xác thực.");
+      setError("Không thể kết nối tới hệ thống xác thực. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFillDemo = (demoEmail: string) => {
+  const fillDemo = (demoEmail: string) => {
     setEmail(demoEmail);
     setPassword("password123");
     setError("");
   };
 
-  return (
-    <div className="min-h-dvh flex items-center justify-center bg-zinc-100/80 dark:bg-zinc-950 p-4 sm:p-6 transition-colors">
-      <div className="w-full max-w-4xl bento-card rounded-xl shadow-lg grid grid-cols-1 lg:grid-cols-12 overflow-hidden animate-swiss-in border border-zinc-200/90 dark:border-zinc-800/90 relative z-10">
-        
-        {/* Left Side - Enterprise Brand & Overview */}
-        <div className="lg:col-span-5 p-8 sm:p-10 bg-zinc-900 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-zinc-800 relative">
-          <div>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
-                <Fingerprint className="w-4.5 h-4.5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base font-bold tracking-tight text-white block leading-none">
-                    NEXUSTECH
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                </div>
-                <span className="text-[10px] text-zinc-400 font-medium">
-                  Quản trị Nguồn nhân lực
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-3.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-blue-950/80 text-blue-300 border border-blue-800/80">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                Nền tảng Quản trị Nguồn nhân lực
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
-                Vận hành nhân sự & đãi ngộ chuẩn mực
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-normal">
-                Hợp nhất quản trị hồ sơ điện tử, tự động hóa chấm công GPS, quyết toán lương chuẩn mực và kiểm toán đa tầng.
-              </p>
-            </div>
-
-            {/* Feature Highlights */}
-            <div className="mt-8 space-y-3 text-xs text-zinc-300">
-              <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 rounded-lg bg-emerald-950/70 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <span>Chấm công số thông minh & tự động hóa ca làm việc</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 rounded-lg bg-emerald-950/70 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <span>Quyết toán lương & trích nộp bảo hiểm theo luật lao động</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 rounded-lg bg-emerald-950/70 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <span>Kiểm toán Audit Trail & phân quyền 6 lớp RBAC chặt chẽ</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-zinc-800/80 space-y-2 text-xs text-zinc-400 mt-6">
-            <div className="flex justify-between items-center">
-              <span>Trạng thái máy chủ:</span>
-              <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Trực tuyến ổn định
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] text-zinc-500 font-mono">
-              <span>Hệ thống: HRMIS 2026</span>
-              <span className="flex items-center gap-1 text-blue-400 font-sans">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Mã hóa chuẩn SSL
-              </span>
-            </div>
-          </div>
+  return <main className="folio-login min-h-dvh p-4 sm:p-8 lg:p-12">
+    <div className="mx-auto grid min-h-[calc(100dvh-2rem)] max-w-6xl overflow-hidden border border-[#d5cabb] bg-[#fffdf8] shadow-[14px_14px_0_#d9d0c1] dark:border-[#405242] dark:bg-[#232720] dark:shadow-none sm:min-h-[calc(100dvh-4rem)] lg:grid-cols-[1.05fr_0.95fr] lg:min-h-[calc(100dvh-6rem)]">
+      <section className="relative order-2 flex flex-col justify-between overflow-hidden bg-[#173b31] p-7 text-[#f6f1e6] sm:p-10 lg:order-1 lg:p-14">
+        <div className="absolute -right-24 top-20 h-96 w-96 rounded-full border border-white/10" /><div className="absolute -right-10 top-36 h-72 w-72 rounded-full border border-white/10" />
+        <div className="relative">
+          <Link href="/careers" className="inline-flex items-center gap-3" aria-label="Nexustech, xem trang tuyển dụng"><span className="flex h-10 w-10 items-center justify-center border border-[#d3a77e] folio-display text-2xl">N</span><span><strong className="block text-sm tracking-[0.12em]">NEXUSTECH</strong><small className="text-[10px] uppercase tracking-[0.18em] text-[#bfd3c4]">Quản trị nguồn nhân lực</small></span></Link>
+          <div className="mt-16 max-w-xl lg:mt-24"><span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#d8a980]">Không gian làm việc nội bộ · 2026</span><h1 className="mt-6 text-4xl leading-tight sm:text-5xl lg:text-6xl">Con người là<br /><em className="font-normal text-[#d8a980]">trọng tâm.</em></h1><p className="mt-7 max-w-md text-sm leading-7 text-[#ceded1]">Một nơi để theo dõi hồ sơ, thời gian làm việc, nghỉ phép, hiệu suất và thu nhập của đội ngũ.</p></div>
         </div>
+        <div className="relative mt-16 border-t border-white/25 pt-5 text-xs text-[#c9d8cc]"><div className="flex items-center justify-between gap-4"><span>Hệ thống quản trị nhân lực</span><span className="font-mono text-[#d8a980]">NT — HRMIS</span></div></div>
+      </section>
 
-        {/* Right Side - Form Gateway */}
-        <div className="lg:col-span-7 p-8 sm:p-10 flex flex-col justify-center bg-white dark:bg-zinc-900">
-          <div className="w-full max-w-sm mx-auto space-y-6">
-            <div>
-              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-                Cổng xác thực
-              </span>
-              <h2 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mt-1">
-                Đăng nhập tài khoản
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Nhập thông tin tài khoản công việc để vào hệ thống điều hành.
-              </p>
-            </div>
+      <section className="order-1 flex flex-col justify-center p-7 sm:p-10 lg:order-2 lg:p-14">
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-10"><div className="folio-kicker">Truy cập / 01</div><h2 className="mt-3 text-4xl text-zinc-900 dark:text-zinc-100">Đăng nhập.</h2><p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Sử dụng tài khoản công việc để mở bàn điều hành của bạn.</p></div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div><label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-[0.1em] text-zinc-700 dark:text-zinc-300">Email công việc</label><input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ten@nexustech.vn" className="w-full border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" /></div>
+            <div><label htmlFor="password" className="mb-2 block text-xs font-semibold uppercase tracking-[0.1em] text-zinc-700 dark:text-zinc-300">Mật khẩu</label><div className="relative"><input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Nhập mật khẩu" className="w-full border border-zinc-300 bg-white px-4 py-3 pr-12 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute inset-y-0 right-0 px-4 text-zinc-500" aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
+            {error && <p role="alert" className="border-l-2 border-red-600 bg-red-50 px-3 py-2 text-xs text-red-800 dark:bg-red-950/40 dark:text-red-200">{error}</p>}
+            <button disabled={loading} type="submit" className="flex w-full items-center justify-between bg-blue-600 px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"><span>{loading ? "Đang xác thực..." : "Vào hệ thống"}</span><ArrowRight className="h-4 w-4" /></button>
+          </form>
 
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-xs rounded-xl flex items-center gap-2.5 animate-swiss-in">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-500 dark:text-red-400" />
-                <span className="font-medium">{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  Email đăng nhập
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all font-mono"
-                  placeholder="admin@nexustech.vn"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    Mật khẩu
-                  </label>
-                  {process.env.NODE_ENV === "development" && <span className="text-[10px] text-zinc-400 font-mono">Mặc định: password123</span>}
-                </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all font-mono"
-                  placeholder="••••••••••••"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50 mt-2"
-              >
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Đăng nhập hệ thống</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Quick Demo Fill Buttons - 6 Enterprise Roles */}
-            {process.env.NODE_ENV === "development" && <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-              <span className="text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-2.5">
-                Tài khoản kiểm thử nhanh (6 vai trò RBAC):
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo("ceo@nexustech.vn")}
-                  className="p-2.5 text-xs text-left border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 hover:border-zinc-500 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/70 rounded-xl text-zinc-700 dark:text-zinc-300 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">BOD (CEO)</span>
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border border-zinc-700">BOD</span>
-                  </div>
-                  <div className="text-[10px] text-zinc-400 font-mono truncate">ceo@nexustech.vn</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo("accountant@nexustech.vn")}
-                  className="p-2.5 text-xs text-left border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 hover:border-emerald-500 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 rounded-xl text-zinc-700 dark:text-zinc-300 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-600 transition-colors">Kế toán trưởng</span>
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">KT</span>
-                  </div>
-                  <div className="text-[10px] text-zinc-400 font-mono truncate">accountant@nexustech.vn</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo("hr@nexustech.vn")}
-                  className="p-2.5 text-xs text-left border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 rounded-xl text-zinc-700 dark:text-zinc-300 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 transition-colors">Nhân sự (HR)</span>
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">HR</span>
-                  </div>
-                  <div className="text-[10px] text-zinc-400 font-mono truncate">hr@nexustech.vn</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo("manager@nexustech.vn")}
-                  className="p-2.5 text-xs text-left border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 hover:border-amber-500 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 rounded-xl text-zinc-700 dark:text-zinc-300 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-amber-600 transition-colors">Trưởng phòng</span>
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">TP</span>
-                  </div>
-                  <div className="text-[10px] text-zinc-400 font-mono truncate">manager@nexustech.vn</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo("admin@nexustech.vn")}
-                  className="p-2.5 text-xs text-left border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 hover:border-rose-500 hover:bg-rose-50/30 dark:hover:bg-rose-950/20 rounded-xl text-zinc-700 dark:text-zinc-300 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-rose-600 transition-colors">Quản trị Admin</span>
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">IT</span>
-                  </div>
-                  <div className="text-[10px] text-zinc-400 font-mono truncate">admin@nexustech.vn</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo("user@nexustech.vn")}
-                  className="p-2.5 text-xs text-left border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 rounded-xl text-zinc-700 dark:text-zinc-300 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 transition-colors">Nhân viên</span>
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">NV</span>
-                  </div>
-                  <div className="text-[10px] text-zinc-400 font-mono truncate">user@nexustech.vn</div>
-                </button>
-              </div>
-            </div>}
-
-          </div>
+          {process.env.NODE_ENV === "development" && <div className="mt-10 border-t border-zinc-200 pt-6 dark:border-zinc-700"><div className="mb-4 flex items-center justify-between gap-2"><span className="folio-kicker">Tài khoản dùng thử</span><span className="text-[10px] text-zinc-500">Mật khẩu: password123</span></div><div className="grid grid-cols-2 gap-px overflow-hidden border border-zinc-200 bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-700 sm:grid-cols-3">{demoAccounts.map((account) => <button key={account.email} type="button" onClick={() => fillDemo(account.email)} className="group flex flex-col gap-2 bg-[#fffdf8] p-3 text-left transition-colors hover:bg-blue-50 dark:bg-[#232720] dark:hover:bg-blue-950"><span className="flex w-full items-center justify-between text-[10px] font-mono text-[#a86239]"><span>{account.code}</span><ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100" /></span><span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">{account.label}</span></button>)}</div></div>}
+          <div className="mt-8 text-xs text-zinc-500"><Link href="/careers" className="inline-flex items-center gap-1 hover:text-blue-600">Xem cơ hội nghề nghiệp <ArrowUpRight className="h-3 w-3" /></Link></div>
         </div>
-
-      </div>
+      </section>
     </div>
-  );
+  </main>;
 }

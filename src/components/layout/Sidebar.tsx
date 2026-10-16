@@ -140,7 +140,7 @@ export default function Sidebar() {
 
       <aside
         className={cn(
-          "h-dvh bg-white dark:bg-zinc-900 border-r border-zinc-200/80 dark:border-zinc-800/80 flex-col transition-all duration-200 select-none no-print shrink-0",
+          "folio-sidebar h-dvh bg-white dark:bg-zinc-900 border-r border-zinc-200/80 dark:border-zinc-800/80 flex-col transition-all duration-200 select-none no-print shrink-0",
           mobileOpen
             ? "fixed inset-y-0 left-0 z-50 w-64 flex shadow-2xl"
             : "hidden lg:flex z-20",
@@ -225,6 +225,7 @@ export default function Sidebar() {
                       key={item.name}
                       href={item.href}
                       title={item.name}
+                      data-active={isActive}
                       className={cn(
                         "flex items-center rounded-lg text-xs font-medium transition-colors group relative",
                         compact ? "justify-center p-2.5" : "justify-between px-3 py-2",

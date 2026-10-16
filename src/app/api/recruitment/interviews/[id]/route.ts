@@ -17,6 +17,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id } = await params;
     const body = await req.json();
     const { scheduledAt, result, notes } = body;
+    if (scheduledAt && !Number.isFinite(new Date(scheduledAt).getTime())) {
+      return new NextResponse("Thời gian phỏng vấn không hợp lệ.", { status: 400 });
+    }
+    if (result !== undefined && !["PASS", "FAIL"].includes(result)) {
+      return new NextResponse("Kết quả phỏng vấn không hợp lệ.", { status: 400 });
+    }
 
     if (body.advanceToOffer === true && !["SYSTEM_ADMIN", "BOD", "HR"].includes(roleName)) {
       return new NextResponse("Chỉ Quản trị viên, Ban Giám Đốc hoặc Nhân sự (HR) mới có quyền chuyển ứng viên sang trạng thái Gửi Offer (OFFERED).", { status: 403 });
@@ -24,10 +30,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const existing = await prisma.interview.findUnique({
       where: { id },
-      include: { application: true }
+      include: { application: { include: { jobPosting: true } } }
     });
 
     if (!existing) return new NextResponse("Không tìm thấy lịch phỏng vấn", { status: 404 });
+    if (roleName === "MANAGER") {
+      const managedDept = await prisma.department.findFirst({ where: { manager: { userId: session.user.id } }, select: { id: true } });
+      if (!managedDept || existing.application.jobPosting.departmentId !== managedDept.id) {
+        return new NextResponse("Chỉ được cập nhật phỏng vấn thuộc phòng ban đang phụ trách.", { status: 403 });
+      }
+    }
 
     const updated = await prisma.interview.update({
       where: { id },

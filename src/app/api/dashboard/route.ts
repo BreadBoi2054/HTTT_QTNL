@@ -10,7 +10,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isUser = (session?.user as any)?.roleName === 'USER';
+    const roleName = (session?.user as { roleName?: string } | undefined)?.roleName || 'USER';
+    const isUser = !['BOD', 'SYSTEM_ADMIN', 'HR', 'ACCOUNTANT', 'MANAGER'].includes(roleName);
+    const canSeeRecruitment = ['BOD', 'SYSTEM_ADMIN', 'HR', 'MANAGER'].includes(roleName);
     if (isUser) {
       return NextResponse.json({
         totalEmployees: null,
@@ -22,12 +24,12 @@ export async function GET() {
     }
 
     // 1. Tổng nhân sự
-    const totalEmployees = await prisma.employeeProfile.count();
+    const totalEmployees = await prisma.employeeProfile.count({ where: { status: { in: ['ACTIVE', 'PROBATION'] } } });
 
     // 2. Headcount by Department
     const depts = await prisma.department.findMany({
       include: {
-        _count: { select: { employees: true } }
+        _count: { select: { employees: { where: { status: { in: ['ACTIVE', 'PROBATION'] } } } } }
       }
     });
     
@@ -62,15 +64,13 @@ export async function GET() {
     });
 
     // 4. Tuyển dụng
-    const activeJobs = await prisma.jobPosting.count({
-      where: { status: 'OPEN' }
-    });
+    const activeJobs = canSeeRecruitment ? await prisma.jobPosting.count({ where: { status: 'OPEN', OR: [{ dueDate: null }, { dueDate: { gte: toUtcDateOnly() } }] } }) : null;
 
-    const recentApplications = await prisma.application.findMany({
+    const recentApplications = canSeeRecruitment ? await prisma.application.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: { jobPosting: { select: { title: true } } }
-    });
+    }) : [];
 
     const formattedApplications = recentApplications.map(app => ({
       id: app.id,
@@ -85,7 +85,7 @@ export async function GET() {
       attendanceToday,
       headcountByDept,
       activeJobs,
-      recentApplications: formattedApplications
+      recentApplications: canSeeRecruitment ? formattedApplications : null
     });
 
   } catch (error: any) {

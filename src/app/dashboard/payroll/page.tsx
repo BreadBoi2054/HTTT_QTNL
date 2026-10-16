@@ -31,6 +31,7 @@ import {
 import PayrollModal from "@/components/payroll/PayrollModal";
 import AutoCalculateModal from "@/components/payroll/AutoCalculateModal";
 import PayslipDetailModal from "@/components/payroll/PayslipDetailModal";
+import OvertimePanel from "@/components/payroll/OvertimePanel";
 import { useConfirm, TableSkeleton } from "@/components/providers/ToastProvider";
 
 export default function PayrollPage() {
@@ -107,7 +108,7 @@ export default function PayrollPage() {
       alert("Chỉ Quản trị viên / Ban Giám Đốc mới có thẩm quyền Duyệt chi thanh toán ngân sách lương.");
       return;
     }
-    if (!(await confirm(`Bạn xác nhận Duyệt chi Thanh toán lương cho "${empName}"? Thao tác này sẽ chính thức khóa phiếu lương và ghi nhận vào ngân sách.`))) return;
+    if (!(await confirm(`Ghi nhận phiếu lương của "${empName}" là đã chi trả? Thao tác sẽ khóa phiếu trong hệ thống; ứng dụng không thực hiện chuyển tiền.`))) return;
     try {
       const res = await fetch(`/api/payroll/${id}`, { 
         method: "PUT",
@@ -213,7 +214,7 @@ export default function PayrollPage() {
       alert("Không có phiếu lương nháp nào trong danh sách đang lọc để duyệt chi.");
       return;
     }
-    if (!(await confirm(`Xác nhận Duyệt chi hàng loạt cho ${draftPayrollsInView.length} phiếu lương nháp đang hiển thị?`))) return;
+    if (!(await confirm(`Ghi nhận ${draftPayrollsInView.length} phiếu lương nháp đang hiển thị là đã chi trả? Thao tác sẽ khóa các phiếu trong hệ thống; ứng dụng không thực hiện chuyển tiền.`))) return;
     try {
       const res = await fetch("/api/payroll", {
         method: "PATCH",
@@ -431,13 +432,14 @@ export default function PayrollPage() {
     <>
       <div className="space-y-6 animate-swiss-in pb-12 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-zinc-200/80 dark:border-zinc-800/80">
           <div>
+            <div className="folio-kicker mb-3">Sổ điều hành / Thu nhập</div>
             <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
-              Bảng Tính Lương & Quyết Toán Thu Nhập
+              Sổ lương theo kỳ
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              Tính toán 22 công chuẩn, khấu trừ bảo hiểm bắt buộc 10.5% và phân cấp trách nhiệm theo 6 vai trò RBAC
+              Theo dõi phiếu nháp, các khoản thu nhập và trạng thái duyệt chi.
             </p>
           </div>
 
@@ -494,14 +496,23 @@ export default function PayrollPage() {
           </div>
         </div>
 
+        {canManage && (
+          <div className="folio-panel border-l-4 border-l-amber-600 px-5 py-4 text-sm text-zinc-700 dark:text-zinc-200">
+            <strong className="block font-semibold text-zinc-900 dark:text-zinc-100">Kiểm tra trước khi duyệt chi</strong>
+            <span>Ngày công chuẩn lấy theo lịch làm việc tháng, đã trừ ngày nghỉ lễ; OT chỉ tính từ đơn đã duyệt. Nghỉ ốm theo chế độ BHXH được tách khỏi lương công ty. Đối chiếu bảo hiểm và thuế trước khi chốt. Chuyển phiếu sang PAID chỉ ghi nhận trạng thái trong ứng dụng, không thực hiện chuyển tiền.</span>
+          </div>
+        )}
+
+        <OvertimePanel userId={session?.user?.id} roleName={userRole} onApproved={fetchPayrolls} />
+
         {/* Asymmetric Financial Ledger Strip (Swiss Treasury Layout) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
           {/* Primary Net Disbursement Treasury Block */}
-          <div className="lg:col-span-5 rounded-2xl bg-zinc-900 dark:bg-zinc-950 text-white p-6 border border-zinc-800 flex flex-col justify-between shadow-sm">
+          <div className="lg:col-span-5 folio-panel-dark text-white p-6 flex flex-col justify-between">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400">
-                  Ngân quỹ thực lĩnh · Net Disbursement
+                  Tổng thực lĩnh theo bộ lọc
                 </span>
                 <div className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight mt-2 text-white">
                   {formatVND(payrollTotals.net)}
@@ -514,7 +525,7 @@ export default function PayrollPage() {
 
             <div className="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-zinc-400">
-                Quyết toán: <strong className="text-white font-mono">{filteredData.filter((p) => p.status === "PAID").length}/{filteredData.length}</strong> phiếu
+                Đã ghi nhận chi trả: <strong className="text-white font-mono">{filteredData.filter((p) => p.status === "PAID").length}/{filteredData.length}</strong> phiếu
                 {draftPayrollsInView.length > 0 && (
                   <span className="ml-2 text-amber-400 font-medium">
                     ({draftPayrollsInView.length} bản nháp)
@@ -527,7 +538,7 @@ export default function PayrollPage() {
                   onClick={handleBulkDisburse}
                   className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors shadow-xs"
                 >
-                  Duyệt chi hàng loạt ({draftPayrollsInView.length})
+                  Ghi nhận chi trả ({draftPayrollsInView.length})
                 </button>
               )}
             </div>
@@ -546,7 +557,7 @@ export default function PayrollPage() {
                     {formatVND(payrollTotals.base)}
                   </div>
                   <div className="mt-1 text-[11px] text-zinc-500">
-                    Quy đổi theo 22 ngày công chuẩn
+                    Quy đổi theo ngày công chuẩn từng tháng
                   </div>
                 </div>
               </div>
@@ -576,7 +587,7 @@ export default function PayrollPage() {
                     -{formatVND(payrollTotals.deductions)}
                   </div>
                   <div className="mt-1 text-[11px] text-zinc-500">
-                    BH bắt buộc 10.5% & thuế TNCN
+                    Bảo hiểm, thuế và các khoản khác
                   </div>
                 </div>
               </div>
@@ -738,7 +749,7 @@ export default function PayrollPage() {
                 </div>
                 <h4 className="font-bold text-zinc-900 dark:text-zinc-100">Chuyên viên C&B / Trưởng phòng HR</h4>
                 <ul className="text-zinc-600 dark:text-zinc-400 space-y-1.5 list-disc list-inside text-[11px]">
-                  <li><strong>Tính lương tự động:</strong> Tổng hợp dữ liệu chấm công 22 ngày công chuẩn.</li>
+                  <li><strong>Tính lương tự động:</strong> Tổng hợp chấm công, phép và OT đã duyệt theo lịch từng tháng.</li>
                   <li>Khởi tạo phiếu lương mới, điều chỉnh phụ cấp và thưởng định kỳ.</li>
                   <li>Kiểm soát phép năm và các chế độ bảo hiểm theo luật lao động.</li>
                 </ul>
@@ -964,7 +975,7 @@ export default function PayrollPage() {
                           <div className="text-xs text-zinc-800 dark:text-zinc-200 font-medium">
                             Tháng {payroll.month < 10 ? `0${payroll.month}` : payroll.month}/{payroll.year}
                           </div>
-                          <div className="text-[10px] text-zinc-400">22 ngày công chuẩn</div>
+                          <div className="text-[10px] text-zinc-400">Công chuẩn theo lịch tháng</div>
                         </td>
 
                         <td className="px-3.5 py-3 text-right font-mono text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
@@ -990,7 +1001,7 @@ export default function PayrollPage() {
                             </span>
                           ) : (
                             <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 font-medium">
-                              Đã thanh toán
+                              Đã ghi nhận chi trả
                             </span>
                           )}
                         </td>
@@ -1011,9 +1022,9 @@ export default function PayrollPage() {
                                   <button 
                                     onClick={() => handlePay(payroll.id, payroll.employee?.user?.name)} 
                                     className="px-2.5 py-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-md font-medium transition-colors" 
-                                    title="Duyệt chi thanh toán (Khóa sổ)"
+                                    title="Ghi nhận đã chi trả và khóa phiếu trong ứng dụng"
                                   >
-                                    Duyệt chi
+                                    Ghi nhận chi trả
                                   </button>
                                 )}
 
@@ -1129,7 +1140,7 @@ export default function PayrollPage() {
           </section>
 
           <section className="rounded-xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/20 p-4 text-[11px] leading-relaxed text-blue-800 dark:text-blue-200">
-            <strong>Công thức lương tự động:</strong> lương cơ bản × ngày công hưởng lương ÷ 22, cộng thưởng/phụ cấp, trừ bảo hiểm (10,5%), thuế TNCN và các khoản khấu trừ khác. Nghỉ phép được duyệt hưởng lương; ngày nghỉ không lương làm giảm ngày công.
+            <strong>Công thức tự động hiện tại:</strong> lương cơ bản × ngày công hưởng lương ÷ công chuẩn tháng (đã trừ lễ), cộng OT đã duyệt và thưởng/phụ cấp, trừ bảo hiểm, thuế và các khoản khác. Phép năm đã duyệt được hưởng lương; nghỉ ốm theo BHXH được tách khỏi lương công ty. Cần đối chiếu chính sách của kỳ trước khi ghi nhận chi trả.
           </section>
         </aside>
         </div>

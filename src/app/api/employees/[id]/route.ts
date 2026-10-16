@@ -57,7 +57,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       const managedDept = callerProfile
         ? await prisma.department.findUnique({ where: { managerId: callerProfile.id } })
         : null;
-      const allowedDeptId = managedDept?.id || callerProfile?.departmentId;
+      const allowedDeptId = managedDept?.id;
 
       if (!allowedDeptId || targetEmployee.departmentId !== allowedDeptId) {
         return new NextResponse("Trưởng phòng chỉ được phép chỉnh sửa nhân sự thuộc phòng ban mình phụ trách", { status: 403 });

@@ -106,8 +106,9 @@ export default function AutoCalculateModal({ isOpen, onClose, onSuccess }: AutoC
               Quy tắc tính toán tự động
             </div>
             <ul className="text-zinc-600 dark:text-zinc-400 space-y-1 text-xs list-disc list-inside">
-              <li>Đối soát dữ liệu chấm công thực tế trong tháng (chuẩn 22 ngày công)</li>
+              <li>Đối soát chấm công theo số ngày làm việc của tháng, sau khi trừ cuối tuần và ngày lễ</li>
               <li>Cộng dồn các ngày nghỉ phép năm đã được duyệt (hưởng nguyên lương)</li>
+              <li>Chỉ cộng OT đã được duyệt; nghỉ ốm theo BHXH không cộng vào lương công ty</li>
               <li>Áp dụng định mức phụ cấp, thưởng KPI và trích nộp bảo hiểm bắt buộc (10.5%)</li>
               <li>Tự động cập nhật hoặc tạo mới phiếu lương ở trạng thái <strong>Bản nháp</strong></li>
             </ul>

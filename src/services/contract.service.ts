@@ -20,7 +20,7 @@ export async function getContracts(scope?: { userEmail?: string; roleName?: stri
       where: { userId: scope.userId },
       include: { managedDept: true },
     });
-    const deptId = managerProfile?.managedDept?.id || managerProfile?.departmentId;
+    const deptId = managerProfile?.managedDept?.id;
     if (deptId) {
       whereClause.employee = {
         OR: [{ departmentId: deptId }, { userId: scope.userId }],

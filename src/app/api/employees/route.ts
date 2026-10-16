@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       const managedDept = await prisma.department.findUnique({
         where: { managerId: callerProfile.id }
       });
-      const allowedDeptId = managedDept?.id || callerProfile.departmentId;
+      const allowedDeptId = managedDept?.id;
       if (!allowedDeptId || body.departmentId !== allowedDeptId) {
         return new NextResponse("Trưởng phòng chỉ được phép thêm nhân sự vào phòng ban mình phụ trách", { status: 403 });
       }

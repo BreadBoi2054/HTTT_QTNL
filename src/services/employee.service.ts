@@ -25,7 +25,7 @@ export async function getEmployees(scope?: {
       where: { userId: scope.userId },
       select: { id: true, departmentId: true, managedDept: { select: { id: true } } },
     });
-    const departmentId = manager?.managedDept?.id || manager?.departmentId;
+    const departmentId = manager?.managedDept?.id;
     where.OR = departmentId
       ? [{ departmentId }, { userId: scope.userId }]
       : [{ userId: scope.userId }];

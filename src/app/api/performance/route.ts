@@ -51,8 +51,8 @@ export async function POST(req: Request) {
     if (roleName === "MANAGER") {
       const employee = await prisma.employeeProfile.findUnique({ where: { id: body.employeeId }, select: { id: true, departmentId: true } });
       const actor = await prisma.employeeProfile.findUnique({ where: { userId: session.user.id }, select: { id: true, departmentId: true, managedDept: { select: { id: true } } } });
-      const managedDepartmentId = actor?.managedDept?.id || actor?.departmentId;
-      if (!employee || !actor || employee.departmentId !== managedDepartmentId || employee.id === actor.id) {
+      const managedDepartmentId = actor?.managedDept?.id;
+      if (!employee || !managedDepartmentId || employee.departmentId !== managedDepartmentId || employee.id === actor?.id) {
         return NextResponse.json({ error: "Chỉ được đánh giá nhân sự thuộc phòng ban của bạn." }, { status: 403 });
       }
     }

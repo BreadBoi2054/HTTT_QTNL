@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { holidayDatesForYear, isScheduledWorkday, monthlyWorkdays } from "@/lib/work-calendar";
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -37,7 +39,7 @@ function buildManualPayrollDetails(
         {
           name: "Ngày công thực tế",
           type: "INFO",
-          amount: 22,
+          amount: monthlyWorkdays(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1),
           amountType: "DAYS",
         },
       ];
@@ -116,9 +118,11 @@ export async function getPayrolls(
   if (month) where.month = month;
   if (year) where.year = year;
 
-  if (scope?.roleName === "USER" && scope.userEmail) {
-    where.employee = { user: { email: scope.userEmail } };
-  } else if (scope?.roleName === "MANAGER" && scope.userId) {
+  if (scope?.roleName === "USER") {
+    if (!scope.userId) throw new Error("Thiếu định danh người dùng.");
+    where.employee = { user: { id: scope.userId } };
+  } else if (scope?.roleName === "MANAGER") {
+    if (!scope.userId) throw new Error("Thiếu định danh người dùng.");
     const managedDept = await prisma.department.findFirst({
       where: { manager: { userId: scope.userId } },
       select: { id: true },
@@ -146,15 +150,26 @@ export async function getPayrolls(
   });
 }
 
-export async function createPayroll(data: any, actorName: string = "Phòng Nhân Sự") {
+export async function createPayroll(data: any, actorName: string = "Phòng Nhân Sự", actorRole: string = "HR") {
   const { employeeId, month, year, baseSalary, bonus = 0, deductions = 0 } = data;
+  const parsedMonth = Number(month);
+  const parsedYear = Number(year);
+  const parsedBase = Number(baseSalary);
+  const parsedBonus = Number(bonus);
+  const parsedDed = Number(deductions);
+  if (!employeeId || !Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12 || !Number.isInteger(parsedYear) || parsedYear < 2000 || parsedYear > 2100) {
+    throw new Error("Nhân viên hoặc kỳ lương không hợp lệ.");
+  }
+  if (![parsedBase, parsedBonus, parsedDed].every((value) => Number.isFinite(value) && value >= 0) || parsedDed > parsedBase + parsedBonus) {
+    throw new Error("Các khoản lương phải là số không âm và khấu trừ không được vượt tổng thu nhập.");
+  }
 
   const existing = await prisma.payroll.findUnique({
     where: {
       employeeId_month_year: {
         employeeId,
-        month: parseInt(month),
-        year: parseInt(year),
+        month: parsedMonth,
+        year: parsedYear,
       },
     },
   });
@@ -163,46 +178,45 @@ export async function createPayroll(data: any, actorName: string = "Phòng Nhân
     throw new Error(`Phiếu lương tháng ${month}/${year} của nhân viên này đã tồn tại.`);
   }
 
-  const parsedBase = parseFloat(baseSalary) || 0;
-  const parsedBonus = parseFloat(bonus) || 0;
-  const parsedDed = parseFloat(deductions) || 0;
-  const netSalary = Math.max(0, parsedBase + parsedBonus - parsedDed);
+  const netSalary = parsedBase + parsedBonus - parsedDed;
   const details = data.details ?? buildManualPayrollDetails(parsedBase, parsedBonus, parsedDed);
 
-  const created = await prisma.payroll.create({
-    data: {
-      employeeId,
-      month: parseInt(month),
-      year: parseInt(year),
-      baseSalary: parsedBase,
-      bonus: parsedBonus,
-      deductions: parsedDed,
-      netSalary,
-      details,
-      status: "DRAFT",
-    },
-    include: {
-      employee: {
-        include: { user: { select: SAFE_USER_SELECT } },
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.payroll.create({
+      data: {
+        employeeId,
+        month: parsedMonth,
+        year: parsedYear,
+        baseSalary: parsedBase,
+        bonus: parsedBonus,
+        deductions: parsedDed,
+        netSalary,
+        details,
+        status: "DRAFT",
       },
-    },
-  });
+      include: {
+        employee: {
+          include: { user: { select: SAFE_USER_SELECT } },
+        },
+      },
+    });
 
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName,
-      userRole: "HR",
-      action: `Khởi tạo phiếu lương nháp Tháng ${month}/${year} cho nhân viên ${created.employee.user.name} (Thực lĩnh: ${netSalary.toLocaleString("vi-VN")} VNĐ)`,
-      target: "Payroll",
-      ip: "127.0.0.1",
-      status: "SUCCESS",
-    },
-  });
+    await tx.auditLog.create({
+      data: {
+        userName: actorName,
+        userRole: actorRole,
+        action: `Khởi tạo phiếu lương nháp Tháng ${month}/${year} cho nhân viên ${created.employee.user.name} (Thực lĩnh: ${netSalary.toLocaleString("vi-VN")} VNĐ)`,
+        target: "Payroll",
+        ip: "127.0.0.1",
+        status: "SUCCESS",
+      },
+    });
 
-  return created;
+    return created;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
-export async function updatePayroll(id: string, data: any, actorName: string = "Kế toán / HR") {
+export async function updatePayroll(id: string, data: any, actorName: string = "Kế toán / HR", actorRole: string = "HR") {
   const payroll = await prisma.payroll.findUnique({
     where: { id },
     include: {
@@ -219,59 +233,56 @@ export async function updatePayroll(id: string, data: any, actorName: string = "
   const { baseSalary, bonus, deductions, status } = data;
 
   if (status === "PAID") {
-    const updated = await prisma.payroll.update({
-      where: { id },
-      data: { status: "PAID" },
-    });
-
-    await prisma.auditLog.create({
-      data: {
-        userName: actorName,
-        userRole: "FINANCE_DIRECTOR",
-        action: `Phê duyệt chi trả (PAID) phiếu lương Tháng ${payroll.month}/${payroll.year} của ${payroll.employee.user.name} (Tổng chi: ${payroll.netSalary.toLocaleString("vi-VN")} VNĐ)`,
-        target: "Payroll",
-        ip: "127.0.0.1",
-        status: "SUCCESS",
-      },
-    });
-
-    return updated;
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.payroll.update({
+        where: { id, status: "DRAFT" },
+        data: { status: "PAID" },
+      });
+      await tx.auditLog.create({
+        data: {
+          userName: actorName,
+          userRole: actorRole,
+          action: `Ghi nhận đã chi trả (PAID) phiếu lương Tháng ${payroll.month}/${payroll.year} của ${payroll.employee.user.name} (Tổng ghi nhận: ${payroll.netSalary.toLocaleString("vi-VN")} VNĐ)`,
+          target: "Payroll",
+          ip: "127.0.0.1",
+          status: "SUCCESS",
+        },
+      });
+      return updated;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
   }
 
-  const newBase = baseSalary !== undefined ? parseFloat(baseSalary) : payroll.baseSalary;
-  const newBonus = bonus !== undefined ? parseFloat(bonus) : payroll.bonus;
-  const newDed = deductions !== undefined ? parseFloat(deductions) : payroll.deductions;
+  const newBase = baseSalary !== undefined ? Number(baseSalary) : payroll.baseSalary;
+  const newBonus = bonus !== undefined ? Number(bonus) : payroll.bonus;
+  const newDed = deductions !== undefined ? Number(deductions) : payroll.deductions;
 
-  const netSalary = Math.max(0, newBase + newBonus - newDed);
+  if (![newBase, newBonus, newDed].every((value) => Number.isFinite(value) && value >= 0) || newDed > newBase + newBonus) {
+    throw new Error("Các khoản lương phải là số không âm và khấu trừ không được vượt tổng thu nhập.");
+  }
+  const netSalary = newBase + newBonus - newDed;
   const details =
     data.details ?? buildManualPayrollDetails(newBase, newBonus, newDed, payroll.details);
 
-  const updated = await prisma.payroll.update({
-    where: { id },
-    data: {
-      baseSalary: newBase,
-      bonus: newBonus,
-      deductions: newDed,
-      netSalary,
-      details,
-    },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName,
-      userRole: "HR",
-      action: `Điều chỉnh số liệu phiếu lương Tháng ${payroll.month}/${payroll.year} (${payroll.employee.user.name})`,
-      target: "Payroll",
-      ip: "127.0.0.1",
-      status: "WARNING",
-    },
-  });
-
-  return updated;
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.payroll.update({
+      where: { id, status: "DRAFT" },
+      data: { baseSalary: newBase, bonus: newBonus, deductions: newDed, netSalary, details },
+    });
+    await tx.auditLog.create({
+      data: {
+        userName: actorName,
+        userRole: actorRole,
+        action: `Điều chỉnh số liệu phiếu lương Tháng ${payroll.month}/${payroll.year} (${payroll.employee.user.name})`,
+        target: "Payroll",
+        ip: "127.0.0.1",
+        status: "WARNING",
+      },
+    });
+    return updated;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
-export async function deletePayroll(id: string, actorName: string = "Quản trị viên") {
+export async function deletePayroll(id: string, actorName: string = "Quản trị viên", actorRole: string = "HR") {
   const payroll = await prisma.payroll.findUnique({
     where: { id },
     include: {
@@ -285,27 +296,31 @@ export async function deletePayroll(id: string, actorName: string = "Quản tr�
     throw new Error("Sổ sách đã đóng. Không thể xóa phiếu lương đã thanh toán.");
   }
 
-  const deleted = await prisma.payroll.delete({ where: { id } });
-
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName,
-      userRole: "HR",
-      action: `Hủy phiếu lương nháp Tháng ${payroll.month}/${payroll.year} của nhân viên ${payroll.employee.user.name}`,
-      target: "Payroll",
-      ip: "127.0.0.1",
-      status: "CRITICAL",
-    },
-  });
-
-  return deleted;
+  return prisma.$transaction(async (tx) => {
+    const deleted = await tx.payroll.delete({ where: { id, status: "DRAFT" } });
+    await tx.auditLog.create({
+      data: {
+        userName: actorName,
+        userRole: actorRole,
+        action: `Hủy phiếu lương nháp Tháng ${payroll.month}/${payroll.year} của nhân viên ${payroll.employee.user.name}`,
+        target: "Payroll",
+        ip: "127.0.0.1",
+        status: "CRITICAL",
+      },
+    });
+    return deleted;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
 export async function calculateMonthlyPayroll(
   month: number,
   year: number,
-  actorName: string = "Hệ thống / HR"
+  actorName: string = "Hệ thống / HR",
+  actorRole: string = "HR"
 ) {
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+    throw new Error("Kỳ lương không hợp lệ.");
+  }
   const now = new Date();
   if (year > now.getFullYear() || (year === now.getFullYear() && month > now.getMonth() + 1)) {
     throw new Error("Không thể tính lương tự động cho kỳ lương tương lai chưa phát sinh công.");
@@ -314,6 +329,8 @@ export async function calculateMonthlyPayroll(
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = new Date(Date.UTC(year, month - 1, lastDay, 23, 59, 59, 999));
+  const holidays = holidayDatesForYear(year);
+  const standardWorkingDays = monthlyWorkdays(year, month, holidays);
 
   const employeeConfigs = await prisma.employeeSalaryConfig.findMany({
     include: {
@@ -323,6 +340,9 @@ export async function calculateMonthlyPayroll(
             where: {
               date: { gte: startDate, lte: endDate },
             },
+          },
+          overtimeRequests: {
+            where: { date: { gte: startDate, lte: endDate }, status: "APPROVED" },
           },
           leaveRequests: {
             where: {
@@ -355,25 +375,6 @@ export async function calculateMonthlyPayroll(
   });
 
   const payrollsCreated = [];
-  const STANDARD_WORKING_DAYS = 22;
-
-  const activeConfigs = employeeConfigs.filter(
-    (c) => c.employee.status !== "RESIGNED" && c.employee.status !== "SUSPENDED"
-  );
-
-  const maxRecordedDaysInCompany = Math.max(
-    0,
-    ...activeConfigs.map(
-      (c) =>
-        c.employee.attendances.filter(
-          (a) =>
-            a.status === "PRESENT" ||
-            a.status === "LATE" ||
-            a.status === "LEAVE" ||
-            a.status === "ABSENT"
-        ).length
-    )
-  );
 
   for (const config of employeeConfigs) {
     const { employee, components } = config;
@@ -395,62 +396,56 @@ export async function calculateMonthlyPayroll(
       });
     }
 
-    const workedDays = employee.attendances.filter(
-      (a) => a.status === "PRESENT" || a.status === "LATE"
-    ).length;
-
-    const leaveAttendanceDays = employee.attendances.filter(
-      (a) => a.status === "LEAVE"
-    ).length;
+    const workedDateKeys = new Set(
+      employee.attendances
+        .filter((a) => (a.status === "PRESENT" || a.status === "LATE") && isScheduledWorkday(a.date, holidays))
+        .map((a) => a.date.toISOString().slice(0, 10))
+    );
+    const workedDays = workedDateKeys.size;
 
     const unexcusedAbsences = employee.attendances.filter(
-      (a) => a.status === "ABSENT"
+      (a) => a.status === "ABSENT" && isScheduledWorkday(a.date, holidays)
     ).length;
 
     let calculatedPaidLeaveDays = 0;
     let calculatedUnpaidLeaveDays = 0;
+    let calculatedSickLeaveDays = 0;
+    const leaveDateKeys = new Set<string>();
 
     for (const leave of employee.leaveRequests) {
       const cur = new Date(leave.startDate > startDate ? leave.startDate : startDate);
       const leaveEnd = new Date(leave.endDate < endDate ? leave.endDate : endDate);
       while (cur <= leaveEnd) {
-        const dayOfWeek = cur.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        const dateKey = cur.toISOString().slice(0, 10);
+        if (isScheduledWorkday(cur, holidays) &&
+            !workedDateKeys.has(dateKey) && !leaveDateKeys.has(dateKey)) {
+          leaveDateKeys.add(dateKey);
           if (leave.type === "UNPAID_LEAVE") {
             calculatedUnpaidLeaveDays++;
+          } else if (leave.type === "SICK_LEAVE") {
+            calculatedSickLeaveDays++;
           } else {
             calculatedPaidLeaveDays++;
           }
         }
-        cur.setDate(cur.getDate() + 1);
+        cur.setUTCDate(cur.getUTCDate() + 1);
       }
     }
 
-    const paidLeaveAttDays = Math.max(0, leaveAttendanceDays - calculatedUnpaidLeaveDays);
-    const paidLeaveDays = Math.max(paidLeaveAttDays, calculatedPaidLeaveDays);
+    const paidLeaveDays = calculatedPaidLeaveDays;
 
-    let effectiveDays = 0;
-    let actualWorkingDays = 0;
+    // Chỉ ghi nhận ngày công có bằng chứng; dữ liệu chấm công thiếu không được tự suy ra đủ lương.
+    const effectiveDays = Math.min(workedDays + paidLeaveDays, standardWorkingDays);
+    const actualWorkingDays = workedDays;
 
-    if (maxRecordedDaysInCompany === 0) {
-      effectiveDays = Math.max(0, STANDARD_WORKING_DAYS - calculatedUnpaidLeaveDays);
-      actualWorkingDays = Math.max(0, effectiveDays - paidLeaveDays);
-    } else if (maxRecordedDaysInCompany < STANDARD_WORKING_DAYS) {
-      const penaltyDays = Math.max(0, maxRecordedDaysInCompany - (workedDays + paidLeaveDays));
-      effectiveDays = Math.max(0, STANDARD_WORKING_DAYS - penaltyDays);
-      actualWorkingDays = Math.max(0, effectiveDays - paidLeaveDays);
-    } else {
-      const totalPaidDays = workedDays + paidLeaveDays;
-      effectiveDays = Math.min(totalPaidDays, STANDARD_WORKING_DAYS);
-      actualWorkingDays = workedDays;
-    }
-
-    const proRatedBaseSalary = Math.round((baseSalary / STANDARD_WORKING_DAYS) * effectiveDays);
+    const proRatedBaseSalary = Math.round((baseSalary / standardWorkingDays) * effectiveDays);
 
     let totalBonus = 0;
     let totalDeduction = 0;
     let kpiPenaltyAmount = 0;
     const details: any[] = [];
+
+    details.push({ name: "Ngày công chuẩn của kỳ (đã trừ lễ)", type: "INFO", amount: standardWorkingDays, amountType: "DAYS" });
 
     details.push({
       name: "Ngày công thực tế",
@@ -477,6 +472,10 @@ export async function calculateMonthlyPayroll(
       });
     }
 
+    if (calculatedSickLeaveDays > 0) {
+      details.push({ name: "Nghỉ ốm theo chế độ BHXH (không tính vào lương công ty)", type: "INFO", amount: calculatedSickLeaveDays, amountType: "DAYS" });
+    }
+
     if (unexcusedAbsences > 0) {
       details.push({
         name: "Nghỉ không phép (Trừ công)",
@@ -486,20 +485,18 @@ export async function calculateMonthlyPayroll(
       });
     }
 
-    const totalOtHours = Math.round(
-      employee.attendances.reduce((acc, a) => {
-        const rawHours = a.checkIn && a.checkOut ? (new Date(a.checkOut).getTime() - new Date(a.checkIn).getTime()) / (1000 * 60 * 60) : 0;
-        const wh = rawHours > 5 ? rawHours - 1 : rawHours;
-        return wh > 8 ? acc + (wh - 8) : acc;
-      }, 0) * 10
-    ) / 10;
-
-    if (totalOtHours > 0) {
-      const hourlyRate = baseSalary / STANDARD_WORKING_DAYS / 8;
-      const otBonus = Math.round(hourlyRate * 1.5 * totalOtHours);
+    const overtimeByRate = new Map<number, number>();
+    for (const request of employee.overtimeRequests) {
+      const rate = holidays.has(request.date.toISOString().slice(0, 10)) ? 3 :
+        [0, 6].includes(request.date.getUTCDay()) ? 2 : 1.5;
+      overtimeByRate.set(rate, (overtimeByRate.get(rate) || 0) + request.hours);
+    }
+    for (const [rate, totalOtHours] of overtimeByRate) {
+      const hourlyRate = baseSalary / standardWorkingDays / 8;
+      const otBonus = Math.round(hourlyRate * rate * totalOtHours);
       totalBonus += otBonus;
       details.push({
-        name: `Lương làm thêm giờ (OT ${totalOtHours}h x 150%)`,
+        name: `OT đã duyệt ${totalOtHours}h × ${rate * 100}%`,
         type: "EARNING",
         amount: otBonus,
         amountType: "FIXED",
@@ -707,7 +704,7 @@ export async function calculateMonthlyPayroll(
   await prisma.auditLog.create({
     data: {
       userName: actorName,
-      userRole: "HR",
+      userRole: actorRole,
       action: `Chạy bảng tính lương tự động Tháng ${month}/${year} cho toàn bộ nhân sự (${payrollsCreated.length} phiếu lương)`,
       target: "PayrollEngine",
       ip: "127.0.0.1",
@@ -718,38 +715,43 @@ export async function calculateMonthlyPayroll(
   return payrollsCreated;
 }
 
-export async function bulkDisbursePayrolls(ids: string[], actorName: string = "Ban Giám Đốc") {
-  const whereClause: any = { status: "DRAFT" };
-  if (Array.isArray(ids) && ids.length > 0) {
-    whereClause.id = { in: ids };
+export async function bulkDisbursePayrolls(ids: string[], actorName: string = "Ban Giám Đốc", actorRole: string = "BOD") {
+  if (!Array.isArray(ids) || ids.length === 0 || ids.some((id) => typeof id !== "string" || !id.trim())) {
+    throw new Error("Cần chọn ít nhất một phiếu lương nháp để duyệt chi.");
   }
+  const selectedIds = [...new Set(ids)];
 
-  const drafts = await prisma.payroll.findMany({
-    where: whereClause,
-    include: { employee: { include: { user: { select: { name: true } } } } },
-  });
+  return prisma.$transaction(async (tx) => {
+    const drafts = await tx.payroll.findMany({
+      where: { id: { in: selectedIds }, status: "DRAFT" },
+      select: { id: true, netSalary: true },
+    });
 
-  if (drafts.length === 0) {
-    throw new Error("Không có phiếu lương nháp nào cần duyệt chi.");
-  }
+    if (drafts.length !== selectedIds.length) {
+      throw new Error("Một hoặc nhiều phiếu lương được chọn không còn ở trạng thái nháp. Vui lòng tải lại danh sách.");
+    }
 
-  const totalDisbursed = drafts.reduce((sum, p) => sum + (p.netSalary || 0), 0);
+    const totalDisbursed = drafts.reduce((sum, p) => sum + p.netSalary, 0);
 
-  await prisma.payroll.updateMany({
-    where: { id: { in: drafts.map((d) => d.id) } },
-    data: { status: "PAID" },
-  });
+    const updated = await tx.payroll.updateMany({
+      where: { id: { in: selectedIds }, status: "DRAFT" },
+      data: { status: "PAID" },
+    });
+    if (updated.count !== selectedIds.length) {
+      throw new Error("Danh sách phiếu lương đã thay đổi trong lúc duyệt chi. Vui lòng thử lại.");
+    }
 
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName,
-      userRole: "BOD",
-      action: `Phê duyệt chi trả hàng loạt (${drafts.length} phiếu lương) - Tổng giải ngân: ${Math.round(totalDisbursed).toLocaleString("vi-VN")} VNĐ`,
-      target: "Payroll",
-      ip: "127.0.0.1",
-      status: "SUCCESS",
-    },
-  });
+    await tx.auditLog.create({
+      data: {
+        userName: actorName,
+        userRole: actorRole,
+        action: `Ghi nhận đã chi trả hàng loạt (${drafts.length} phiếu lương) - Tổng ghi nhận: ${Math.round(totalDisbursed).toLocaleString("vi-VN")} VNĐ`,
+        target: "Payroll",
+        ip: "127.0.0.1",
+        status: "SUCCESS",
+      },
+    });
 
-  return { count: drafts.length, totalDisbursed };
+    return { count: drafts.length, totalDisbursed };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }

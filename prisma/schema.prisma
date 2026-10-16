@@ -55,6 +55,7 @@ model EmployeeProfile {
   annualLeaveDays Float   @default(12)
   dependentCount Int     @default(0)
   attendances  Attendance[]
+  overtimeRequests OvertimeRequest[]
   payrolls     Payroll[]
   leaveRequests LeaveRequest[]
   salaryConfig  EmployeeSalaryConfig?
@@ -76,6 +77,23 @@ model Attendance {
   updatedAt  DateTime @updatedAt
 
   @@unique([employeeId, date])
+}
+
+model OvertimeRequest {
+  id         String @id @default(cuid())
+  employeeId String
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  hours      Float
+  status     String @default("PENDING") // PENDING, APPROVED, REJECTED
+  reason     String?
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([status, date])
 }
 
 model LeaveRequest {

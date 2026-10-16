@@ -407,7 +407,7 @@ export default function UserGuidePage() {
             <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-blue-600" /> Phân hệ 2: Cơ Chế Chấm Công & Xác Định Ngày Công Chuẩn (Timesheet)
             </span>
-            <span className="text-[11px] font-mono font-semibold text-zinc-500">Chuẩn 22 ngày công / tháng</span>
+            <span className="text-[11px] font-mono font-semibold text-zinc-500">Công chuẩn theo lịch từng tháng</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
@@ -419,16 +419,16 @@ export default function UserGuidePage() {
             </div>
 
             <div className="p-3 bg-white dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 space-y-1">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Định mức 22 công chuẩn:</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Ngày công chuẩn của kỳ:</span>
               <p className="text-zinc-600 dark:text-zinc-400 text-xs">
-                Chế độ làm việc 5 ngày/tuần (Thứ 2 đến Thứ 6). Số ngày tính lương: <code>effectiveDays = min(22, workedDays + paidLeaveDays)</code>.
+                Số ngày làm việc từ Thứ 2 đến Thứ 6 của tháng, sau khi trừ ngày nghỉ lễ. Công hưởng lương = min(công chuẩn, ngày đi làm + ngày phép năm đã duyệt).
               </p>
             </div>
 
             <div className="p-3 bg-white dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 space-y-1">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Loại trừ Thứ 7 & Chủ nhật:</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Loại trừ cuối tuần và ngày lễ:</span>
               <p className="text-zinc-600 dark:text-zinc-400 text-xs">
-                Đơn xin nghỉ phép tự động loại trừ cả Thứ 7 và Chủ nhật, bảo toàn số ngày phép thực tế không bị tính dôi ngày cuối tuần.
+                Bảng lương không tính ngày nghỉ hằng tuần hoặc ngày lễ vào công chuẩn; lịch nghỉ lễ cần được cấu hình đúng theo năm.
               </p>
             </div>
           </div>
@@ -480,13 +480,13 @@ export default function UserGuidePage() {
                 <CheckCircle2 className="w-4 h-4" /> Kịch bản A: Nghỉ có phép (Được duyệt)
               </div>
               <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Áp dụng cho <strong>Nghỉ phép năm</strong> hoặc <strong>Nghỉ ốm đau có bảo hiểm</strong> đã được Quản lý trực tiếp phê duyệt:
+                Áp dụng cho <strong>nghỉ phép năm</strong> đã được phê duyệt:
               </p>
               <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 font-semibold">
                 Hưởng đủ 100% lương cơ bản (Không bị trừ lương)
               </div>
               <p className="text-[11px] text-zinc-500">
-                Hệ thống tự động cộng dồn ngày phép vào công chuẩn (21 ngày đi làm + 1 ngày phép = 22 công đầy đủ).
+                Hệ thống cộng ngày phép năm vào công hưởng lương, tối đa bằng công chuẩn của kỳ. Nghỉ ốm được theo dõi riêng để làm hồ sơ hưởng chế độ BHXH; ngày này không cộng vào lương công ty.
               </p>
             </div>
 
@@ -511,7 +511,7 @@ export default function UserGuidePage() {
         {/* 4.5 Bảng minh họa số tiền cụ thể */}
         <div className="space-y-2">
           <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            Ví dụ minh họa chi tiết quyết toán thu nhập thực tế (Trưởng phòng Lương CB: 22.000.000 VNĐ, Phụ cấp 3.230.000 VNĐ, Đạt KPI Hạng A +25%):
+            Ví dụ minh họa cho một tháng có 22 công chuẩn (Trưởng phòng Lương CB: 22.000.000 VNĐ, Phụ cấp 3.230.000 VNĐ, Đạt KPI Hạng A +25%):
           </div>
 
           <div className="overflow-x-auto text-xs border border-zinc-200 dark:border-zinc-800 rounded-xl">
@@ -571,15 +571,15 @@ export default function UserGuidePage() {
                 <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30">
                   <td className="px-4 py-2.5 font-medium text-zinc-600 dark:text-zinc-400">Thuế Thu nhập Cá nhân (Thuế TNCN)</td>
                   <td className="px-4 py-2.5 text-center font-mono">Lũy tiến</td>
-                  <td className="px-4 py-2.5 text-center font-semibold">TNTT: 16.690.000 ₫</td>
-                  <td className="px-4 py-2.5 text-right font-mono text-rose-600 font-semibold">-1.753.500 ₫</td>
-                  <td className="px-4 py-2.5 text-right text-zinc-500">Giảm trừ gia cảnh 11tr</td>
+                  <td className="px-4 py-2.5 text-center font-semibold">TNTT: 12.190.000 ₫</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-rose-600 font-semibold">-719.000 ₫</td>
+                  <td className="px-4 py-2.5 text-right text-zinc-500">Giảm trừ bản thân 15,5tr</td>
                 </tr>
                 <tr className="bg-emerald-50/60 dark:bg-emerald-950/30 border-t-2 border-emerald-500">
                   <td className="px-4 py-3 font-extrabold text-sm text-emerald-900 dark:text-emerald-200 uppercase">Lương Thực Lĩnh Chuyển Khoản (Net)</td>
                   <td colSpan={2} className="px-4 py-3 text-center text-xs text-emerald-700 dark:text-emerald-300 font-semibold">Khóa sổ kế toán trạng thái [PAID]</td>
-                  <td className="px-4 py-3 text-right font-mono font-extrabold text-base text-emerald-600 dark:text-emerald-400">26.666.500 ₫</td>
-                  <td className="px-4 py-3 text-right text-xs text-emerald-700 dark:text-emerald-300 font-semibold">Thực nhận 100%</td>
+                  <td className="px-4 py-3 text-right font-mono font-extrabold text-base text-emerald-600 dark:text-emerald-400">27.701.000 ₫</td>
+                  <td className="px-4 py-3 text-right text-xs text-emerald-700 dark:text-emerald-300 font-semibold">Minh họa kỳ 2026</td>
                 </tr>
               </tbody>
             </table>

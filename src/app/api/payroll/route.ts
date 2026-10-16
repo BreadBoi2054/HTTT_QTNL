@@ -13,14 +13,20 @@ export async function GET(req: Request) {
     const month = searchParams.get("month");
     const year = searchParams.get("year");
 
-    const m = month ? parseInt(month) : undefined;
-    const y = year ? parseInt(year) : undefined;
+    const m = month !== null ? Number(month) : undefined;
+    const y = year !== null ? Number(year) : undefined;
+    if ((m !== undefined && (!Number.isInteger(m) || m < 1 || m > 12)) ||
+        (y !== undefined && (!Number.isInteger(y) || y < 2000 || y > 2100))) {
+      return new NextResponse("Kỳ lương không hợp lệ.", { status: 400 });
+    }
 
     const roleName = (session.user as any).roleName || "USER";
-    const userEmail = session.user.email || undefined;
+    if (!["USER", "MANAGER", "HR", "ACCOUNTANT", "BOD", "SYSTEM_ADMIN"].includes(roleName)) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
     const userId = session.user.id || undefined;
 
-    const records = await getPayrolls(m, y, { userEmail, roleName, userId });
+    const records = await getPayrolls(m, y, { roleName, userId });
     return NextResponse.json(records);
   } catch (error) {
     console.error("[PAYROLL_GET]", error);
@@ -44,11 +50,11 @@ export async function POST(req: Request) {
     if (body.action === "calculate") {
       const { month, year } = body;
       if (!month || !year) throw new Error("Vui lòng cung cấp tháng và năm.");
-      const result = await calculateMonthlyPayroll(parseInt(month), parseInt(year), actorName);
+      const result = await calculateMonthlyPayroll(parseInt(month), parseInt(year), actorName, roleName);
       return NextResponse.json(result);
     }
 
-    const result = await createPayroll(body, actorName);
+    const result = await createPayroll(body, actorName, roleName);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[PAYROLL_POST]", error);
@@ -68,7 +74,7 @@ export async function PATCH(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const actorName = session.user.name || "Ban Giám Đốc";
-    const result = await bulkDisbursePayrolls(body.ids || [], actorName);
+    const result = await bulkDisbursePayrolls(body.ids || [], actorName, roleName);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[PAYROLL_PATCH]", error);

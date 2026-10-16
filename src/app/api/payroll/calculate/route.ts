@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     }
 
     const actorName = session.user?.name || "Kế toán / HR";
-    const payrolls = await calculateMonthlyPayroll(Number(month), Number(year), actorName);
+    const payrolls = await calculateMonthlyPayroll(Number(month), Number(year), actorName, role);
 
     return NextResponse.json({ 
       success: true, 

@@ -6,38 +6,47 @@ import LeaveModal from "@/components/leave/LeaveModal";
 import { useSession } from "next-auth/react";
 import { useConfirm, TableSkeleton } from "@/components/providers/ToastProvider";
 
+type LeaveBalance = { allowance: number; usedDays: number; remainingDays: number };
+
 export default function LeavePage() {
   const confirm = useConfirm();
   const [requests, setRequests] = useState<any[]>([]);
-  const [leaveBalance, setLeaveBalance] = useState<any>({ allowance: 12, usedDays: 0, remainingDays: 12 });
+  const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<any>(null);
   
   const { data: session } = useSession();
-  const isAdminOrManager = ["SYSTEM_ADMIN", "BOD", "MANAGER", "HR"].includes((session?.user as any)?.roleName || "");
+  const roleName = (session?.user as any)?.roleName || "USER";
+  const isAdminOrManager = ["SYSTEM_ADMIN", "BOD", "MANAGER", "HR"].includes(roleName);
+  const canManageEmployee = ["SYSTEM_ADMIN", "BOD", "HR"].includes(roleName);
 
   const fetchRequests = async () => {
     setLoading(true);
-    try {
-      const [res, resBal] = await Promise.all([
-        fetch("/api/leave"),
-        fetch("/api/leave/balance")
-      ]);
-      if (res.ok) {
+    setLoadError("");
+    const requestsResult = fetch("/api/leave", { signal: AbortSignal.timeout(12000) })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Không tải được danh sách đơn nghỉ phép.");
         const data = await res.json();
         setRequests(Array.isArray(data) ? data : []);
-      }
-      if (resBal.ok) {
-        const bal = await resBal.json();
-        setLeaveBalance(bal);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+      })
+      .catch((error) => {
+        console.error(error);
+        setLoadError("Không tải được danh sách đơn nghỉ phép. Vui lòng thử lại.");
+      })
+      .finally(() => setLoading(false));
+    const balanceResult = fetch("/api/leave/balance", { signal: AbortSignal.timeout(12000) })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Không tải được quỹ phép cá nhân.");
+        setLeaveBalance(await res.json());
+      })
+      .catch((error) => {
+        console.error(error);
+        setLeaveBalance(null);
+      });
+    await Promise.all([requestsResult, balanceResult]);
   };
 
   useEffect(() => {
@@ -84,7 +93,7 @@ export default function LeavePage() {
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "ANNUAL_LEAVE": return "Phép năm (Có lương)";
-      case "SICK_LEAVE": return "Nghỉ ốm (Có lương)";
+      case "SICK_LEAVE": return "Nghỉ ốm (Chế độ BHXH)";
       case "MATERNITY_LEAVE": return "Nghỉ thai sản";
       case "UNPAID_LEAVE": return "Nghỉ không lương";
       default: return type;
@@ -107,7 +116,7 @@ export default function LeavePage() {
               Đơn Từ & Nghỉ Phép Doanh Nghiệp
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              {isAdminOrManager ? "Tiếp nhận, xử lý và phê duyệt đơn nghỉ phép của toàn bộ nhân sự." : "Đăng ký nghỉ phép, theo dõi tiến độ phê duyệt và số ngày phép còn lại."}
+              {isAdminOrManager ? "Tiếp nhận và xử lý đơn nghỉ phép trong phạm vi bạn phụ trách." : "Đăng ký nghỉ phép, theo dõi tiến độ phê duyệt và số ngày phép còn lại."}
             </p>
           </div>
           <button 
@@ -118,6 +127,8 @@ export default function LeavePage() {
             <span>Tạo đơn nghỉ phép</span>
           </button>
         </div>
+
+        {loadError && <div role="alert" className="folio-panel border-amber-300 px-4 py-3 text-sm text-amber-800">{loadError}</div>}
 
         {/* PERSONAL ANNUAL LEAVE BALANCE SUMMARY */}
         <div className="bento-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-l-4 border-l-blue-600">
@@ -132,15 +143,15 @@ export default function LeavePage() {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
               <div className="text-[10px] text-zinc-500 uppercase font-mono">Định mức</div>
-              <div className="text-base font-mono font-bold text-zinc-900 dark:text-zinc-100">{leaveBalance?.allowance ?? 12} ngày</div>
+              <div className="text-base font-mono font-bold text-zinc-900 dark:text-zinc-100">{leaveBalance ? `${leaveBalance.allowance} ngày` : "—"}</div>
             </div>
             <div className="px-3 py-1.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
               <div className="text-[10px] text-amber-600 dark:text-amber-400 uppercase font-mono">Đã dùng</div>
-              <div className="text-base font-mono font-bold text-amber-700 dark:text-amber-300">{leaveBalance?.usedDays ?? 0} ngày</div>
+              <div className="text-base font-mono font-bold text-amber-700 dark:text-amber-300">{leaveBalance ? `${leaveBalance.usedDays} ngày` : "—"}</div>
             </div>
             <div className="px-3 py-1.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
               <div className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-mono">Còn lại</div>
-              <div className="text-base font-mono font-bold text-emerald-700 dark:text-emerald-300">{leaveBalance?.remainingDays ?? 12} ngày</div>
+              <div className="text-base font-mono font-bold text-emerald-700 dark:text-emerald-300">{leaveBalance ? `${leaveBalance.remainingDays} ngày` : "—"}</div>
             </div>
           </div>
         </div>
@@ -159,7 +170,7 @@ export default function LeavePage() {
                 <Calendar className="w-4 h-4" />
               </div>
             </div>
-            <span className="text-xs text-zinc-400 mt-2 block">Toàn bộ hồ sơ trong cơ sở dữ liệu</span>
+            <span className="text-xs text-zinc-400 mt-2 block">Các đơn trong phạm vi truy cập của bạn</span>
           </div>
 
           <div className="bento-card p-5">
@@ -295,7 +306,9 @@ export default function LeavePage() {
         onClose={() => setIsModalOpen(false)} 
         onSuccess={fetchRequests} 
         leaveRequest={selectedReq} 
-        isAdmin={isAdminOrManager} 
+        isAdmin={isAdminOrManager && (["SYSTEM_ADMIN", "BOD"].includes(roleName) || selectedReq?.employee?.userId !== session?.user?.id)}
+        canManageEmployee={canManageEmployee}
+        canEditDetails={canManageEmployee || !selectedReq || selectedReq?.employee?.userId === session?.user?.id}
       />
     </>
   );

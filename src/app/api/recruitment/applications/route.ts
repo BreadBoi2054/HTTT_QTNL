@@ -23,13 +23,7 @@ export async function GET() {
       if (managedDept) {
         whereClause = { jobPosting: { departmentId: managedDept.id } };
       } else {
-        const empProfile = await prisma.employeeProfile.findUnique({
-          where: { userId: session.user.id },
-          select: { departmentId: true }
-        });
-        if (empProfile?.departmentId) {
-          whereClause = { jobPosting: { departmentId: empProfile.departmentId } };
-        }
+        return NextResponse.json([]);
       }
     }
 
