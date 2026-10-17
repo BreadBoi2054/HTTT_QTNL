@@ -214,9 +214,11 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
               className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:border-blue-500 outline-none transition-colors disabled:opacity-60"
             >
               <option value="ANNUAL_LEAVE">Nghỉ phép năm (hưởng lương)</option>
-              <option value="SICK_LEAVE">Nghỉ ốm đau / Khám bệnh</option>
+              <option value="SICK_LEAVE">Nghỉ ốm đau (Chế độ BHXH)</option>
               <option value="UNPAID_LEAVE">Nghỉ không lương</option>
-              <option value="MATERNITY_LEAVE">Nghỉ thai sản</option>
+              {leaveRequest?.type === "MATERNITY_LEAVE" && (
+                <option value="MATERNITY_LEAVE">Nghỉ thai sản</option>
+              )}
             </select>
           </div>
 

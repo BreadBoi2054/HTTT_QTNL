@@ -181,26 +181,33 @@ export default function TrainingSurveysPage() {
     } catch (e) { console.error(e); }
   };
 
-  const handleRespondSurvey = async (survey: Survey) => {
-    const answer = window.prompt("Chấm điểm mức độ hài lòng từ 1 đến 5:");
-    if (answer === null) return;
-    const score = Number(answer);
-    if (!Number.isInteger(score) || score < 1 || score > 5) {
-      alert("Vui lòng nhập số nguyên từ 1 đến 5.");
-      return;
-    }
+  const [respondingSurvey, setRespondingSurvey] = useState<Survey | null>(null);
+  const [selectedRating, setSelectedRating] = useState<number>(5);
+
+  const handleRespondSurvey = (survey: Survey) => {
+    setSelectedRating(5);
+    setRespondingSurvey(survey);
+  };
+
+  const submitSurveyResponse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!respondingSurvey) return;
     try {
       const res = await fetch("/api/training-surveys", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: survey.id, kind: "SURVEY", score }),
+        body: JSON.stringify({ id: respondingSurvey.id, kind: "SURVEY", score: selectedRating }),
       });
-      if (res.ok) await fetchData();
-      else {
+      if (res.ok) {
+        setRespondingSurvey(null);
+        await fetchData();
+      } else {
         const err = await res.json().catch(() => ({}));
         alert(err.error || "Không thể gửi phản hồi khảo sát.");
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const avgCourseProgress = courses.length > 0 ? Math.round(courses.reduce((s, c) => s + (c.progress || 0), 0) / courses.length) : 0;
@@ -576,14 +583,78 @@ export default function TrainingSurveysPage() {
           </div>
         </div>
       )}
+      {/* Modal Gửi Phản Hồi Khảo Sát (1-5 Sao) */}
+      {respondingSurvey && (
+        <div
+          className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setRespondingSurvey(null)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 font-sans"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Đánh giá khảo sát ẩn danh</h3>
+              <button
+                type="button"
+                onClick={() => setRespondingSurvey(null)}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-md"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={submitSurveyResponse} className="space-y-4 text-xs">
+              <div>
+                <div className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">{respondingSurvey.title}</div>
+                <p className="text-zinc-500 dark:text-zinc-400 mt-1">
+                  Chọn mức độ hài lòng của bạn trên thang điểm từ 1 đến 5 (1: Rất chưa hài lòng — 5: Rất hài lòng):
+                </p>
+              </div>
+              <div className="grid grid-cols-5 gap-2 pt-1">
+                {[1, 2, 3, 4, 5].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setSelectedRating(val)}
+                    className={`py-3 rounded-xl font-mono font-bold text-sm border transition-all flex flex-col items-center gap-1 ${
+                      selectedRating === val
+                        ? "bg-blue-600 text-white border-blue-600 shadow-sm scale-[1.02]"
+                        : "bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-blue-400"
+                    }`}
+                  >
+                    <Star className={`w-4 h-4 ${selectedRating >= val ? "fill-current" : ""}`} />
+                    <span>{val}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRespondingSurvey(null)}
+                  className="px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                >
+                  Gửi đánh giá ({selectedRating}/5)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal Chi tiết Khóa Học */}
       {selectedCourse && (
         <div 
-          className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in printable-modal"
           onClick={() => setSelectedCourse(null)}
         >
           <div 
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans printable-area"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header Sticky */}
@@ -735,11 +806,11 @@ export default function TrainingSurveysPage() {
       {/* Modal Kết Quả Khảo Sát Chi Tiết */}
       {selectedSurvey && (
         <div 
-          className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in printable-modal"
           onClick={() => setSelectedSurvey(null)}
         >
           <div 
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans printable-area"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header Sticky */}

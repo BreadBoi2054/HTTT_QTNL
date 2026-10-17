@@ -245,10 +245,10 @@ export default function LeavePage() {
                       <TableSkeleton rows={5} cols={isAdminOrManager ? 5 : 4} />
                     </td>
                   </tr>
-                ) : requests.length === 0 ? (
+                ) : filteredRequests.length === 0 ? (
                   <tr>
                     <td colSpan={isAdminOrManager ? 5 : 4} className="px-6 py-12 text-center text-zinc-500 font-mono">
-                      Chưa có đơn từ nào được khởi tạo.
+                      {requests.length === 0 ? "Chưa có đơn từ nào được khởi tạo." : "Không có đơn nghỉ phép nào khớp với bộ lọc trạng thái."}
                     </td>
                   </tr>
                 ) : (
@@ -282,7 +282,7 @@ export default function LeavePage() {
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          {(req.status === "PENDING" || isAdminOrManager) && (
+                          {(canManageEmployee || (req.status === "PENDING" && req.employee?.userId === session?.user?.id)) && (
                             <button 
                               onClick={() => handleDelete(req.id)} 
                               className="p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors" 

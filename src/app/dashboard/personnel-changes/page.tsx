@@ -340,16 +340,47 @@ export default function PersonnelChangesPage() {
                       {item.signer}
                     </td>
 
-                    <td className="px-5 py-3.5 text-right space-x-2">
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-medium">
-                        <CheckCircle2 className="w-3 h-3" /> Đã ban hành
-                      </span>
-                      <button
-                        onClick={() => setViewingChange(item)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium transition-colors"
-                      >
-                        Xem quyết định
-                      </button>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        {item.status === "APPROVED" ? (
+                          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-medium">
+                            <CheckCircle2 className="w-3 h-3" /> Đã ban hành
+                          </span>
+                        ) : item.status === "REJECTED" ? (
+                          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 font-medium">
+                            <X className="w-3 h-3" /> Đã từ chối
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 font-medium">
+                            <Clock className="w-3 h-3" /> Chờ phê duyệt
+                          </span>
+                        )}
+                        {item.status === "PENDING" && canApproveChanges && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDecisionStatus(item.id, "APPROVED")}
+                              className="text-xs px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors"
+                            >
+                              Duyệt
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDecisionStatus(item.id, "REJECTED")}
+                              className="text-xs px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium transition-colors"
+                            >
+                              Từ chối
+                            </button>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setViewingChange(item)}
+                          className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium transition-colors"
+                        >
+                          Xem quyết định
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -622,11 +653,11 @@ export default function PersonnelChangesPage() {
       {/* Modal Xem Văn Bản Quyết Định Chính Thức */}
       {viewingChange && (
         <div 
-          className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in printable-modal"
           onClick={() => setViewingChange(null)}
         >
           <div 
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans printable-area"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header Sticky */}

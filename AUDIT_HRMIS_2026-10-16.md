@@ -56,3 +56,75 @@
 - Bản ghi chấm công do đơn nghỉ đã duyệt tạo mới được gắn `leaveRequestId`. Nếu đơn chuyển bản ghi `ABSENT` hoặc trạng thái khác thành `LEAVE`, hệ thống lưu `statusBeforeLeave`.
 - Khi rút duyệt hoặc xóa đơn, chỉ bản ghi gắn đúng ID đơn được hoàn tác: bản ghi tạo mới bị xóa, bản ghi có sẵn được trả về trạng thái cũ. Bản ghi `LEAVE` nhập thủ công và bản ghi lịch sử chưa có ID nguồn được giữ nguyên.
 - Migration `20261017000000_leave_attendance_origin` đã chạy trên database thử nghiệm mới và database `hrmis` hiện tại; kiểm thử tích hợp xác nhận cả rút duyệt và xóa đơn đều giữ ngày nghỉ nhập thủ công, khôi phục ngày vắng mặt và xóa ngày nghỉ do đơn tạo. TypeScript, build sản xuất, lint phần vừa sửa và 9 kiểm thử nghiệp vụ đều đạt.
+
+---
+
+## Rà soát sâu toàn hệ thống & Kết quả 3 đợt cải thiện (17/10/2026 — Đợt tiếp nối)
+
+### 1. Bảng kiểm kê các phân hệ và luồng chính
+
+| Phân hệ | Cách kiểm tra | Kết quả & Lỗi đã xác nhận (đã sửa) | Nghi vấn / Phụ thuộc chính sách | Ý tưởng cải thiện |
+| --- | --- | --- | --- | --- |
+| **1. Đăng nhập & Phiên (`src/auth.ts`, `src/proxy.ts`)** | Đọc mã nguồn JWT callback, `proxy.ts`, đối chiếu trạng thái `Employee.status` trong DB. | **[Đã sửa - Cao]** JWT giữ nguyên role/status suốt 24h kể cả khi nhân sự bị `RESIGNED`/`SUSPENDED` hoặc xóa tài khoản. Đã bổ sung đồng bộ DB định kỳ mỗi 60 giây trong callback `jwt` để thu hồi phiên ngay lập tức; chặn `ACCOUNTANT` truy cập trực tiếp `/dashboard/employees` tại `src/proxy.ts`. | Chưa áp dụng cơ chế khóa tài khoản tạm thời (rate-limit) sau nhiều lần sai mật khẩu. | Bổ sung rate-limit theo IP/username tại endpoint đăng nhập. |
+| **2. Vai trò & Quyền (`src/app/api/roles/route.ts`, `src/lib/access-control.ts`)** | Kiểm tra ma trận quyền và các API hệ thống (`/api/roles`, `/api/audit-workflow`). | **[Đã sửa - Cao]** `POST /api/roles` chỉ kiểm tra đăng nhập mà không kiểm tra `SYSTEM_ADMIN`; `GET /api/audit-workflow` trả toàn bộ nhật ký kiểm toán cho mọi user. Đã khóa `POST /api/roles` cho `SYSTEM_ADMIN` và giới hạn `audit-workflow` theo đúng vai trò/phạm vi. | Ma trận quyền hệ thống lưu tĩnh; nếu mở rộng role động cần bảng phân quyền chi tiết. | Chuẩn hóa helper kiểm tra quyền dùng chung cho mọi API route. |
+| **3. Hồ sơ nhân sự (`src/services/employee.service.ts`, `/api/employees/**`)** | Kiểm tra truy vấn chi tiết/danh sách nhân sự, tạo/sửa/xóa, ẩn thông tin nhạy cảm và UI hồ sơ. | **[Đã sửa - Nghiêm trọng]** Lộ hash mật khẩu `user.password` trong `getEmployeeById`; `MANAGER` gọi `GET /api/employees` thấy toàn công ty; `POST/PUT` cho phép gán nhân sự sang phòng ban khác hoặc tạo tài khoản quyền `SYSTEM_ADMIN`; xóa nhân sự dùng `res.ok` giả trên UI. Đã sửa triệt để ở cả API, Service và UI. | Quy tắc mã nhân viên (`EMP...`) tự sinh hay nhập tay khi import hàng loạt. | Hỗ trợ xuất hồ sơ nhân sự chuẩn PDF/Excel có phân quyền trường nhạy cảm. |
+| **4. Phòng ban (`src/services/department.service.ts`, `/api/departments/**`)** | Kiểm tra `GET/POST/PUT/DELETE` phòng ban và danh sách nhân sự đi kèm. | **[Đã sửa - Cao]** `GET /api/departments` và `[id]` trả kèm toàn bộ danh sách `employees` (lộ lương/thông tin cá nhân cho mọi vai trò); xóa phòng ban khi còn lịch sử biến động gây lỗi FK 500. Đã giới hạn trường trả về theo vai trò và kiểm tra ràng buộc trước khi xóa. | Cơ cấu phòng ban đa cấp (cây phòng ban) hiện mới ở mức 1 cấp phẳng. | Thêm biểu đồ cơ cấu tổ chức trực quan từ dữ liệu phòng ban. |
+| **5. Hợp đồng lao động (`src/services/contract.service.ts`, `/api/contracts/**`)** | Kiểm tra RBAC xem/tạo/sửa/xóa hợp đồng, ngày hiệu lực và luồng duyệt. | **[Đã sửa - Cao]** `PUT/DELETE /api/contracts/[id]` cho phép `MANAGER` sửa/xóa hợp đồng hoặc đổi `employeeId` sang người ngoài phạm vi; cho phép tạo hợp đồng `endDate < startDate`. Đã khóa `PUT/DELETE` chỉ cho `SYSTEM_ADMIN`/`HR` và kiểm tra tính hợp lệ của ngày hợp đồng + nhật ký kiểm toán. | Quy tắc tự động chuyển hợp đồng hết hạn sang trạng thái `EXPIRED` theo cronjob hay thủ công. | Cảnh báo sớm hợp đồng sắp hết hạn trước 30/15 ngày trên Dashboard. |
+| **6. Chấm công & Lịch công (`src/services/attendance.service.ts`, `work-calendar.service.ts`)** | Kiểm thử tích hợp trên DB cách ly + kiểm tra hiệu năng trang `/dashboard/attendance`. | **[Đã sửa - Trung bình]** Đồng hồ thời gian thực trên `/dashboard/attendance` làm re-render toàn bộ bảng chấm công mỗi giây; tab "Giám sát công ty" hiển thị cho cả `USER`. Đã tách component `LiveTerminalClock` độc lập và ẩn tab giám sát với `USER`. | Bản ghi `LEAVE` lịch sử trước migration 17/10 không có `leaveRequestId` được giữ nguyên để đối chiếu thủ công. | Bổ sung công cụ đối chiếu có kiểm soát cho HR đối với các bản ghi `LEAVE` lịch sử. |
+| **7. Nghỉ phép (`src/services/leave.service.ts`, `/api/leave/**`)** | Kiểm thử đơn vị + kiểm thử tích hợp trên DB cách ly `hrmis_codex_test_leave`. | **[Đã sửa - Cao]** Chuẩn hóa ngày nghỉ phép về `00:00:00.000Z`; không trừ phép năm nếu ngày đó nhân sự thực tế có chấm công đi làm (`PRESENT`/`LATE`); chặn tạo/sửa/duyệt/hủy duyệt/xóa đơn nghỉ thuộc kỳ lương đã `PAID`; sửa kiểm tra hạn mức khi duyệt đơn `PENDING`; loại bỏ tùy chọn `MATERNITY_LEAVE` chưa hỗ trợ trên UI. | Chính sách nghỉ ốm dài ngày và thai sản hưởng BHXH chi tiết theo từng loại bệnh. | Cho phép đính kèm giấy nghỉ ốm hưởng BHXH ngay trên form tạo đơn. |
+| **8. Tăng ca / OT (`src/services/overtime.service.ts`, `/api/overtime/**`)** | Kiểm thử đơn vị + tích hợp với lịch công và bảng lương. | **[Đã sửa - Cao]** Chặn đăng ký/duyệt OT trùng vào ngày đang nghỉ phép `APPROVED` (trừ khi thực tế có chấm công đi làm); chặn tạo/sửa OT vào kỳ lương đã `PAID`; ngày làm bù cuối tuần (`extraWorkdays`) áp dụng đúng hệ số OT ngày làm việc (`150%`) thay vì `200%`. | Cần chốt giới hạn trần giờ OT theo ngày/tháng/năm (Điều 107 BLLĐ 2019) và phụ cấp ca đêm (Điều 98 BLLĐ 2019). | Hiển thị bộ đếm tổng số giờ OT trong tháng/năm ngay khi quản lý bấm duyệt. |
+| **9. Bảng lương & Thuế/BHXH (`src/services/payroll.service.ts`, `/api/payroll/**`)** | Kiểm thử đơn vị (12/12) + kiểm thử tích hợp trên DB cách ly `hrmis_codex_test_payroll`. | **[Đã sửa - Nghiêm trọng]** Sửa lỗi `proRatedBaseSalary` trả đủ 100% lương cho nhân sự đã `RESIGNED`/`SUSPENDED` giữa tháng; chuẩn hóa `leave.startDate`/`endDate` UTC khi đếm ngày nghỉ; bỏ fallback lấy nhầm điểm KPI của quý trước; dùng đúng `statutoryTotal` khi giảm trừ thuế TNCN; gom truy vấn `existingPayrolls` ngoài vòng lặp; kiểm tra đầy đủ trạng thái `PAID` và giá trị âm khi sửa tay. | Cần chốt: (1) Nền đóng BHXH dựa trên `Contract.salary` hay lương thực nhận theo ngày công; (2) Trần đóng BHXH/BHTN (20 × lương cơ sở / vùng) và ngưỡng nghỉ không lương $\ge 14$ ngày. | Xuất phiếu lương PDF chuẩn có chữ ký số/xác nhận và bảng kê đối chiếu ngân hàng. |
+| **10. Tuyển dụng (`src/app/api/recruitment/**`, `JobManagementView.tsx`)** | Kiểm tra API đăng tin, sửa tin, ứng tuyển và quản lý hồ sơ. | **[Đã sửa - Trung bình]** `POST` và `PATCH /api/recruitment/jobs` bỏ sót trường `dueDate` và `departmentId` khiến hạn nộp hồ sơ không lưu được từ UI; UI dùng `window.confirm` và đóng modal kể cả khi API lỗi. Đã sửa lưu đầy đủ `dueDate`/`departmentId` và dùng `useConfirm` + kiểm tra `res.ok`. | Lưu trữ CV ứng viên hiện dùng URL/base64, cần giới hạn dung lượng và định dạng file tải lên. | Tích hợp gửi email tự động thông báo lịch phỏng vấn cho ứng viên. |
+| **11. Đánh giá KPI (`src/services/performance.service.ts`, `EvaluationModal.tsx`)** | Kiểm tra công thức điểm KPI, phân quyền chấm điểm và UI modal đánh giá. | **[Đã sửa - Cao]** Sửa lỗi độ ưu tiên toán tử `Math.round(((c1 * 0.5) + (c2 * 0.25) + (c3 * 0.25)) * 10) / 10` trong `EvaluationModal.tsx` (trước đó chỉ chia 10 cho `c3 * 0.25`); sửa lỗi UI cập nhật điểm giả khi API trả lỗi; bổ sung thanh trượt tự đánh giá (`selfScore`) cho nhân viên và chặn tự nâng `managerScore`/`grade`/`status` ở backend; hiển thị đúng huy hiệu `Hạng D`. | Quy trình khiếu nại/phản hồi kết quả đánh giá KPI giữa nhân viên và quản lý. | Bổ sung biểu đồ xu hướng điểm KPI qua các quý cho từng nhân sự. |
+| **12. Đào tạo, Khảo sát, Quy hoạch & Biến động nhân sự** | Kiểm tra RBAC tại `/api/training-surveys`, `/api/cadre-planning`, `/api/personnel-changes` và các trang UI tương ứng. | **[Đã sửa - Cao]** Chặn lộ danh sách người làm khảo sát ẩn danh cho user thường; khóa tạo/duyệt quy hoạch cán bộ và quyết định biến động nhân sự theo đúng vai trò (`SYSTEM_ADMIN`, `BOD`, `HR`); nối nút Duyệt/Từ chối và hiển thị đúng trạng thái trên UI; thay `window.prompt` chấm sao khảo sát bằng modal chọn 1–5 sao; thêm hỗ trợ in PDF (`printable-modal`). | Quy trình tự động cập nhật phòng ban/chức vụ trong hồ sơ nhân sự ngay khi quyết định thuyên chuyển/bổ nhiệm được `BOD` duyệt. | Liên kết trực tiếp kết quả khóa đào tạo với tiêu chí nâng lương/quy hoạch cán bộ. |
+| **13. Tổng quan Dashboard & Hướng dẫn (`/api/dashboard`, `/dashboard/guide`)** | Kiểm tra hiệu năng truy vấn và tính chính xác của tài liệu hướng dẫn trong ứng dụng. | **[Đã sửa - Trung bình]** Song song hóa 5 truy vấn Prisma trong `GET /api/dashboard` bằng `Promise.all` (loại bỏ waterfall tuần tự); bổ sung 2 thẻ vai trò `BOD` và `ACCOUNTANT` vào trang `/dashboard/guide` để khớp 100% với 6 vai trò thực tế. | Có thể bổ sung cache ngắn hạn (30–60s) cho thống kê tổng quan khi số lượng nhân sự tăng lớn. | Cho phép tùy biến widget trên Dashboard theo từng vai trò. |
+
+---
+
+### 2. Tổng hợp 3 đợt sửa lỗi và mã Commit
+
+1. **Đợt 1 — Bảo mật, Phân quyền RBAC/IDOR, Phiên đăng nhập & Toàn vẹn dữ liệu (`commit b08d37f`)**:
+   - Đã sửa 24 files: đồng bộ trạng thái tài khoản/nhân sự trong JWT (`src/auth.ts`), chặn `ACCOUNTANT` tại `src/proxy.ts`, loại bỏ lộ `user.password` trong `employee.service.ts`, khóa phân quyền theo phạm vi quản lý thực tế ở `employees`, `departments`, `contracts`, `performance`, `payroll`, `roles`, `cadre-planning`, `personnel-changes`, `audit-workflow`, `training-surveys`.
+2. **Đợt 2 — Nghiệp vụ Chấm công, Nghỉ phép, OT, Lịch công & Bảng lương + Kiểm thử tích hợp DB cách ly (`commit 29b2130`)**:
+   - Đã sửa 6 files (`payroll.service.ts`, `leave.service.ts`, `overtime.service.ts` và 3 file test): sửa hệ số OT ngày làm bù cuối tuần (`150%`), sửa lương nhân sự nghỉ việc/đình chỉ giữa tháng, chuẩn hóa ngày nghỉ UTC, không trừ phép năm khi ngày đó có đi làm (`PRESENT`/`LATE`), chặn sửa nghỉ phép/OT thuộc kỳ lương đã `PAID`, sửa kiểm tra hạn mức khi duyệt đơn `PENDING`, bỏ fallback lấy nhầm KPI quý trước, sửa giảm trừ thuế TNCN theo đúng `statutoryTotal`.
+3. **Đợt 3 — Giao diện, Form/Modal, RBAC UI, In ấn PDF & Hiệu năng Dashboard/API**:
+   - Đã sửa 15 files (`EvaluationModal.tsx`, `performance/page.tsx`, `LeaveModal.tsx`, `my-workspace/page.tsx`, `recruitment/jobs/route.ts`, `recruitment/jobs/[id]/route.ts`, `JobManagementView.tsx`, `personnel-changes/page.tsx`, `cadre-planning/page.tsx`, `employees/page.tsx`, `attendance/page.tsx`, `leave/page.tsx`, `training-surveys/page.tsx`, `guide/page.tsx`, `api/dashboard/route.ts`).
+
+---
+
+### 3. Bằng chứng kiểm thử (Verification Evidence)
+
+- **Kiểm tra kiểu tĩnh TypeScript**: `npx tsc --noEmit` → **Đạt (0 lỗi)**.
+- **Kiểm thử đơn vị nghiệp vụ (`npx tsx --test tests/business-rules.test.ts`)**: **12/12 kịch bản đạt** (phép năm vắt qua năm, công chuẩn tháng, ngày làm bù cuối tuần & OT 150%, chuẩn hóa ngày UTC, lịch công, OT sai giờ, biểu thuế TNCN 2026 lũy tiến, duyệt chi hàng loạt, truy vấn lương thiếu định danh, phiếu lương tương lai, xếp hạng & thưởng/phạt KPI).
+- **Kiểm thử tích hợp Nghỉ phép – Chấm công (`npx tsx --test tests/leave-attendance-integration.test.ts`)**: **Đạt 100%** trên cơ sở dữ liệu PostgreSQL thử nghiệm cách ly (`hrmis_codex_test_leave`) dựng mới hoàn toàn từ 5 migrations; tự động dọn sạch DB thử nghiệm sau khi chạy.
+- **Kiểm thử tích hợp Bảng lương – OT – Nghỉ ốm – Rollback (`npx tsx --test tests/payroll-integration.test.ts`)**: **Đạt 100%** trên cơ sở dữ liệu PostgreSQL thử nghiệm cách ly (`hrmis_codex_test_payroll`) dựng mới hoàn toàn từ 5 migrations; tự động dọn sạch DB thử nghiệm sau khi chạy.
+- **Build sản xuất (`npm run build`)**: **Đạt 100%**, biên dịch thành công toàn bộ các trang tĩnh, route động và `Proxy (Middleware)` trên Next.js 16.3.1.
+
+---
+
+### 4. Đối chiếu pháp lý & Các quyết định chính sách chờ xác nhận
+
+1. **Căn cứ đóng BHXH, BHYT, BHTN và trường hợp nghỉ không lương $\ge 14$ ngày** (Luật BHXH 2024 — Luật số 41/2024/QH15 có hiệu lực từ 01/07/2025):
+   - *Hiện trạng*: Hệ thống đang tính BHXH (8%), BHYT (1.5%), BHTN (1%) trên lương cơ bản tính theo ngày công thực tế (`proRatedBaseSalary`), chưa áp trần đóng tối đa và chưa miễn đóng khi nghỉ không lương/nghỉ ốm $\ge 14$ ngày làm việc trong tháng.
+   - *Lựa chọn cần chốt*:
+     - **Phương án A**: Đóng BHXH trên mức lương cố định ghi trong hợp đồng (`Contract.salary` / `EmployeeSalaryConfig.baseSalary`), có áp trần 20 lần mức tham chiếu/lương tối thiểu vùng và miễn đóng tháng đó nếu tổng ngày nghỉ không lương/nghỉ ốm $\ge 14$ ngày làm việc.
+     - **Phương án B**: Giữ cách tính tỷ lệ theo ngày công thực tế hiện tại cho mục đích quản trị nội bộ.
+2. **Giới hạn giờ OT và phụ cấp làm đêm** (Điều 98 & Điều 107 Bộ luật Lao động 2019):
+   - *Hiện trạng*: Đã chặn OT quá số giờ trong 1 ngày và chặn trùng ngày nghỉ phép, áp hệ số 150% (ngày thường & ngày làm bù cuối tuần), 200% (ngày nghỉ hàng tuần), 300% (ngày lễ/Tết). Chưa tách riêng phụ cấp ca đêm (+30% từ 22h00–06h00) và trần tổng giờ OT 40 giờ/tháng, 200–300 giờ/năm.
+   - *Lựa chọn cần chốt*: Có bật chặn cứng trần 40 giờ/tháng khi gửi đơn OT và thêm trường giờ làm đêm hay không.
+3. **Bản ghi chấm công `LEAVE` lịch sử trước migration 17/10/2026**:
+   - *Khuyến nghị an toàn*: Giữ nguyên không tự động xóa hàng loạt; HR có thể lọc các bản ghi `status = 'LEAVE'` và `leaveRequestId IS NULL` để đối chiếu thủ công với đơn giấy/đơn cũ khi cần.
+
+---
+
+### 5. Quy trình Sao lưu, Khôi phục, Migration & Vận hành an toàn
+
+1. **Sao lưu (Backup) trước khi cập nhật**:
+   - Chạy `pg_dump -Fc -h <host> -U <user> -d hrmis -f backup_hrmis_$(date +%Y%m%d_%H%M%S).dump` trước mọi đợt chạy migration hoặc chốt bảng lương.
+2. **Kiểm thử Migration trên DB cách ly**:
+   - Luôn tạo DB tạm (`hrmis_migration_verify`), chạy `npx prisma migrate deploy` trên DB tạm và chạy bộ kiểm thử tích hợp (`tests/leave-attendance-integration.test.ts`, `tests/payroll-integration.test.ts`) trước khi chạy trên DB chính.
+3. **Khôi phục (Restore) khi có sự cố**:
+   - Dùng `pg_restore --clean --if-exists -h <host> -U <user> -d hrmis <file.dump>` để quay về trạng thái nguyên vẹn trước migration.
+4. **Giám sát & Nhật ký kiểm toán (`AuditLog`)**:
+   - Mọi thao tác nhạy cảm (duyệt nghỉ phép, duyệt OT, tạo/sửa/xóa/duyệt chi lương, sửa hợp đồng, biến động nhân sự) đều được ghi nhận nguyên tử trong cùng transaction với dữ liệu nghiệp vụ.
+

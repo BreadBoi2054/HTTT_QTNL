@@ -11,7 +11,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { title, description, headcount, departmentId } = body;
+    const { title, description, headcount, departmentId, dueDate } = body;
+    const parsedDueDate = dueDate ? new Date(`${String(dueDate).slice(0, 10)}T00:00:00.000Z`) : null;
+    if (parsedDueDate && Number.isNaN(parsedDueDate.getTime())) {
+      return NextResponse.json({ error: 'Hạn nộp hồ sơ không hợp lệ.' }, { status: 400 });
+    }
 
     const job = await prisma.jobPosting.create({
       data: {
@@ -19,6 +23,7 @@ export async function POST(req: Request) {
         description,
         headcount: parseInt(headcount) || 1,
         departmentId: departmentId || null,
+        dueDate: parsedDueDate,
         status: 'OPEN'
       }
     });

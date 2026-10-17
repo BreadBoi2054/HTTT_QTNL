@@ -179,6 +179,48 @@ export default function UserGuidePage() {
             </div>
           </div>
 
+          {/* Role 5: BOD */}
+          <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-600 text-white">
+                <ShieldCheck className="w-3.5 h-3.5" /> Ban Giám Đốc (BOD)
+              </span>
+              <span className="text-xs text-zinc-500 font-medium">Lãnh đạo Điều hành Tập đoàn</span>
+            </div>
+            <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+              Ban Tổng Giám Đốc, Phó Tổng Giám Đốc, Giám Đốc Khối Chiến lược
+            </h3>
+            <ul className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5 list-disc pl-4 leading-relaxed">
+              <li>Giám sát toàn diện chỉ số nhân sự, quỹ lương, hiệu suất KPI và biến động nhân lực toàn tập đoàn.</li>
+              <li>Phê duyệt quyết định bổ nhiệm, điều chuyển, quy hoạch cán bộ nguồn và định biên nhân sự.</li>
+              <li>Phê duyệt đơn từ cấp quản lý và kiểm tra nhật ký kiểm toán vận hành.</li>
+            </ul>
+            <div className="pt-2 border-t border-indigo-200/50 dark:border-indigo-900/40 text-xs text-indigo-700 dark:text-indigo-300">
+              Vai trò hệ thống: <strong>BOD</strong> (Quyền điều hành cấp cao)
+            </div>
+          </div>
+
+          {/* Role 6: ACCOUNTANT */}
+          <div className="p-4 rounded-xl border border-teal-200 dark:border-teal-900/60 bg-teal-50/30 dark:bg-teal-950/20 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-600 text-white">
+                <Banknote className="w-3.5 h-3.5" /> Kế toán Tiền lương (Accountant)
+              </span>
+              <span className="text-xs text-zinc-500 font-medium">Kế toán Thanh toán & Thuế</span>
+            </div>
+            <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+              Kế toán Tiền lương, Kế toán Tổng hợp, Kiểm soát Ngân sách Lương
+            </h3>
+            <ul className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5 list-disc pl-4 leading-relaxed">
+              <li>Đối soát bảng công, tổng hợp giờ tăng ca (OT) đã duyệt và chạy quyết toán bảng lương tháng.</li>
+              <li>Kiểm tra khấu trừ BHXH (8%), BHYT (1.5%), BHTN (1%) và thuế TNCN lũy tiến.</li>
+              <li>Thực hiện <strong>Duyệt chi hàng loạt (Khóa sổ PAID)</strong> và xuất bảng thanh toán lương Excel.</li>
+            </ul>
+            <div className="pt-2 border-t border-teal-200/50 dark:border-teal-900/40 text-xs text-teal-700 dark:text-teal-300">
+              Vai trò hệ thống: <strong>ACCOUNTANT</strong> (Quyền tài chính - kế toán lương)
+            </div>
+          </div>
+
           {/* Role 4: USER */}
           <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 space-y-3">
             <div className="flex items-center justify-between">

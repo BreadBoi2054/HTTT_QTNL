@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { 
   Target, 
   Award, 
@@ -19,6 +20,7 @@ import EvaluationModal from "@/components/performance/EvaluationModal";
 
 interface EvaluationItem {
   id: string;
+  employeeUserId?: string;
   employeeName: string;
   employeeCode: string;
   department: string;
@@ -35,144 +37,10 @@ interface EvaluationItem {
   managerNotes?: string;
 }
 
-const initialEvaluations: EvaluationItem[] = [
-  {
-    id: "eval_001",
-    employeeName: "Trần Văn An",
-    employeeCode: "NX-08942",
-    department: "Khối Công Nghệ & Phần Mềm",
-    position: "Kỹ Sư Phần Mềm Cao Cấp",
-    selfScore: 92,
-    managerScore: 95,
-    criterion1: 96,
-    criterion2: 92,
-    criterion3: 94,
-    totalScore: 94.5,
-    grade: "HẠNG A (XUẤT SẮC)",
-    bonus: "+25% Lương CB",
-    status: "APPROVED",
-    managerNotes: "Chủ trì kiến trúc hạ tầng Cloud Microservices vượt tiến độ 2 tuần. Tinh thần trách nhiệm và dẫn dắt đội ngũ tuyệt vời."
-  },
-  {
-    id: "eval_002",
-    employeeName: "Lê Thị Bích",
-    employeeCode: "NX-07211",
-    department: "Khối Kinh Doanh & Tiếp Thị",
-    position: "Trưởng Nhóm Khách Hàng Doanh Nghiệp",
-    selfScore: 88,
-    managerScore: 90,
-    criterion1: 92,
-    criterion2: 88,
-    criterion3: 86,
-    totalScore: 89.5,
-    grade: "HẠNG B (HOÀN THÀNH TỐT)",
-    bonus: "+10% Lương CB",
-    status: "APPROVED",
-    managerNotes: "Đạt 115% chỉ tiêu doanh số giải pháp phần mềm B2B cho khách hàng khối Tài chính - Ngân hàng."
-  },
-  {
-    id: "eval_003",
-    employeeName: "Phạm Minh Cường",
-    employeeCode: "NX-09102",
-    department: "Khối Quản Trị Nhân Lực & Đào Tạo",
-    position: "Chuyên Viên Tuyển Dụng & Đãi Ngộ",
-    selfScore: 82,
-    managerScore: 85,
-    criterion1: 85,
-    criterion2: 84,
-    criterion3: 82,
-    totalScore: 84.0,
-    grade: "HẠNG B (HOÀN THÀNH TỐT)",
-    bonus: "+10% Lương CB",
-    status: "APPROVED",
-    managerNotes: "Rút ngắn thời gian tuyển dụng ứng viên kỹ thuật cao từ 30 ngày xuống 18 ngày."
-  },
-  {
-    id: "eval_004",
-    employeeName: "Ngô Đức Dũng",
-    employeeCode: "NX-06433",
-    department: "Khối R&D & Trí Tuệ Nhân Tạo",
-    position: "Chuyên Gia Nghiên Cứu AI",
-    selfScore: 95,
-    managerScore: 96,
-    criterion1: 98,
-    criterion2: 94,
-    criterion3: 96,
-    totalScore: 96.5,
-    grade: "HẠNG A (XUẤT SẮC)",
-    bonus: "+25% Lương CB",
-    status: "APPROVED",
-    managerNotes: "Công bố thành công mô hình AI chuyên dụng nhận diện tài liệu doanh nghiệp độ chính xác 99.4%."
-  },
-  {
-    id: "eval_005",
-    employeeName: "Hoàng Thị Mai",
-    employeeCode: "NX-05189",
-    department: "Khối Tài Chính & Kế Toán",
-    position: "Kế Toán Trưởng Bộ Phận",
-    selfScore: 86,
-    managerScore: 88,
-    criterion1: 90,
-    criterion2: 88,
-    criterion3: 82,
-    totalScore: 87.5,
-    grade: "HẠNG B (HOÀN THÀNH TỐT)",
-    bonus: "+10% Lương CB",
-    status: "APPROVED",
-    managerNotes: "Hoàn tất kiểm toán nội bộ và đối soát chi phí Q3 chính xác 100%, không phát sinh sai lệch."
-  },
-  {
-    id: "eval_006",
-    employeeName: "Vũ Hải Đăng",
-    employeeCode: "NX-09811",
-    department: "Khối Công Nghệ & Phần Mềm",
-    position: "Kỹ Sư DevOps & SRE",
-    selfScore: 80,
-    managerScore: 82,
-    criterion1: 84,
-    criterion2: 80,
-    criterion3: 78,
-    totalScore: 81.5,
-    grade: "HẠNG B (HOÀN THÀNH TỐT)",
-    bonus: "+10% Lương CB",
-    status: "APPROVED"
-  },
-  {
-    id: "eval_007",
-    employeeName: "Đỗ Thu Hương",
-    employeeCode: "NX-07340",
-    department: "Khối Dịch Vụ Khách Hàng",
-    position: "Chuyên Viên Chăm Sóc Khách Hàng VIP",
-    selfScore: 78,
-    managerScore: 75,
-    criterion1: 76,
-    criterion2: 80,
-    criterion3: 70,
-    totalScore: 75.5,
-    grade: "HẠNG B (HOÀN THÀNH TỐT)",
-    bonus: "+10% Lương CB",
-    status: "APPROVED"
-  },
-  {
-    id: "eval_008",
-    employeeName: "Bùi Quốc Khánh",
-    employeeCode: "NX-10294",
-    department: "Khối Kinh Doanh & Tiếp Thị",
-    position: "Chuyên Viên Phát Triển Thị Trường",
-    selfScore: 68,
-    managerScore: 65,
-    criterion1: 65,
-    criterion2: 70,
-    criterion3: 62,
-    totalScore: 65.5,
-    grade: "HẠNG C (ĐẠT YÊU CẦU)",
-    bonus: "0% Lương CB",
-    status: "APPROVED",
-    managerNotes: "Cần cải thiện kỹ năng đàm phán hợp đồng quy mô lớn và bám sát tiến độ phễu khách hàng."
-  }
-];
-
 export default function PerformancePage() {
+  const { data: session } = useSession();
+  const currentUserId = (session?.user as any)?.id || "";
+  const userRole = (session?.user as any)?.roleName || "USER";
   const [evaluations, setEvaluations] = useState<EvaluationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -189,9 +57,10 @@ export default function PerformancePage() {
         if (Array.isArray(data)) {
           const mapped: EvaluationItem[] = data.map((e: any) => ({
             id: e.id,
+            employeeUserId: e.employee?.userId || "",
             employeeName: e.employee?.user?.name || "Cán bộ nhân viên",
             employeeCode: `NX-${e.employee?.id?.slice(-5).toUpperCase() || "00000"}`,
-            department: e.employee?.department?.name || "Khối Công Nghệ",
+            department: e.employee?.department?.name || "Chưa phân phòng",
             position: e.employee?.position || "Chuyên viên",
             selfScore: e.selfScore,
             managerScore: e.managerScore,
@@ -218,38 +87,48 @@ export default function PerformancePage() {
     fetchEvaluations();
   }, []);
 
-  const handleSaveEvaluation = async (updated: EvaluationItem) => {
+  const handleSaveEvaluation = async (updated: EvaluationItem): Promise<boolean> => {
     try {
+      const isSelfOnly = !["SYSTEM_ADMIN", "BOD"].includes(userRole) && updated.employeeUserId === currentUserId;
+      const payload = isSelfOnly
+        ? { selfScore: updated.selfScore }
+        : {
+            criterion1: updated.criterion1,
+            criterion2: updated.criterion2,
+            criterion3: updated.criterion3,
+            selfScore: updated.selfScore,
+            managerScore: updated.managerScore,
+            status: updated.status,
+            managerNotes: updated.managerNotes
+          };
       const res = await fetch(`/api/performance/${updated.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          criterion1: updated.criterion1,
-          criterion2: updated.criterion2,
-          criterion3: updated.criterion3,
-          selfScore: updated.selfScore,
-          managerScore: updated.managerScore,
-          status: updated.status,
-          managerNotes: updated.managerNotes
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         await fetchEvaluations();
+        return true;
       } else {
-        setEvaluations(evaluations.map(e => e.id === updated.id ? updated : e));
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể lưu kết quả đánh giá KPI.");
+        return false;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setEvaluations(evaluations.map(e => e.id === updated.id ? updated : e));
+      alert(err.message || "Lỗi kết nối khi lưu đánh giá KPI.");
+      return false;
     }
   };
+
+  const departmentOptions = Array.from(new Set(evaluations.map(e => e.department).filter(Boolean)));
 
   const filteredData = evaluations.filter(e => {
     const matchSearch = e.employeeName.toLowerCase().includes(search.toLowerCase()) ||
                         e.employeeCode.toLowerCase().includes(search.toLowerCase()) ||
                         e.position.toLowerCase().includes(search.toLowerCase());
     const matchDept = selectedDept === "ALL" || e.department === selectedDept;
-    const matchGrade = selectedGrade === "ALL" || e.grade.includes(selectedGrade);
+    const matchGrade = selectedGrade === "ALL" || e.grade.toUpperCase().includes(selectedGrade);
     return matchSearch && matchDept && matchGrade;
   });
 
@@ -433,12 +312,9 @@ export default function PerformancePage() {
                 className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
               >
                 <option value="ALL">Tất cả phòng ban</option>
-                <option value="Khối Công Nghệ & Phần Mềm">Khối Công Nghệ & Phần Mềm</option>
-                <option value="Khối Kinh Doanh & Tiếp Thị">Khối Kinh Doanh & Tiếp Thị</option>
-                <option value="Khối Quản Trị Nhân Lực & Đào Tạo">Khối Quản Trị Nhân Lực & Đào Tạo</option>
-                <option value="Khối R&D & Trí Tuệ Nhân Tạo">Khối R&D & Trí Tuệ Nhân Tạo</option>
-                <option value="Khối Tài Chính & Kế Toán">Khối Tài Chính & Kế Toán</option>
-                <option value="Khối Dịch Vụ Khách Hàng">Khối Dịch Vụ Khách Hàng</option>
+                {departmentOptions.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
               </select>
 
               <select
@@ -505,17 +381,21 @@ export default function PerformancePage() {
                       </td>
 
                       <td className="px-5 py-3.5 text-center">
-                        {item.grade.includes("HẠNG A") ? (
+                        {item.grade.toUpperCase().includes("HẠNG A") ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
                             <Award className="w-3 h-3 text-emerald-600" /> Hạng A
                           </span>
-                        ) : item.grade.includes("HẠNG B") ? (
+                        ) : item.grade.toUpperCase().includes("HẠNG B") ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium">
                             Hạng B
                           </span>
-                        ) : (
+                        ) : item.grade.toUpperCase().includes("HẠNG C") ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-medium">
                             Hạng C
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-medium">
+                            Hạng D
                           </span>
                         )}
                       </td>
@@ -545,6 +425,7 @@ export default function PerformancePage() {
         isOpen={Boolean(selectedEvaluation)}
         onClose={() => setSelectedEvaluation(null)}
         evaluation={selectedEvaluation}
+        isSelfOnly={Boolean(selectedEvaluation && !["SYSTEM_ADMIN", "BOD"].includes(userRole) && selectedEvaluation.employeeUserId === currentUserId)}
         onSave={handleSaveEvaluation}
       />
     </>

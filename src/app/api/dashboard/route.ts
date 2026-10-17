@@ -23,31 +23,38 @@ export async function GET() {
       });
     }
 
-    // 1. Tổng nhân sự
-    const totalEmployees = await prisma.employeeProfile.count({ where: { status: { in: ['ACTIVE', 'PROBATION'] } } });
+    const today = toUtcDateOnly(new Date());
 
-    // 2. Headcount by Department
-    const depts = await prisma.department.findMany({
-      include: {
-        _count: { select: { employees: { where: { status: { in: ['ACTIVE', 'PROBATION'] } } } } }
-      }
-    });
-    
+    const [totalEmployees, depts, attendances, activeJobs, recentApplications] = await Promise.all([
+      prisma.employeeProfile.count({ where: { status: { in: ['ACTIVE', 'PROBATION'] } } }),
+      prisma.department.findMany({
+        include: {
+          _count: { select: { employees: { where: { status: { in: ['ACTIVE', 'PROBATION'] } } } } }
+        }
+      }),
+      prisma.attendance.groupBy({
+        by: ['status'],
+        where: { date: today },
+        _count: { status: true }
+      }),
+      canSeeRecruitment
+        ? prisma.jobPosting.count({ where: { status: 'OPEN', OR: [{ dueDate: null }, { dueDate: { gte: today } }] } })
+        : Promise.resolve(null),
+      canSeeRecruitment
+        ? prisma.application.findMany({
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            include: { jobPosting: { select: { title: true } } }
+          })
+        : Promise.resolve([])
+    ]);
+
     const headcountByDept = depts
       .map(d => ({
         name: d.name,
         value: d._count.employees
       }))
       .filter(d => d.value > 0);
-
-    // 3. Attendance Today
-    const today = toUtcDateOnly(new Date());
-
-    const attendances = await prisma.attendance.groupBy({
-      by: ['status'],
-      where: { date: today },
-      _count: { status: true }
-    });
 
     const attendanceToday = {
       PRESENT: 0,
@@ -62,15 +69,6 @@ export async function GET() {
       if (a.status === 'ABSENT') attendanceToday.ABSENT = a._count.status;
       if (a.status === 'LEAVE') attendanceToday.LEAVE = a._count.status;
     });
-
-    // 4. Tuyển dụng
-    const activeJobs = canSeeRecruitment ? await prisma.jobPosting.count({ where: { status: 'OPEN', OR: [{ dueDate: null }, { dueDate: { gte: toUtcDateOnly() } }] } }) : null;
-
-    const recentApplications = canSeeRecruitment ? await prisma.application.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: { jobPosting: { select: { title: true } } }
-    }) : [];
 
     const formattedApplications = recentApplications.map(app => ({
       id: app.id,

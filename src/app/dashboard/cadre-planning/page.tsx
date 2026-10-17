@@ -314,11 +314,31 @@ export default function CadrePlanningPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Đã phê duyệt
-                    </span>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {item.status === "APPROVED" ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Đã phê duyệt
+                      </span>
+                    ) : item.status === "REJECTED" ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                        <X className="w-3.5 h-3.5" /> Đã từ chối
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                        <Clock className="w-3.5 h-3.5" /> Đang thẩm định
+                      </span>
+                    )}
+                    {item.status !== "APPROVED" && canApprovePlan && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdatePlan(item.id, { status: "APPROVED" })}
+                        className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-2xs"
+                      >
+                        Phê duyệt
+                      </button>
+                    )}
                     <button 
+                      type="button"
                       onClick={() => setSelectedRoadmapItem(item)}
                       className="px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all flex items-center gap-1 shadow-2xs"
                     >
@@ -607,11 +627,11 @@ export default function CadrePlanningPage() {
       {selectedRoadmapItem && (
         <div 
           onClick={() => setSelectedRoadmapItem(null)}
-          className="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in printable-modal"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto printable-area"
           >
             {/* Header */}
             <div className="flex items-start justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">

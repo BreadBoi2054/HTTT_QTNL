@@ -26,15 +26,33 @@ import {
 } from "lucide-react";
 import { TableSkeleton } from "@/components/providers/ToastProvider";
 
+function LiveTerminalClock() {
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="space-y-1 text-center py-2">
+      <div className="text-4xl sm:text-5xl font-mono font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+        {currentTime.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+      </div>
+      <div className="text-xs text-zinc-500 dark:text-zinc-400 pt-1">
+        {currentTime.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+      </div>
+    </div>
+  );
+}
+
 export default function AttendancePage() {
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.roleName || "USER";
+  const canViewCompanyRoster = ["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "ACCOUNTANT"].includes(userRole);
   const userEmail = session?.user?.email || "";
   const userName = session?.user?.name || "Cán bộ nhân viên";
 
   const [attendances, setAttendances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -42,12 +60,6 @@ export default function AttendancePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [activeTab, setActiveTab] = useState<"terminal" | "roster">("terminal");
-
-  // Live clock
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const fetchAttendances = async (dateStr?: string) => {
     setLoading(true);
@@ -351,7 +363,7 @@ export default function AttendancePage() {
           </p>
         </div>
 
-        {/* Tab switch for all roles */}
+        {/* Tab switch */}
         <div className="flex bg-zinc-100/80 dark:bg-zinc-800/80 p-1 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl">
           <button
             onClick={() => setActiveTab("terminal")}
@@ -365,17 +377,19 @@ export default function AttendancePage() {
             <span>Trạm chấm công cá nhân</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("roster")}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              activeTab === "roster"
-                ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
-                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Giám sát công ty ({attendances.length})</span>
-          </button>
+          {canViewCompanyRoster && (
+            <button
+              onClick={() => setActiveTab("roster")}
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === "roster"
+                  ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Giám sát công ty ({attendances.length})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -403,14 +417,7 @@ export default function AttendancePage() {
                 </div>
 
                 {/* Big Live Digital Clock */}
-                <div className="space-y-1 text-center py-2">
-                  <div className="text-4xl sm:text-5xl font-mono font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                    {currentTime.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 pt-1">
-                    {currentTime.toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </div>
-                </div>
+                <LiveTerminalClock />
 
                 {/* Current Status Today Indicator */}
                 <div className="mt-4 p-3 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl">

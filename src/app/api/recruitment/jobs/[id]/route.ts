@@ -12,7 +12,11 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     }
 
     const body = await req.json();
-    const { title, description, headcount, status } = body;
+    const { title, description, headcount, status, departmentId, dueDate } = body;
+    const parsedDueDate = dueDate ? new Date(`${String(dueDate).slice(0, 10)}T00:00:00.000Z`) : null;
+    if (parsedDueDate && Number.isNaN(parsedDueDate.getTime())) {
+      return NextResponse.json({ error: 'Hạn nộp hồ sơ không hợp lệ.' }, { status: 400 });
+    }
 
     const job = await prisma.jobPosting.update({
       where: { id: params.id },
@@ -20,6 +24,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
         title,
         description,
         headcount: parseInt(headcount) || 1,
+        ...(departmentId !== undefined ? { departmentId: departmentId || null } : {}),
+        ...(dueDate !== undefined ? { dueDate: parsedDueDate } : {}),
         status: status || 'OPEN'
       }
     });

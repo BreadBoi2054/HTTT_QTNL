@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2 } from "lucide-react";
+import { useConfirm } from "@/components/providers/ToastProvider";
 
 export default function JobManagementView() {
+  const confirm = useConfirm();
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -49,11 +51,16 @@ export default function JobManagementView() {
       const url = editingJob ? `/api/recruitment/jobs/${editingJob.id}` : "/api/recruitment/jobs";
       const method = editingJob ? "PATCH" : "POST";
       
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể lưu vị trí tuyển dụng.");
+        return;
+      }
       
       setIsFormOpen(false);
       fetchJobs();
@@ -63,9 +70,14 @@ export default function JobManagementView() {
   };
 
   const handleDelete = async (id: string, jobTitle: string) => {
-    if (!confirm(`Xóa tin tuyển dụng "${jobTitle}"?`)) return;
+    if (!(await confirm(`Xóa tin tuyển dụng "${jobTitle}"?`))) return;
     try {
-      await fetch(`/api/recruitment/jobs/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/recruitment/jobs/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Không thể xóa vị trí tuyển dụng.");
+        return;
+      }
       fetchJobs();
     } catch (err) {
       console.error(err);

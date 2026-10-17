@@ -603,8 +603,7 @@ export default function MyWorkspacePage() {
                   className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
                 >
                   <option value="ANNUAL_LEAVE">Nghỉ phép năm có hưởng lương (Còn {employeeData.leaveRemaining} ngày)</option>
-                  <option value="SICK_LEAVE">Nghỉ ốm đau / Khám bệnh có bảo hiểm</option>
-                  <option value="MATERNITY_LEAVE">Nghỉ thai sản</option>
+                  <option value="SICK_LEAVE">Nghỉ ốm đau (Chế độ BHXH)</option>
                   <option value="UNPAID_LEAVE">Nghỉ việc riêng không hưởng lương</option>
                 </select>
               </div>

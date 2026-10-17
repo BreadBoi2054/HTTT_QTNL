@@ -7,20 +7,24 @@ interface EvaluationModalProps {
   isOpen: boolean;
   onClose: () => void;
   evaluation: any;
-  onSave: (updated: any) => void;
+  isSelfOnly?: boolean;
+  onSave: (updated: any) => Promise<boolean | void> | boolean | void;
 }
 
-export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }: EvaluationModalProps) {
+export default function EvaluationModal({ isOpen, onClose, evaluation, isSelfOnly = false, onSave }: EvaluationModalProps) {
+  const [selfScore, setSelfScore] = useState(85);
   const [c1, setC1] = useState(85); // Công việc chính (50%)
   const [c2, setC2] = useState(85); // Kỷ luật & Văn hóa (25%)
   const [c3, setC3] = useState(85); // Đổi mới & Phát triển (25%)
   const [managerNotes, setManagerNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (evaluation) {
-      setC1(evaluation.criterion1 || 85);
-      setC2(evaluation.criterion2 || 85);
-      setC3(evaluation.criterion3 || 85);
+      setSelfScore(evaluation.selfScore ?? 85);
+      setC1(evaluation.criterion1 ?? 85);
+      setC2(evaluation.criterion2 ?? 85);
+      setC3(evaluation.criterion3 ?? 85);
       setManagerNotes(evaluation.managerNotes || "Cán bộ hoàn thành tốt các chỉ tiêu công việc được giao, phối hợp nhịp nhàng với đội ngũ dự án.");
     }
   }, [evaluation]);
@@ -37,7 +41,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
 
   if (!isOpen || !evaluation) return null;
 
-  const totalScore = Math.round((c1 * 0.5) + (c2 * 0.25) + (c3 * 0.25) * 10) / 10;
+  const totalScore = Math.round(((c1 * 0.5) + (c2 * 0.25) + (c3 * 0.25)) * 10) / 10;
   
   let grade = "Hạng B (Hoàn thành tốt)";
   let gradeBonus = "+10% Lương CB";
@@ -57,7 +61,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
     gradeBadgeColor = "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900";
   } else {
     grade = "Hạng D (Cần cải thiện)";
-    gradeBonus = "Trừ phạt KPI";
+    gradeBonus = "-10% Phạt KPI";
     gradeBadgeColor = "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900";
   }
 
@@ -65,20 +69,29 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
     window.print();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      ...evaluation,
-      criterion1: c1,
-      criterion2: c2,
-      criterion3: c3,
-      totalScore,
-      grade,
-      bonus: gradeBonus,
-      managerNotes,
-      status: "APPROVED"
-    });
-    onClose();
+    setSaving(true);
+    try {
+      const ok = await onSave({
+        ...evaluation,
+        selfScore,
+        criterion1: c1,
+        criterion2: c2,
+        criterion3: c3,
+        managerScore: totalScore,
+        totalScore,
+        grade,
+        bonus: gradeBonus,
+        managerNotes,
+        status: isSelfOnly ? "SELF_ASSESSED" : "APPROVED"
+      });
+      if (ok !== false) {
+        onClose();
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -166,9 +179,27 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
 
           {/* 3 Criteria Evaluation Sliders */}
           <div className="space-y-4">
+            <div className="p-4 border border-amber-200 dark:border-amber-800/80 rounded-xl space-y-2.5 bg-amber-50/40 dark:bg-amber-950/20">
+              <div className="flex justify-between items-center text-xs">
+                <div>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">Điểm cán bộ tự đánh giá (Self-Assessment)</span>
+                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium ml-2">(Thang 100)</span>
+                </div>
+                <span className="font-mono font-bold text-sm text-amber-600 dark:text-amber-400">{selfScore} / 100</span>
+              </div>
+              <input
+                type="range"
+                min={40}
+                max={100}
+                value={selfScore}
+                onChange={(e) => setSelfScore(Number(e.target.value))}
+                className="w-full accent-amber-500 cursor-pointer"
+              />
+            </div>
+
             <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
               <Target className="w-4 h-4 text-blue-500" />
-              Đánh giá điểm số theo tiêu chí (Thang điểm 100)
+              Đánh giá điểm số theo tiêu chí của Quản lý (Thang điểm 100)
             </div>
 
             {/* Criterion 1 */}
@@ -184,9 +215,10 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
                 type="range"
                 min={40}
                 max={100}
+                disabled={isSelfOnly}
                 value={c1}
                 onChange={(e) => setC1(Number(e.target.value))}
-                className="w-full accent-blue-600 cursor-pointer"
+                className="w-full accent-blue-600 cursor-pointer disabled:opacity-50"
               />
               <div className="flex justify-between text-[11px] text-zinc-400">
                 <span>40: Cần cải thiện</span>
@@ -209,9 +241,10 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
                 type="range"
                 min={40}
                 max={100}
+                disabled={isSelfOnly}
                 value={c2}
                 onChange={(e) => setC2(Number(e.target.value))}
-                className="w-full accent-emerald-600 cursor-pointer"
+                className="w-full accent-emerald-600 cursor-pointer disabled:opacity-50"
               />
             </div>
 
@@ -228,9 +261,10 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, onSave }:
                 type="range"
                 min={40}
                 max={100}
+                disabled={isSelfOnly}
                 value={c3}
                 onChange={(e) => setC3(Number(e.target.value))}
-                className="w-full accent-blue-600 cursor-pointer"
+                className="w-full accent-blue-600 cursor-pointer disabled:opacity-50"
               />
             </div>
           </div>

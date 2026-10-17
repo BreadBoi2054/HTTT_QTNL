@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { Plus, Search, Building2, CheckCircle2, UserCheck, X, Printer, Users, ArrowUpDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 type SortKey = "name" | "department" | "joinDate" | "baseSalary";
@@ -9,6 +10,9 @@ import EmployeeModal from "@/components/employees/EmployeeModal";
 import { useConfirm } from "@/components/providers/ToastProvider";
 
 export default function EmployeesPage() {
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.roleName || "USER";
+  const canDeleteEmployee = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
   const confirm = useConfirm();
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +78,11 @@ export default function EmployeesPage() {
     if (!(await confirm(`Xác nhận xử lý nhân sự "${name}"?\n(Lưu ý: Nếu nhân viên đã có lịch sử bảng lương hoặc chấm công, hệ thống sẽ tự động chuyển sang chế độ THÔI VIỆC / LƯU TRỮ HỒ SƠ để bảo lưu chứng từ kiểm toán).`))) return;
     try {
       const res = await fetch(`/api/employees/${id}`, { method: "DELETE" });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.error || "Không thể xử lý nhân sự.");
+        return;
+      }
       if (data?.message) alert(data.message);
       fetchEmployees();
     } catch (error) {
@@ -460,7 +468,9 @@ export default function EmployeesPage() {
                             {emp.user.email !== "admin@nexustech.vn" && emp.user.email !== "admin@hrmis.com" && emp.user.email !== "ceo@nexustech.vn" && emp.user.role?.name !== "SYSTEM_ADMIN" && emp.user.role?.name !== "BOD" && (
                               <>
                                 <button onClick={() => { setSelectedEmp(emp); setIsModalOpen(true); }} className="px-2.5 py-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded font-medium transition-colors" title="Sửa hồ sơ">Sửa</button>
-                                <button onClick={() => handleDelete(emp.id, emp.user.name)} className="px-2.5 py-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded font-medium transition-colors" title="Xử lý hồ sơ">Xóa</button>
+                                {canDeleteEmployee && (
+                                  <button onClick={() => handleDelete(emp.id, emp.user.name)} className="px-2.5 py-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded font-medium transition-colors" title="Xử lý hồ sơ">Xóa</button>
+                                )}
                               </>
                             )}
                           </div>
@@ -495,11 +505,11 @@ export default function EmployeesPage() {
       {/* Modal Hồ sơ nhân sự Chi tiết */}
       {viewingEmp && (
         <div 
-          className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in printable-modal"
           onClick={() => setViewingEmp(null)}
         >
           <div 
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto printable-area"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
