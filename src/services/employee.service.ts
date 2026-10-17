@@ -110,10 +110,34 @@ export async function createEmployee(
     });
 
     if (isManager && departmentId) {
+      const targetDept = await tx.department.findUnique({
+        where: { id: departmentId },
+        select: { managerId: true },
+      });
       await tx.department.update({
         where: { id: departmentId },
         data: { managerId: profile.id },
       });
+      if (targetDept?.managerId && targetDept.managerId !== profile.id) {
+        const stillManaging = await tx.department.count({
+          where: { managerId: targetDept.managerId },
+        });
+        if (stillManaging === 0) {
+          const oldMgr = await tx.employeeProfile.findUnique({
+            where: { id: targetDept.managerId },
+            include: { user: { include: { role: true } } },
+          });
+          if (oldMgr?.user?.role?.name === "MANAGER") {
+            const userRole = await tx.role.findUnique({ where: { name: "USER" } });
+            if (userRole) {
+              await tx.user.update({
+                where: { id: oldMgr.userId },
+                data: { roleId: userRole.id },
+              });
+            }
+          }
+        }
+      }
     }
 
     return { user, profile };
@@ -161,6 +185,11 @@ export async function updateEmployee(
           effectiveRoleId = managerRole.id;
         }
       }
+    } else if (isManager === false && !roleId && profile.user.role?.name === "MANAGER") {
+      const userRole = await tx.role.findUnique({ where: { name: "USER" } });
+      if (userRole) {
+        effectiveRoleId = userRole.id;
+      }
     }
 
     if (name || effectiveRoleId) {
@@ -194,6 +223,10 @@ export async function updateEmployee(
     });
 
     if (isManager === true && targetDeptId) {
+      const prevDept = await tx.department.findUnique({
+        where: { id: targetDeptId },
+        select: { managerId: true },
+      });
       await tx.department.updateMany({
         where: { managerId: id },
         data: { managerId: null },
@@ -202,10 +235,45 @@ export async function updateEmployee(
         where: { id: targetDeptId },
         data: { managerId: id },
       });
+      if (prevDept?.managerId && prevDept.managerId !== id) {
+        const stillManaging = await tx.department.count({
+          where: { managerId: prevDept.managerId },
+        });
+        if (stillManaging === 0) {
+          const oldMgr = await tx.employeeProfile.findUnique({
+            where: { id: prevDept.managerId },
+            include: { user: { include: { role: true } } },
+          });
+          if (oldMgr?.user?.role?.name === "MANAGER") {
+            const userRole = await tx.role.findUnique({ where: { name: "USER" } });
+            if (userRole) {
+              await tx.user.update({
+                where: { id: oldMgr.userId },
+                data: { roleId: userRole.id },
+              });
+            }
+          }
+        }
+      }
     } else if (isManager === false) {
       await tx.department.updateMany({
         where: { managerId: id },
         data: { managerId: null },
+      });
+    }
+
+    if (status === "RESIGNED" || status === "SUSPENDED") {
+      await tx.department.updateMany({
+        where: { managerId: id },
+        data: { managerId: null },
+      });
+      await tx.leaveRequest.updateMany({
+        where: { employeeId: id, status: "PENDING" },
+        data: { status: "REJECTED" },
+      });
+      await tx.overtimeRequest.updateMany({
+        where: { employeeId: id, status: "PENDING" },
+        data: { status: "REJECTED" },
       });
     }
 
@@ -237,6 +305,7 @@ export async function deleteEmployee(
       user: { select: SAFE_USER_SELECT },
       payrolls: { select: { id: true } },
       attendances: { select: { id: true } },
+      overtimeRequests: { select: { id: true } },
       contracts: { select: { id: true } },
       leaveRequests: { select: { id: true } },
       evaluations: { select: { id: true } },
@@ -247,6 +316,7 @@ export async function deleteEmployee(
   if (
     profile.payrolls.length > 0 ||
     profile.attendances.length > 0 ||
+    profile.overtimeRequests.length > 0 ||
     profile.contracts.length > 0 ||
     profile.leaveRequests.length > 0 ||
     profile.evaluations.length > 0
@@ -266,6 +336,14 @@ export async function deleteEmployee(
       });
 
       await tx.leaveRequest.updateMany({
+        where: {
+          employeeId: id,
+          status: "PENDING",
+        },
+        data: { status: "REJECTED" },
+      });
+
+      await tx.overtimeRequest.updateMany({
         where: {
           employeeId: id,
           status: "PENDING",

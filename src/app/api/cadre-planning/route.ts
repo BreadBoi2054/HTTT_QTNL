@@ -14,6 +14,34 @@ export async function GET() {
       return NextResponse.json({ error: "Bạn không có quyền truy cập dữ liệu quy hoạch cán bộ." }, { status: 403 });
     }
 
+    if (roleName === "MANAGER") {
+      const managerProfile = await prisma.employeeProfile.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          managedDept: {
+            include: {
+              employees: { include: { user: { select: { email: true } } } },
+            },
+          },
+        },
+      });
+      const deptName = managerProfile?.managedDept?.name;
+      const deptEmails = (managerProfile?.managedDept?.employees || [])
+        .map((e) => e.user?.email)
+        .filter((email): email is string => Boolean(email));
+
+      const orConditions: any[] = [{ successorEmail: { in: deptEmails } }];
+      if (deptName) {
+        orConditions.push({ department: { contains: deptName, mode: "insensitive" } });
+      }
+
+      const scopedPlans = await prisma.successionPlan.findMany({
+        where: { OR: orConditions },
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json(scopedPlans);
+    }
+
     const plans = await prisma.successionPlan.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -38,7 +66,40 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const initialStatus = roleName === "MANAGER" ? "REVIEWING" : "APPROVED";
+    const successorEmail = String(body.successorEmail || "").trim();
+
+    if (!body.position || !body.successorName) {
+      return NextResponse.json({ error: "Vui lòng nhập đầy đủ Vị trí quy hoạch và Họ tên nhân sự kế cận." }, { status: 400 });
+    }
+
+    if (["HR", "MANAGER"].includes(roleName) && successorEmail && successorEmail.toLowerCase() === (session.user.email || "").toLowerCase()) {
+      return NextResponse.json({ error: "Bạn không được tự đề xuất hoặc tự phê duyệt quy hoạch cán bộ cho chính mình." }, { status: 403 });
+    }
+
+    if (roleName === "MANAGER") {
+      const managerProfile = await prisma.employeeProfile.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          managedDept: {
+            include: {
+              employees: { include: { user: { select: { email: true } } } },
+            },
+          },
+        },
+      });
+      const managedDept = managerProfile?.managedDept;
+      if (!managedDept) {
+        return NextResponse.json({ error: "Bạn chưa được phân công quản lý phòng ban nào." }, { status: 403 });
+      }
+      const deptEmails = managedDept.employees
+        .map((e) => e.user?.email?.toLowerCase())
+        .filter((email): email is string => Boolean(email));
+      if (successorEmail && !deptEmails.includes(successorEmail.toLowerCase())) {
+        return NextResponse.json({ error: "Trưởng phòng chỉ được phép đề xuất quy hoạch cho nhân sự thuộc phòng ban mình quản lý." }, { status: 403 });
+      }
+    }
+
+    const initialStatus = roleName === "MANAGER" ? "REVIEWING" : body.status === "REVIEWING" ? "REVIEWING" : "APPROVED";
 
     const plan = await prisma.successionPlan.create({
       data: {
@@ -46,7 +107,7 @@ export async function POST(req: Request) {
         department: body.department,
         currentHolder: body.currentHolder,
         successorName: body.successorName,
-        successorEmail: body.successorEmail,
+        successorEmail: successorEmail || body.successorEmail,
         readiness: body.readiness || "READY_1_2_YEARS",
         potentialScore: body.potentialScore || "HIGH",
         mentor: body.mentor,
@@ -95,6 +156,14 @@ export async function PATCH(req: Request) {
     const existing = await prisma.successionPlan.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Không tìm thấy hồ sơ quy hoạch cán bộ" }, { status: 404 });
+    }
+
+    if (
+      roleName === "HR" &&
+      existing.successorEmail &&
+      existing.successorEmail.toLowerCase() === (session.user.email || "").toLowerCase()
+    ) {
+      return NextResponse.json({ error: "Nhân sự (HR) không được tự phê duyệt hồ sơ quy hoạch cán bộ của chính mình." }, { status: 403 });
     }
 
     const updated = await prisma.successionPlan.update({

@@ -32,8 +32,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const actorName = session.user.name || "HR";
-    const result = await createContract(body, actorName);
+    const actor = {
+      name: session.user.name || "HR",
+      roleName,
+      userId: session.user.id || undefined,
+    };
+    const result = await createContract(body, actor);
     return NextResponse.json(result, { status: 201 });
   } catch (error: any) {
     console.error("[CONTRACTS_POST]", error);

@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       return NextResponse.json(result);
     }
 
-    const result = await createPayroll(body, actorName, roleName);
+    const result = await createPayroll(body, actorName, roleName, session.user.id || undefined);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[PAYROLL_POST]", error);

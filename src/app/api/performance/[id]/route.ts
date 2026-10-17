@@ -9,7 +9,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
 
     const roleName = (session.user as any).roleName || "USER";
-    if (!["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "USER"].includes(roleName)) {
+    if (!["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "ACCOUNTANT", "USER"].includes(roleName)) {
       return new NextResponse("Không có quyền chỉnh sửa đánh giá KPI.", { status: 403 });
     }
 
@@ -23,27 +23,34 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const existingEval = await prisma.performanceEvaluation.findUnique({
       where: { id },
-      include: { employee: { include: { user: true } } }
+      include: { employee: { include: { user: { include: { role: true } } } } }
     });
 
     if (!existingEval) return new NextResponse("Không tìm thấy hồ sơ đánh giá.", { status: 404 });
-    if (existingEval.status === "APPROVED" && ["USER", "MANAGER"].includes(roleName)) {
+    if (existingEval.status === "APPROVED" && ["USER", "ACCOUNTANT", "MANAGER"].includes(roleName)) {
       return new NextResponse("Đánh giá đã phê duyệt không thể chỉnh sửa ở cấp nhân viên hoặc trưởng phòng.", { status: 400 });
     }
 
-    if (roleName === "USER") {
-      if (existingEval.employee.userId !== session.user.id) {
+    const isSelfRecord = existingEval.employee.userId === session.user.id;
+    const isSelfAssessmentOnly =
+      selfScore !== undefined &&
+      criterion1 === undefined &&
+      criterion2 === undefined &&
+      criterion3 === undefined &&
+      managerScore === undefined &&
+      bodyGrade === undefined &&
+      bodyBonusRate === undefined &&
+      status !== "APPROVED";
+
+    if (roleName === "USER" || roleName === "ACCOUNTANT" || (isSelfRecord && ["MANAGER", "HR"].includes(roleName))) {
+      if (!isSelfRecord) {
         return new NextResponse("Bạn chỉ có quyền tự đánh giá KPI của chính mình.", { status: 403 });
       }
-      if (
-        criterion1 !== undefined ||
-        criterion2 !== undefined ||
-        criterion3 !== undefined ||
-        bodyGrade !== undefined ||
-        bodyBonusRate !== undefined ||
-        status === "APPROVED"
-      ) {
-        return new NextResponse("Nhân viên chỉ được phép cập nhật điểm tự đánh giá (selfScore) và trạng thái SELF_ASSESSED.", { status: 403 });
+      if (existingEval.status === "APPROVED") {
+        return new NextResponse("Đánh giá KPI đã được phê duyệt, không thể tự chỉnh sửa.", { status: 400 });
+      }
+      if (!isSelfAssessmentOnly) {
+        return new NextResponse("Bạn chỉ được phép cập nhật điểm tự đánh giá (selfScore) và trạng thái SELF_ASSESSED cho KPI của chính mình.", { status: 403 });
       }
 
       const updatedSelf = await prisma.performanceEvaluation.update({
@@ -76,10 +83,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json(updatedSelf);
     }
 
-    if (roleName === "MANAGER") {
-      if (existingEval.employee.userId === session.user.id) {
-        return new NextResponse("Trưởng phòng không thể tự phê duyệt KPI của chính mình", { status: 403 });
+    if (["HR", "MANAGER"].includes(roleName)) {
+      const targetRoleName = existingEval.employee.user?.role?.name || "USER";
+      if (["SYSTEM_ADMIN", "BOD"].includes(targetRoleName)) {
+        return new NextResponse("Bạn không có thẩm quyền chỉnh sửa đánh giá KPI của Quản trị hệ thống hoặc Ban Giám Đốc.", { status: 403 });
       }
+    }
+
+    if (roleName === "MANAGER") {
       const callerProfile = await prisma.employeeProfile.findUnique({
         where: { userId: session.user.id },
         include: { managedDept: true }
@@ -153,7 +164,65 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const { id } = await params;
+    const existing = await prisma.performanceEvaluation.findUnique({
+      where: { id },
+      include: { employee: { include: { user: { include: { role: true } } } } },
+    });
+
+    if (!existing) {
+      return new NextResponse("Không tìm thấy hồ sơ đánh giá KPI.", { status: 404 });
+    }
+
+    if (roleName === "HR") {
+      if (existing.employee.userId === session.user.id) {
+        return new NextResponse("Nhân sự (HR) không được tự xóa hồ sơ KPI của chính mình.", { status: 403 });
+      }
+      const targetRoleName = existing.employee.user?.role?.name || "USER";
+      if (["SYSTEM_ADMIN", "BOD"].includes(targetRoleName)) {
+        return new NextResponse("Nhân sự (HR) không có thẩm quyền xóa hồ sơ KPI của Quản trị hệ thống hoặc Ban Giám Đốc.", { status: 403 });
+      }
+    }
+
+    if (existing.status === "APPROVED") {
+      const quarterMonthMap: Record<string, number> = {
+        Q1: 3,
+        Q2: 6,
+        Q3: 9,
+        Q4: 12,
+      };
+      const qPrefix = existing.period.split("-")[0]?.toUpperCase();
+      const closingMonth = quarterMonthMap[qPrefix];
+      if (closingMonth) {
+        const paidPayroll = await prisma.payroll.findFirst({
+          where: {
+            employeeId: existing.employeeId,
+            month: closingMonth,
+            year: existing.year,
+            status: "PAID",
+          },
+        });
+        if (paidPayroll) {
+          return new NextResponse(
+            `Không thể xóa đánh giá KPI ${existing.period} đã phê duyệt vì kỳ lương tháng ${closingMonth}/${existing.year} đã khóa sổ (PAID).`,
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const deleted = await prisma.performanceEvaluation.delete({ where: { id } });
+
+    await prisma.auditLog.create({
+      data: {
+        userName: session.user.name || "Quản trị viên",
+        userRole: roleName,
+        action: `Xóa hồ sơ đánh giá KPI ${existing.period}/${existing.year} của nhân sự ${existing.employee.user.name}`,
+        target: "PerformanceEvaluation",
+        ip: "127.0.0.1",
+        status: "WARNING",
+      },
+    });
+
     return NextResponse.json(deleted);
   } catch (error: any) {
     console.error("[PERFORMANCE_DELETE]", error);

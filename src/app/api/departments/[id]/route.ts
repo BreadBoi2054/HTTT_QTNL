@@ -19,7 +19,8 @@ export async function PUT(
     const body = await req.json();
     const { name, description, managerId } = body;
 
-    const department = await updateDepartment(id, { name, description, managerId });
+    const actorName = session.user?.name || "Quản trị viên";
+    const department = await updateDepartment(id, { name, description, managerId }, actorName, roleName);
     return NextResponse.json(department);
   } catch (error) {
     console.error("[DEPARTMENT_PUT]", error);
@@ -41,7 +42,8 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const department = await deleteDepartment(id);
+    const actorName = session.user?.name || "Quản trị viên";
+    const department = await deleteDepartment(id, actorName, roleName);
     return NextResponse.json(department);
   } catch (error: any) {
     console.error("[DEPARTMENT_DELETE]", error);

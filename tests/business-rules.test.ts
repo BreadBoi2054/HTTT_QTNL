@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateWorkingDays, workingDaysInYear } from "../src/services/leave.service";
-import { bulkDisbursePayrolls, calculateVietnamesePIT, getPayrolls } from "../src/services/payroll.service";
+import { bulkDisbursePayrolls, calculateVietnamesePIT, createPayroll, getPayrolls } from "../src/services/payroll.service";
 import { holidayDatesForYear, monthlyWorkdays } from "../src/lib/work-calendar";
 import { createOvertimeRequest } from "../src/services/overtime.service";
 import { saveWorkCalendar } from "../src/services/work-calendar.service";
+import { computeGradeAndBonus } from "../src/services/performance.service";
 
 test("phép năm vắt qua năm được tính riêng theo từng năm, kể cả ngày cuối tuần", () => {
   process.env.PAYROLL_HOLIDAYS_2027 = "2027-01-01";
@@ -59,3 +60,34 @@ test("truy vấn lương nhân viên hoặc quản lý thiếu định danh ph�
   await assert.rejects(getPayrolls(undefined, undefined, { roleName: "USER" }), /Thiếu định danh/);
   await assert.rejects(getPayrolls(undefined, undefined, { roleName: "MANAGER" }), /Thiếu định danh/);
 });
+
+test("khởi tạo phiếu lương thủ công từ chối kỳ lương tương lai trước khi truy cập cơ sở dữ liệu", async () => {
+  await assert.rejects(
+    createPayroll({ employeeId: "emp-1", month: 12, year: 2099, baseSalary: 15_000_000 }, "HR", "HR", "u-1"),
+    /tương lai/
+  );
+});
+
+test("xếp hạng KPI và tỷ lệ thưởng/phạt đúng theo thang điểm chuẩn", () => {
+  assert.deepEqual(computeGradeAndBonus(92), {
+    grade: "HẠNG A (XUẤT SẮC)",
+    bonusRate: 0.25,
+    bonusLabel: "+25% Lương CB",
+  });
+  assert.deepEqual(computeGradeAndBonus(80), {
+    grade: "HẠNG B (HOÀN THÀNH TỐT)",
+    bonusRate: 0.1,
+    bonusLabel: "+10% Lương CB",
+  });
+  assert.deepEqual(computeGradeAndBonus(65), {
+    grade: "HẠNG C (ĐẠT YÊU CẦU)",
+    bonusRate: 0.0,
+    bonusLabel: "0% Lương CB",
+  });
+  assert.deepEqual(computeGradeAndBonus(50), {
+    grade: "HẠNG D (CẦN CẢI THIỆN)",
+    bonusRate: -0.1,
+    bonusLabel: "-10% Phạt KPI",
+  });
+});
+

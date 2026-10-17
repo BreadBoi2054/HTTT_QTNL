@@ -29,13 +29,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           rawEmail.replace(/@hrmis\.com$/, "@nexustech.vn")
         ];
 
-        const user = await prisma.user.findFirst({
+        const users = await prisma.user.findMany({
           where: {
             email: { in: candidateEmails }
           },
           include: { role: true, employee: true },
           orderBy: { createdAt: "asc" },
         });
+
+        const user =
+          users.find((u) => u.email.toLowerCase() === rawEmail) || users[0];
 
         if (!user) {
           return null;
@@ -69,10 +72,50 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.roleId = (user as any).roleId;
         token.roleName = (user as any).roleName;
         token.employeeId = (user as any).employeeId;
+        token.revoked = false;
+        return token;
+      }
+
+      if (token?.id) {
+        try {
+          const freshUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              roleId: true,
+              role: { select: { name: true } },
+              employee: { select: { id: true, status: true } },
+            },
+          });
+
+          if (
+            !freshUser ||
+            (freshUser.employee &&
+              (freshUser.employee.status === "RESIGNED" ||
+                freshUser.employee.status === "SUSPENDED"))
+          ) {
+            token.revoked = true;
+            return token;
+          }
+
+          token.name = freshUser.name;
+          token.email = freshUser.email;
+          token.roleId = freshUser.roleId;
+          token.roleName = freshUser.role?.name || "USER";
+          token.employeeId = freshUser.employee?.id;
+          token.revoked = false;
+        } catch {
+          // Giữ nguyên token hiện tại nếu kết nối DB tạm thời gián đoạn ở tầng edge/proxy
+        }
       }
       return token;
     },
     async session({ session, token }) {
+      if (token?.revoked) {
+        return null as any;
+      }
       if (token && session.user) {
         session.user.id = token.id as string;
         (session.user as any).roleId = token.roleId;

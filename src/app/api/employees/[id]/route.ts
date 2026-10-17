@@ -32,6 +32,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return new NextResponse("Không có quyền chỉnh sửa hồ sơ thành viên Ban Giám Đốc (BOD)", { status: 403 });
     }
 
+    const isSelf = targetEmployee.userId === session.user.id;
+    if (isSelf && (currentUserRole === "HR" || currentUserRole === "MANAGER")) {
+      if (
+        body.baseSalary !== undefined ||
+        (body.roleId !== undefined && body.roleId !== targetEmployee.user.roleId) ||
+        (body.status !== undefined && body.status !== targetEmployee.status) ||
+        body.isManager !== undefined
+      ) {
+        return new NextResponse("Bạn không thể tự thay đổi mức lương, vai trò, chức danh Trưởng phòng hoặc trạng thái làm việc của chính mình.", { status: 403 });
+      }
+    }
+
     if (body.roleId) {
       const targetRole = await prisma.role.findUnique({ where: { id: body.roleId } });
       if (!targetRole) return new NextResponse("Vai trò không hợp lệ", { status: 400 });
@@ -48,8 +60,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (currentUserRole === "MANAGER") {
-      if (body.isManager === true) {
-        return new NextResponse("Trưởng phòng không có quyền bổ nhiệm chức vụ Trưởng phòng", { status: 403 });
+      delete body.baseSalary;
+      if (!isSelf && existingRoleName !== "USER") {
+        return new NextResponse("Trưởng phòng chỉ được phép chỉnh sửa hồ sơ của nhân viên (USER) trong phòng ban.", { status: 403 });
+      }
+      if (body.isManager !== undefined) {
+        return new NextResponse("Trưởng phòng không có quyền bổ nhiệm hoặc miễn nhiệm chức vụ Trưởng phòng", { status: 403 });
       }
       const callerProfile = await prisma.employeeProfile.findUnique({
         where: { userId: session.user.id }
@@ -93,6 +109,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     });
     if (!targetEmployee) {
       return new NextResponse("Không tìm thấy hồ sơ nhân sự", { status: 404 });
+    }
+
+    if (targetEmployee.userId === session.user.id) {
+      return new NextResponse("Bạn không thể tự xóa hoặc cho thôi việc tài khoản của chính mình.", { status: 403 });
     }
 
     const existingRoleName = targetEmployee.user.role.name;

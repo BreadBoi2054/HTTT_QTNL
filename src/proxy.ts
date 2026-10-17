@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
@@ -53,10 +53,17 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // Kế toán (ACCOUNTANT) không can thiệp tuyển dụng, biến động nhân sự, quy hoạch cán bộ hay vai trò/cài đặt hệ thống
+    // Cấu hình danh mục thành phần lương: Chỉ dành cho SYSTEM_ADMIN, BOD, HR, ACCOUNTANT
+    if (pathname.startsWith("/dashboard/payroll/components") && !["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(userRole)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Kế toán (ACCOUNTANT) không can thiệp cơ cấu phòng ban, danh bạ nhân sự quản trị, tuyển dụng, biến động nhân sự, quy hoạch cán bộ hay vai trò/cài đặt hệ thống
     const accountantBlockedPaths = [
       "/dashboard/roles",
       "/dashboard/settings",
+      "/dashboard/departments",
+      "/dashboard/employees",
       "/dashboard/recruitment",
       "/dashboard/personnel-changes",
       "/dashboard/cadre-planning"

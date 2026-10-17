@@ -53,6 +53,7 @@ export async function POST(req: Request) {
         return new NextResponse("Bạn chỉ có quyền tạo tài khoản nhân viên (USER)", { status: 403 });
       }
       body.isManager = false;
+      delete body.baseSalary;
 
       const callerProfile = await prisma.employeeProfile.findUnique({
         where: { userId: session.user.id }

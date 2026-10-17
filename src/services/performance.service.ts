@@ -19,7 +19,7 @@ export async function getPerformanceEvaluations(
   if (period && period !== "ALL") where.period = period;
   if (year) where.year = year;
 
-  if (scope?.roleName === "USER" && scope.userEmail) {
+  if ((scope?.roleName === "USER" || scope?.roleName === "ACCOUNTANT") && scope.userEmail) {
     where.employee = { user: { email: scope.userEmail } };
   } else if (scope?.roleName === "MANAGER" && scope.userId) {
     const managedDept = await prisma.department.findFirst({

@@ -1,25 +1,30 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 
-async function syncEmployeeFromApprovedDecision(change: {
-  employeeEmail: string;
-  type: string;
-  toDept: string;
-  toPosition: string;
-}, newSalary?: number) {
+async function syncEmployeeFromApprovedDecision(
+  tx: Prisma.TransactionClient,
+  change: {
+    employeeEmail: string;
+    type: string;
+    toDept: string;
+    toPosition: string;
+  },
+  newSalary?: number
+) {
   if (!change.employeeEmail) return;
 
-  const user = await prisma.user.findUnique({
+  const user = await tx.user.findUnique({
     where: { email: change.employeeEmail },
-    include: { employee: true },
+    include: { employee: true, role: true },
   });
 
   if (!user?.employee) return;
 
   let targetDeptId = user.employee.departmentId;
   if (change.toDept) {
-    const dept = await prisma.department.findFirst({
+    const dept = await tx.department.findFirst({
       where: {
         name: { contains: change.toDept.replace(/Phòng\s*/i, "").trim(), mode: "insensitive" },
       },
@@ -33,13 +38,26 @@ async function syncEmployeeFromApprovedDecision(change: {
       targetDeptId !== user.employee.departmentId &&
       user.employee.departmentId
     ) {
-      await prisma.department.updateMany({
+      await tx.department.updateMany({
         where: { id: user.employee.departmentId, managerId: user.employee.id },
         data: { managerId: null },
       });
+
+      const remainingManaged = await tx.department.count({
+        where: { managerId: user.employee.id },
+      });
+      if (remainingManaged === 0 && user.role?.name === "MANAGER") {
+        const userRole = await tx.role.findUnique({ where: { name: "USER" } });
+        if (userRole) {
+          await tx.user.update({
+            where: { id: user.id },
+            data: { roleId: userRole.id },
+          });
+        }
+      }
     }
 
-    await prisma.employeeProfile.update({
+    await tx.employeeProfile.update({
       where: { id: user.employee.id },
       data: {
         position: change.toPosition || user.employee.position,
@@ -50,38 +68,58 @@ async function syncEmployeeFromApprovedDecision(change: {
 
     const parsedSalary = Number(newSalary);
     if (!isNaN(parsedSalary) && parsedSalary > 0) {
-      await prisma.employeeSalaryConfig.upsert({
+      await tx.employeeSalaryConfig.upsert({
         where: { employeeId: user.employee.id },
         update: { baseSalary: parsedSalary },
         create: { employeeId: user.employee.id, baseSalary: parsedSalary },
       });
 
-      const activeContract = await prisma.contract.findFirst({
+      const activeContract = await tx.contract.findFirst({
         where: { employeeId: user.employee.id, status: "ACTIVE" },
         orderBy: { startDate: "desc" },
       });
       if (activeContract) {
-        await prisma.contract.update({
+        await tx.contract.update({
           where: { id: activeContract.id },
           data: { salary: parsedSalary },
         });
       }
     }
   } else if (change.type === "RESIGNATION") {
-    await prisma.$transaction([
-      prisma.department.updateMany({
-        where: { managerId: user.employee.id },
-        data: { managerId: null },
-      }),
-      prisma.employeeProfile.update({
-        where: { id: user.employee.id },
-        data: { status: "RESIGNED" },
-      }),
-      prisma.contract.updateMany({
-        where: { employeeId: user.employee.id, status: "ACTIVE" },
-        data: { status: "TERMINATED" },
-      }),
-    ]);
+    await tx.department.updateMany({
+      where: { managerId: user.employee.id },
+      data: { managerId: null },
+    });
+
+    if (user.role?.name === "MANAGER") {
+      const userRole = await tx.role.findUnique({ where: { name: "USER" } });
+      if (userRole) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { roleId: userRole.id },
+        });
+      }
+    }
+
+    await tx.employeeProfile.update({
+      where: { id: user.employee.id },
+      data: { status: "RESIGNED" },
+    });
+
+    await tx.contract.updateMany({
+      where: { employeeId: user.employee.id, status: "ACTIVE" },
+      data: { status: "TERMINATED" },
+    });
+
+    await tx.leaveRequest.updateMany({
+      where: { employeeId: user.employee.id, status: "PENDING" },
+      data: { status: "REJECTED" },
+    });
+
+    await tx.overtimeRequest.updateMany({
+      where: { employeeId: user.employee.id, status: "PENDING" },
+      data: { status: "REJECTED" },
+    });
   }
 }
 
@@ -95,6 +133,43 @@ export async function GET() {
     const roleName = (session.user as any)?.roleName || "USER";
     if (!["SYSTEM_ADMIN", "BOD", "HR", "MANAGER"].includes(roleName)) {
       return NextResponse.json({ error: "Bạn không có quyền truy cập dữ liệu biến động nhân sự." }, { status: 403 });
+    }
+
+    if (roleName === "MANAGER") {
+      const managerProfile = await prisma.employeeProfile.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          managedDept: {
+            include: {
+              employees: { include: { user: { select: { email: true } } } },
+            },
+          },
+        },
+      });
+
+      const deptName = managerProfile?.managedDept?.name;
+      const deptEmails = (managerProfile?.managedDept?.employees || [])
+        .map((e) => e.user?.email)
+        .filter((email): email is string => Boolean(email));
+      if (session.user.email && !deptEmails.includes(session.user.email)) {
+        deptEmails.push(session.user.email);
+      }
+
+      const orConditions: Prisma.PersonnelChangeWhereInput[] = [
+        { employeeEmail: { in: deptEmails } },
+      ];
+      if (deptName) {
+        orConditions.push(
+          { fromDept: { contains: deptName, mode: "insensitive" } },
+          { toDept: { contains: deptName, mode: "insensitive" } }
+        );
+      }
+
+      const scopedChanges = await prisma.personnelChange.findMany({
+        where: { OR: orConditions },
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json(scopedChanges);
     }
 
     const changes = await prisma.personnelChange.findMany({
@@ -121,19 +196,50 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    const targetEmail = String(body.employeeEmail || "").trim();
 
-    const prefix = "QĐ-2026-";
-    const existingCodes = await prisma.personnelChange.findMany({
-      where: {
-        OR: [{ code: { startsWith: prefix } }, { code: { startsWith: "Q?-2026-" } }],
-      },
-      select: { code: true },
+    if (!body.employeeName || !targetEmail || !body.type) {
+      return NextResponse.json({ error: "Thiếu thông tin bắt buộc: Họ tên, Email nhân sự và Loại quyết định." }, { status: 400 });
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { email: targetEmail },
+      include: { role: true, employee: true },
     });
-    const maxNum = existingCodes.reduce((max, item) => {
-      const num = parseInt(item.code.replace(/^Q[Đ\?]-2026-/, ""), 10);
-      return !isNaN(num) && num > max ? num : max;
-    }, 0);
-    const code = `${prefix}${String(maxNum + 1).padStart(3, "0")}`;
+
+    if (["HR", "MANAGER"].includes(roleName)) {
+      if (
+        targetEmail.toLowerCase() === (session.user.email || "").toLowerCase() ||
+        (targetUser && targetUser.id === session.user.id)
+      ) {
+        return NextResponse.json(
+          { error: "Bạn không được tự khởi tạo hoặc phê duyệt quyết định biến động nhân sự / nâng lương cho chính mình." },
+          { status: 403 }
+        );
+      }
+
+      const targetRoleName = targetUser?.role?.name || "USER";
+      if (["SYSTEM_ADMIN", "BOD"].includes(targetRoleName)) {
+        return NextResponse.json(
+          { error: "Bạn không có thẩm quyền tạo quyết định biến động đối với tài khoản Quản trị hệ thống hoặc Ban Giám Đốc." },
+          { status: 403 }
+        );
+      }
+    }
+
+    if (roleName === "MANAGER") {
+      const managerProfile = await prisma.employeeProfile.findUnique({
+        where: { userId: session.user.id },
+        include: { managedDept: true },
+      });
+      const managedDeptId = managerProfile?.managedDept?.id;
+      if (!managedDeptId || !targetUser?.employee || targetUser.employee.departmentId !== managedDeptId) {
+        return NextResponse.json(
+          { error: "Trưởng phòng chỉ được phép đề xuất biến động cho nhân sự thuộc phòng ban mình quản lý." },
+          { status: 403 }
+        );
+      }
+    }
 
     const initialStatus =
       roleName === "MANAGER"
@@ -142,38 +248,61 @@ export async function POST(req: Request) {
         ? "PENDING"
         : "APPROVED";
 
-    const newChange = await prisma.personnelChange.create({
-      data: {
-        code,
-        employeeName: body.employeeName,
-        employeeEmail: body.employeeEmail,
-        type: body.type,
-        fromDept: body.fromDept || "Phòng Công nghệ (IT)",
-        toDept: body.toDept || "Phòng Công nghệ (IT)",
-        fromPosition: body.fromPosition,
-        toPosition: body.toPosition,
-        effectiveDate: body.effectiveDate,
-        signer: body.signer || (session.user as any)?.name || "Ban Giám Đốc",
-        status: initialStatus,
+    const newChange = await prisma.$transaction(
+      async (tx) => {
+        const prefix = "QĐ-2026-";
+        const existingCodes = await tx.personnelChange.findMany({
+          where: {
+            OR: [{ code: { startsWith: prefix } }, { code: { startsWith: "Q?-2026-" } }],
+          },
+          select: { code: true },
+        });
+        const maxNum = existingCodes.reduce((max, item) => {
+          const num = parseInt(item.code.replace(/^Q[Đ\?]-2026-/, ""), 10);
+          return !isNaN(num) && num > max ? num : max;
+        }, 0);
+        const code = `${prefix}${String(maxNum + 1).padStart(3, "0")}`;
+
+        const created = await tx.personnelChange.create({
+          data: {
+            code,
+            employeeName: body.employeeName,
+            employeeEmail: targetEmail,
+            type: body.type,
+            fromDept: body.fromDept || "Phòng Công nghệ (IT)",
+            toDept: body.toDept || "Phòng Công nghệ (IT)",
+            fromPosition: body.fromPosition,
+            toPosition: body.toPosition,
+            effectiveDate: body.effectiveDate,
+            signer: body.signer || (session.user as any)?.name || "Ban Giám Đốc",
+            status: initialStatus,
+          },
+        });
+
+        if (initialStatus === "APPROVED") {
+          await syncEmployeeFromApprovedDecision(tx, created, body.newSalary);
+        }
+
+        const salaryNote =
+          Number(body.newSalary) > 0
+            ? ` - Lương mới: ${Number(body.newSalary).toLocaleString("vi-VN")} VNĐ`
+            : "";
+
+        await tx.auditLog.create({
+          data: {
+            userName: session.user?.name || "Người dùng",
+            userRole: roleName,
+            action: `${initialStatus === "APPROVED" ? "Ban hành" : "Trình duyệt"} Quyết định biến động nhân sự ${code} (${body.employeeName} - ${body.type}${salaryNote})`,
+            target: "PersonnelChange",
+            ip: "127.0.0.1",
+            status: "SUCCESS",
+          },
+        });
+
+        return created;
       },
-    });
-
-    if (initialStatus === "APPROVED") {
-      await syncEmployeeFromApprovedDecision(newChange, body.newSalary);
-    }
-
-    const salaryNote = Number(body.newSalary) > 0 ? ` - Lương mới: ${Number(body.newSalary).toLocaleString("vi-VN")} VNĐ` : "";
-
-    await prisma.auditLog.create({
-      data: {
-        userName: session.user?.name || "Người dùng",
-        userRole: roleName,
-        action: `${initialStatus === "APPROVED" ? "Ban hành" : "Trình duyệt"} Quyết định biến động nhân sự ${code} (${body.employeeName} - ${body.type}${salaryNote})`,
-        target: "PersonnelChange",
-        ip: "127.0.0.1",
-        status: "SUCCESS",
-      },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 
     return NextResponse.json(newChange, { status: 201 });
   } catch (error) {
@@ -209,27 +338,56 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Không tìm thấy quyết định biến động." }, { status: 404 });
     }
 
-    const updated = await prisma.personnelChange.update({
-      where: { id },
-      data: {
-        status,
-        signer: session.user?.name || existing.signer,
-      },
-    });
+    if (roleName === "HR") {
+      if (
+        existing.employeeEmail &&
+        existing.employeeEmail.toLowerCase() === (session.user.email || "").toLowerCase()
+      ) {
+        return NextResponse.json(
+          { error: "Nhân sự (HR) không được tự phê duyệt quyết định biến động của chính mình." },
+          { status: 403 }
+        );
+      }
 
-    if (status === "APPROVED" && existing.status !== "APPROVED") {
-      await syncEmployeeFromApprovedDecision(updated, newSalary);
+      if (existing.employeeEmail) {
+        const targetUser = await prisma.user.findUnique({
+          where: { email: existing.employeeEmail },
+          include: { role: true },
+        });
+        if (targetUser && ["SYSTEM_ADMIN", "BOD"].includes(targetUser.role?.name || "")) {
+          return NextResponse.json(
+            { error: "Nhân sự (HR) không có thẩm quyền phê duyệt quyết định đối với Quản trị hệ thống hoặc Ban Giám Đốc." },
+            { status: 403 }
+          );
+        }
+      }
     }
 
-    await prisma.auditLog.create({
-      data: {
-        userName: session.user?.name || "Ban Giám Đốc",
-        userRole: roleName,
-        action: `${status === "APPROVED" ? "Phê duyệt ban hành" : "Từ chối"} Quyết định biến động nhân sự ${existing.code} (${existing.employeeName})`,
-        target: "PersonnelChange",
-        ip: "127.0.0.1",
-        status: status === "APPROVED" ? "SUCCESS" : "WARNING",
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const record = await tx.personnelChange.update({
+        where: { id },
+        data: {
+          status,
+          signer: session.user?.name || existing.signer,
+        },
+      });
+
+      if (status === "APPROVED" && existing.status !== "APPROVED") {
+        await syncEmployeeFromApprovedDecision(tx, record, newSalary);
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userName: session.user?.name || "Ban Giám Đốc",
+          userRole: roleName,
+          action: `${status === "APPROVED" ? "Phê duyệt ban hành" : "Từ chối"} Quyết định biến động nhân sự ${existing.code} (${existing.employeeName})`,
+          target: "PersonnelChange",
+          ip: "127.0.0.1",
+          status: status === "APPROVED" ? "SUCCESS" : "WARNING",
+        },
+      });
+
+      return record;
     });
 
     return NextResponse.json(updated);

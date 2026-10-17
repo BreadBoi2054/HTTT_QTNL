@@ -16,9 +16,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const { id } = await params;
     const body = await req.json();
-    const actorName = session.user.name || "HR";
+    const actor = {
+      name: session.user.name || "HR",
+      roleName,
+      userId: session.user.id || undefined,
+    };
 
-    const result = await updateContract(id, body, actorName);
+    const result = await updateContract(id, body, actor);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[CONTRACTS_PUT]", error);
@@ -37,9 +41,13 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const { id } = await params;
-    const actorName = session.user.name || "HR";
+    const actor = {
+      name: session.user.name || "HR",
+      roleName,
+      userId: session.user.id || undefined,
+    };
 
-    const result = await deleteContract(id, actorName);
+    const result = await deleteContract(id, actor);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[CONTRACTS_DELETE]", error);

@@ -74,7 +74,57 @@ export async function getContracts(scope?: { userEmail?: string; roleName?: stri
   });
 }
 
-export async function createContract(data: any, actorName: string = "Quản trị viên") {
+export interface ContractActorContext {
+  name?: string;
+  roleName?: string;
+  userId?: string;
+}
+
+async function syncEmployeeBaseSalaryFromActiveContract(
+  tx: any,
+  employeeId: string,
+  preferredSalary?: number
+) {
+  if (preferredSalary !== undefined && preferredSalary > 0) {
+    await tx.employeeSalaryConfig.upsert({
+      where: { employeeId },
+      update: { baseSalary: preferredSalary },
+      create: { employeeId, baseSalary: preferredSalary },
+    });
+    return;
+  }
+
+  const now = new Date();
+  const latestActiveContract = await tx.contract.findFirst({
+    where: {
+      employeeId,
+      status: { in: ["ACTIVE", "EXPIRING_SOON"] },
+      startDate: { lte: now },
+      OR: [{ endDate: null }, { endDate: { gte: now } }],
+    },
+    orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
+  });
+
+  if (latestActiveContract && latestActiveContract.salary > 0) {
+    await tx.employeeSalaryConfig.upsert({
+      where: { employeeId },
+      update: { baseSalary: latestActiveContract.salary },
+      create: { employeeId, baseSalary: latestActiveContract.salary },
+    });
+  }
+}
+
+export async function createContract(
+  data: any,
+  actorInput: string | ContractActorContext = "Quản trị viên"
+) {
+  const actor: ContractActorContext =
+    typeof actorInput === "string"
+      ? { name: actorInput, roleName: "HR" }
+      : actorInput;
+  const actorName = actor.name || "Quản trị viên";
+  const actorRole = actor.roleName || "HR";
+
   const { employeeId, contractType, startDate, endDate, salary, baseSalary, note, fileUrl } = data;
 
   if (!employeeId || !contractType || !startDate) {
@@ -83,27 +133,22 @@ export async function createContract(data: any, actorName: string = "Quản tr�
 
   const employee = await prisma.employeeProfile.findUnique({
     where: { id: employeeId },
-    include: { user: { select: SAFE_USER_SELECT } },
+    include: {
+      user: { select: SAFE_USER_SELECT },
+      salaryConfig: { select: { baseSalary: true } },
+    },
   });
 
   if (!employee) throw new Error("Không tìm thấy nhân viên được chỉ định.");
 
-  const year = new Date(startDate).getFullYear();
-  const prefix = `HĐLĐ-${year}/NX-`;
-  let code = data.code;
-  if (!code) {
-    const existingContracts = await prisma.contract.findMany({
-      where: { code: { startsWith: prefix } },
-      select: { code: true },
-    });
-    let maxSuffix = 0;
-    for (const item of existingContracts) {
-      const numPart = parseInt(item.code.slice(prefix.length), 10);
-      if (!isNaN(numPart) && numPart > maxSuffix) {
-        maxSuffix = numPart;
-      }
+  if (actorRole === "HR") {
+    if (actor.userId && employee.userId === actor.userId) {
+      throw new Error("Nhân sự (HR) không được phép tự ký mới hợp đồng hoặc tự thay đổi mức lương của chính mình.");
     }
-    code = `${prefix}${String(maxSuffix + 1).padStart(4, "0")}`;
+    const targetRoleName = employee.user?.role?.name || "USER";
+    if (["SYSTEM_ADMIN", "BOD"].includes(targetRoleName)) {
+      throw new Error("Nhân sự (HR) không có thẩm quyền tạo hợp đồng cho Quản trị hệ thống hoặc Ban Giám Đốc.");
+    }
   }
 
   const start = new Date(startDate);
@@ -121,58 +166,100 @@ export async function createContract(data: any, actorName: string = "Quản tr�
   }
 
   const contractSalary = parseFloat(salary ?? baseSalary) || 0;
+  const year = start.getFullYear();
+  const prefix = `HĐLĐ-${year}/NX-`;
 
-  const newContract = await prisma.contract.create({
-    data: {
-      code,
-      employeeId,
-      contractType,
-      startDate: start,
-      endDate: end,
-      salary: contractSalary,
-      status,
-      note,
-      fileUrl,
-    },
-    include: {
-      employee: {
-        include: {
-          user: { select: SAFE_USER_SELECT },
-          department: true,
+  return await prisma.$transaction(async (tx) => {
+    let code = data.code;
+    if (!code) {
+      const existingContracts = await tx.contract.findMany({
+        where: { code: { startsWith: prefix } },
+        select: { code: true },
+      });
+      let maxSuffix = 0;
+      for (const item of existingContracts) {
+        const numPart = parseInt(item.code.slice(prefix.length), 10);
+        if (!isNaN(numPart) && numPart > maxSuffix) {
+          maxSuffix = numPart;
+        }
+      }
+      code = `${prefix}${String(maxSuffix + 1).padStart(4, "0")}`;
+    }
+
+    const newContract = await tx.contract.create({
+      data: {
+        code,
+        employeeId,
+        contractType,
+        startDate: start,
+        endDate: end,
+        salary: contractSalary,
+        status,
+        note,
+        fileUrl,
+      },
+      include: {
+        employee: {
+          include: {
+            user: { select: SAFE_USER_SELECT },
+            department: true,
+          },
         },
       },
-    },
-  });
-
-  if (contractSalary > 0) {
-    await prisma.employeeSalaryConfig.upsert({
-      where: { employeeId },
-      update: { baseSalary: contractSalary },
-      create: { employeeId, baseSalary: contractSalary },
     });
-  }
 
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName,
-      userRole: "HR",
-      action: `Ký mới Hợp đồng lao động ${code} cho nhân sự ${employee.user.name} (${contractType})`,
-      target: "Contract",
-      ip: "127.0.0.1",
-      status: "SUCCESS",
-    },
+    const isEffectiveNow =
+      status !== "EXPIRED" &&
+      status !== "TERMINATED" &&
+      (start.getTime() <= Date.now() || !employee.salaryConfig);
+
+    if (contractSalary > 0 && isEffectiveNow) {
+      await syncEmployeeBaseSalaryFromActiveContract(tx, employeeId, contractSalary);
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userName: actorName,
+        userRole: actorRole,
+        action: `Ký mới Hợp đồng lao động ${code} cho nhân sự ${employee.user.name} (${contractType})`,
+        target: "Contract",
+        ip: "127.0.0.1",
+        status: "SUCCESS",
+      },
+    });
+
+    return newContract;
   });
-
-  return newContract;
 }
 
-export async function updateContract(id: string, data: any, actorName: string = "Quản trị viên") {
+export async function updateContract(
+  id: string,
+  data: any,
+  actorInput: string | ContractActorContext = "Quản trị viên"
+) {
+  const actor: ContractActorContext =
+    typeof actorInput === "string"
+      ? { name: actorInput, roleName: "HR" }
+      : actorInput;
+  const actorName = actor.name || "Quản trị viên";
+  const actorRole = actor.roleName || "HR";
+
   const existing = await prisma.contract.findUnique({
     where: { id },
     include: { employee: { include: { user: { select: SAFE_USER_SELECT } } } },
   });
 
   if (!existing) throw new Error("Không tìm thấy hợp đồng lao động.");
+
+  if (actorRole === "HR") {
+    if (actor.userId && existing.employee.userId === actor.userId) {
+      throw new Error("Nhân sự (HR) không được phép tự chỉnh sửa hợp đồng hoặc mức lương của chính mình.");
+    }
+    const targetRoleName = existing.employee.user?.role?.name || "USER";
+    if (["SYSTEM_ADMIN", "BOD"].includes(targetRoleName)) {
+      throw new Error("Nhân sự (HR) không có thẩm quyền chỉnh sửa hợp đồng của Quản trị hệ thống hoặc Ban Giám Đốc.");
+    }
+  }
 
   const { contractType, startDate, endDate, salary, baseSalary, status, note, fileUrl } = data;
 
@@ -194,50 +281,66 @@ export async function updateContract(id: string, data: any, actorName: string = 
   const rawSalary = salary !== undefined ? salary : baseSalary;
   const parsedSalary = rawSalary !== undefined ? parseFloat(rawSalary) : undefined;
 
-  const updated = await prisma.contract.update({
-    where: { id },
-    data: {
-      contractType: contractType ?? undefined,
-      startDate: start,
-      endDate: end,
-      salary: parsedSalary,
-      status: finalStatus,
-      note: note !== undefined ? note : undefined,
-      fileUrl: fileUrl !== undefined ? fileUrl : undefined,
-    },
-    include: {
-      employee: {
-        include: {
-          user: { select: SAFE_USER_SELECT },
-          department: true,
+  return await prisma.$transaction(async (tx) => {
+    const updated = await tx.contract.update({
+      where: { id },
+      data: {
+        contractType: contractType ?? undefined,
+        startDate: start,
+        endDate: end,
+        salary: parsedSalary,
+        status: finalStatus,
+        note: note !== undefined ? note : undefined,
+        fileUrl: fileUrl !== undefined ? fileUrl : undefined,
+      },
+      include: {
+        employee: {
+          include: {
+            user: { select: SAFE_USER_SELECT },
+            department: true,
+          },
         },
       },
-    },
-  });
-
-  if (parsedSalary !== undefined && parsedSalary > 0 && finalStatus !== "TERMINATED" && finalStatus !== "EXPIRED") {
-    await prisma.employeeSalaryConfig.upsert({
-      where: { employeeId: existing.employeeId },
-      update: { baseSalary: parsedSalary },
-      create: { employeeId: existing.employeeId, baseSalary: parsedSalary },
     });
-  }
 
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName,
-      userRole: "HR",
-      action: `Cập nhật Hợp đồng lao động ${existing.code} (${existing.employee.user.name})`,
-      target: "Contract",
-      ip: "127.0.0.1",
-      status: "SUCCESS",
-    },
+    if (
+      parsedSalary !== undefined &&
+      parsedSalary > 0 &&
+      finalStatus !== "TERMINATED" &&
+      finalStatus !== "EXPIRED" &&
+      start.getTime() <= Date.now()
+    ) {
+      await syncEmployeeBaseSalaryFromActiveContract(tx, existing.employeeId, parsedSalary);
+    } else if (finalStatus === "TERMINATED" || finalStatus === "EXPIRED") {
+      await syncEmployeeBaseSalaryFromActiveContract(tx, existing.employeeId);
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userName: actorName,
+        userRole: actorRole,
+        action: `Cập nhật Hợp đồng lao động ${existing.code} (${existing.employee.user.name})`,
+        target: "Contract",
+        ip: "127.0.0.1",
+        status: "SUCCESS",
+      },
+    });
+
+    return updated;
   });
-
-  return updated;
 }
 
-export async function deleteContract(id: string, actorName: string = "Quản trị viên") {
+export async function deleteContract(
+  id: string,
+  actorInput: string | ContractActorContext = "Quản trị viên"
+) {
+  const actor: ContractActorContext =
+    typeof actorInput === "string"
+      ? { name: actorInput, roleName: "HR" }
+      : actorInput;
+  const actorName = actor.name || "Quản trị viên";
+  const actorRole = actor.roleName || "HR";
+
   const existing = await prisma.contract.findUnique({
     where: { id },
     include: { employee: { include: { user: { select: SAFE_USER_SELECT } } } },
@@ -245,18 +348,32 @@ export async function deleteContract(id: string, actorName: string = "Quản tr�
 
   if (!existing) throw new Error("Không tìm thấy hợp đồng lao động.");
 
-  const deleted = await prisma.contract.delete({ where: { id } });
+  if (actorRole === "HR") {
+    if (actor.userId && existing.employee.userId === actor.userId) {
+      throw new Error("Nhân sự (HR) không được phép tự xóa hợp đồng của chính mình.");
+    }
+    const targetRoleName = existing.employee.user?.role?.name || "USER";
+    if (["SYSTEM_ADMIN", "BOD"].includes(targetRoleName)) {
+      throw new Error("Nhân sự (HR) không có thẩm quyền xóa hợp đồng của Quản trị hệ thống hoặc Ban Giám Đốc.");
+    }
+  }
 
-  await prisma.auditLog.create({
-    data: {
-      userName: actorName,
-      userRole: "HR",
-      action: `Hủy / Xóa Hợp đồng lao động ${existing.code} của nhân sự ${existing.employee.user.name}`,
-      target: "Contract",
-      ip: "127.0.0.1",
-      status: "WARNING",
-    },
+  return await prisma.$transaction(async (tx) => {
+    const deleted = await tx.contract.delete({ where: { id } });
+
+    await syncEmployeeBaseSalaryFromActiveContract(tx, existing.employeeId);
+
+    await tx.auditLog.create({
+      data: {
+        userName: actorName,
+        userRole: actorRole,
+        action: `Hủy / Xóa Hợp đồng lao động ${existing.code} của nhân sự ${existing.employee.user.name}`,
+        target: "Contract",
+        ip: "127.0.0.1",
+        status: "WARNING",
+      },
+    });
+
+    return deleted;
   });
-
-  return deleted;
 }

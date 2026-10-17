@@ -12,7 +12,7 @@ export async function GET(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
     const roleName = (session.user as any).roleName || "USER";
-    if (!["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "USER"].includes(roleName)) {
+    if (!["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "ACCOUNTANT", "USER"].includes(roleName)) {
       return new NextResponse("Bạn không có quyền xem đánh giá hiệu suất.", { status: 403 });
     }
 
@@ -48,11 +48,32 @@ export async function POST(req: Request) {
     if (!body.employeeId || (body.year !== undefined && !Number.isInteger(Number(body.year))) || scores.some((score) => score !== undefined && (!Number.isFinite(Number(score)) || Number(score) < 0 || Number(score) > 100))) {
       return NextResponse.json({ error: "Thông tin kỳ đánh giá hoặc điểm số không hợp lệ (0–100)." }, { status: 400 });
     }
+
+    const targetEmployee = await prisma.employeeProfile.findUnique({
+      where: { id: body.employeeId },
+      include: { user: { include: { role: true } } },
+    });
+    if (!targetEmployee) {
+      return NextResponse.json({ error: "Không tìm thấy hồ sơ nhân sự." }, { status: 404 });
+    }
+
+    if (["HR", "MANAGER"].includes(roleName)) {
+      if (targetEmployee.userId === session.user.id) {
+        return NextResponse.json({ error: "Bạn không được tự chấm điểm quản lý hoặc tự phê duyệt KPI của chính mình." }, { status: 403 });
+      }
+      const targetRoleName = targetEmployee.user?.role?.name || "USER";
+      if (["SYSTEM_ADMIN", "BOD"].includes(targetRoleName)) {
+        return NextResponse.json({ error: "Bạn không có thẩm quyền chấm điểm KPI cho Quản trị hệ thống hoặc Ban Giám Đốc." }, { status: 403 });
+      }
+    }
+
     if (roleName === "MANAGER") {
-      const employee = await prisma.employeeProfile.findUnique({ where: { id: body.employeeId }, select: { id: true, departmentId: true } });
-      const actor = await prisma.employeeProfile.findUnique({ where: { userId: session.user.id }, select: { id: true, departmentId: true, managedDept: { select: { id: true } } } });
+      const actor = await prisma.employeeProfile.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true, departmentId: true, managedDept: { select: { id: true } } },
+      });
       const managedDepartmentId = actor?.managedDept?.id;
-      if (!employee || !managedDepartmentId || employee.departmentId !== managedDepartmentId || employee.id === actor?.id) {
+      if (!managedDepartmentId || targetEmployee.departmentId !== managedDepartmentId) {
         return NextResponse.json({ error: "Chỉ được đánh giá nhân sự thuộc phòng ban của bạn." }, { status: 403 });
       }
     }

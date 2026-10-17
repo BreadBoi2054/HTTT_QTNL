@@ -5,7 +5,12 @@ import { auth } from "@/auth";
 export async function GET() {
   try {
     const session = await auth();
-    if (!session) return new NextResponse("Unauthorized", { status: 401 });
+    if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
+
+    const role = (session.user as any)?.roleName || "USER";
+    if (!["SYSTEM_ADMIN", "BOD", "HR", "ACCOUNTANT"].includes(role)) {
+      return new NextResponse("Bạn không có quyền xem cấu hình danh mục lương.", { status: 403 });
+    }
 
     const components = await prisma.salaryComponent.findMany({
       orderBy: { createdAt: 'desc' }
@@ -39,6 +44,17 @@ export async function POST(req: Request) {
         amountType: amountType || "FIXED",
         defaultVal: parseFloat(defaultVal) || 0
       }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userName: session.user?.name || "Quản trị viên",
+        userRole: role,
+        action: `Tạo khoản mục cấu hình lương mới: ${component.name} (${component.type} - ${component.defaultVal.toLocaleString("vi-VN")} VNĐ)`,
+        target: "SalaryComponent",
+        ip: "127.0.0.1",
+        status: "SUCCESS",
+      },
     });
 
     return NextResponse.json(component);

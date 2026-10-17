@@ -144,7 +144,12 @@ export async function getPayrolls(
   });
 }
 
-export async function createPayroll(data: any, actorName: string = "Phòng Nhân Sự", actorRole: string = "HR") {
+export async function createPayroll(
+  data: any,
+  actorName: string = "Phòng Nhân Sự",
+  actorRole: string = "HR",
+  actorUserId?: string
+) {
   const { employeeId, month, year, baseSalary, bonus = 0, deductions = 0 } = data;
   const parsedMonth = Number(month);
   const parsedYear = Number(year);
@@ -154,8 +159,23 @@ export async function createPayroll(data: any, actorName: string = "Phòng Nhân
   if (!employeeId || !Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12 || !Number.isInteger(parsedYear) || parsedYear < 2000 || parsedYear > 2100) {
     throw new Error("Nhân viên hoặc kỳ lương không hợp lệ.");
   }
+  const now = new Date();
+  if (parsedYear > now.getFullYear() || (parsedYear === now.getFullYear() && parsedMonth > now.getMonth() + 1)) {
+    throw new Error("Không thể khởi tạo phiếu lương cho kỳ lương tương lai chưa phát sinh công.");
+  }
   if (![parsedBase, parsedBonus, parsedDed].every((value) => Number.isFinite(value) && value >= 0) || parsedDed > parsedBase + parsedBonus) {
     throw new Error("Các khoản lương phải là số không âm và khấu trừ không được vượt tổng thu nhập.");
+  }
+
+  const targetEmployee = await prisma.employeeProfile.findUnique({
+    where: { id: employeeId },
+    include: { user: { select: SAFE_USER_SELECT } },
+  });
+  if (!targetEmployee) {
+    throw new Error("Không tìm thấy hồ sơ nhân viên.");
+  }
+  if (["HR", "ACCOUNTANT"].includes(actorRole) && actorUserId && targetEmployee.userId === actorUserId) {
+    throw new Error("Nhân sự (HR) và Kế toán không được phép tự khởi tạo phiếu lương thủ công cho chính mình.");
   }
 
   const existing = await prisma.payroll.findUnique({
@@ -210,7 +230,13 @@ export async function createPayroll(data: any, actorName: string = "Phòng Nhân
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
-export async function updatePayroll(id: string, data: any, actorName: string = "Kế toán / HR", actorRole: string = "HR") {
+export async function updatePayroll(
+  id: string,
+  data: any,
+  actorName: string = "Kế toán / HR",
+  actorRole: string = "HR",
+  actorUserId?: string
+) {
   const payroll = await prisma.payroll.findUnique({
     where: { id },
     include: {
@@ -222,6 +248,9 @@ export async function updatePayroll(id: string, data: any, actorName: string = "
   if (!payroll) throw new Error("Không tìm thấy phiếu lương.");
   if (payroll.status === "PAID") {
     throw new Error("Sổ sách đã đóng. Không thể sửa phiếu lương đã thanh toán.");
+  }
+  if (["HR", "ACCOUNTANT"].includes(actorRole) && actorUserId && payroll.employee.userId === actorUserId) {
+    throw new Error("Nhân sự (HR) và Kế toán không được phép tự điều chỉnh phiếu lương của chính mình.");
   }
 
   const { baseSalary, bonus, deductions, status } = data;
@@ -276,7 +305,12 @@ export async function updatePayroll(id: string, data: any, actorName: string = "
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
-export async function deletePayroll(id: string, actorName: string = "Quản trị viên", actorRole: string = "HR") {
+export async function deletePayroll(
+  id: string,
+  actorName: string = "Quản trị viên",
+  actorRole: string = "HR",
+  actorUserId?: string
+) {
   const payroll = await prisma.payroll.findUnique({
     where: { id },
     include: {
@@ -288,6 +322,9 @@ export async function deletePayroll(id: string, actorName: string = "Quản tr�
   if (!payroll) throw new Error("Không tìm thấy phiếu lương.");
   if (payroll.status === "PAID") {
     throw new Error("Sổ sách đã đóng. Không thể xóa phiếu lương đã thanh toán.");
+  }
+  if (["HR", "ACCOUNTANT"].includes(actorRole) && actorUserId && payroll.employee.userId === actorUserId) {
+    throw new Error("Nhân sự (HR) và Kế toán không được phép tự xóa phiếu lương của chính mình.");
   }
 
   return prisma.$transaction(async (tx) => {

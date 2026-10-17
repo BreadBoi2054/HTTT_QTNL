@@ -21,7 +21,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const actorName = session.user?.name || "Kế toán / HR";
-    const result = await updatePayroll(id, body, actorName, roleName);
+    const result = await updatePayroll(id, body, actorName, roleName, session.user.id || undefined);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[PAYROLL_PUT]", error);
@@ -41,7 +41,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     const { id } = await params;
     const actorName = session.user?.name || "Quản trị viên";
-    const result = await deletePayroll(id, actorName, roleName);
+    const result = await deletePayroll(id, actorName, roleName, session.user.id || undefined);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[PAYROLL_DELETE]", error);

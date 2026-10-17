@@ -148,9 +148,9 @@ export async function PATCH(req: Request) {
 
       await prisma.auditLog.create({
         data: {
-          userName: session.user?.name || "Nhân viên",
-          userRole: roleName,
-          action: `Gửi phản hồi khảo sát nội bộ: ${updatedSurvey.title} (${submittedScore}/5 điểm)`,
+          userName: "Ẩn danh (Khảo sát nội bộ)",
+          userRole: "ANONYMOUS",
+          action: `Ghi nhận 01 phản hồi khảo sát nội bộ: ${updatedSurvey.title}`,
           target: "Survey",
           ip: "127.0.0.1",
           status: "SUCCESS"

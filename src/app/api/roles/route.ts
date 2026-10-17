@@ -8,7 +8,12 @@ const CORE_ROLES = ["SYSTEM_ADMIN", "BOD", "HR", "MANAGER", "ACCOUNTANT", "USER"
 export async function GET() {
   try {
     const session = await auth();
-    if (!session) return new NextResponse("Unauthorized", { status: 401 });
+    if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
+
+    const roleName = (session.user as any)?.roleName || "USER";
+    if (!["SYSTEM_ADMIN", "BOD", "HR", "MANAGER"].includes(roleName)) {
+      return new NextResponse("Bạn không có quyền truy cập cấu hình vai trò hệ thống.", { status: 403 });
+    }
 
     const roles = await getRoles();
     return NextResponse.json(roles);

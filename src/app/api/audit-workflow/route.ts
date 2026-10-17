@@ -14,7 +14,39 @@ export async function GET() {
       return NextResponse.json({ error: "Chỉ Quản trị viên, Ban Giám Đốc, Nhân sự, Kế toán và cấp Quản lý mới có quyền truy cập nhật ký kiểm toán hệ thống." }, { status: 403 });
     }
 
+    const whereClause: any = {};
+
+    if (roleName === "MANAGER") {
+      const managerProfile = await prisma.employeeProfile.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          managedDept: {
+            include: {
+              employees: { include: { user: { select: { name: true } } } },
+            },
+          },
+        },
+      });
+      const memberNames = (managerProfile?.managedDept?.employees || [])
+        .map((e) => e.user?.name)
+        .filter((name): name is string => Boolean(name));
+      if (session.user.name && !memberNames.includes(session.user.name)) {
+        memberNames.push(session.user.name);
+      }
+
+      whereClause.AND = [
+        { target: { notIn: ["Payroll", "SalaryComponent", "Role"] } },
+        { userName: { in: memberNames } },
+      ];
+    } else if (roleName === "ACCOUNTANT") {
+      whereClause.OR = [
+        { target: { in: ["Payroll", "SalaryComponent", "Contract", "Attendance", "OvertimeRequest"] } },
+        ...(session.user.name ? [{ userName: session.user.name }] : []),
+      ];
+    }
+
     const logs = await prisma.auditLog.findMany({
+      where: whereClause,
       orderBy: { createdAt: "desc" },
       take: 50,
     });

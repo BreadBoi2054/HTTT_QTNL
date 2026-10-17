@@ -32,7 +32,8 @@ export async function POST(req: Request) {
       return new NextResponse("Tên phòng ban là bắt buộc", { status: 400 });
     }
 
-    const department = await createDepartment({ name, description, managerId });
+    const actorName = session.user?.name || "Quản trị viên";
+    const department = await createDepartment({ name, description, managerId }, actorName, roleName);
     return NextResponse.json(department);
   } catch (error) {
     console.error("[DEPARTMENTS_POST]", error);
