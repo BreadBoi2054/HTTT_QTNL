@@ -13,17 +13,93 @@ async function visibleEmployeeIds(scope: Scope): Promise<string[] | undefined> {
   return [...new Set([own.id, ...members.map((member) => member.id)])];
 }
 
+export function evaluateOvertimeThresholds(monthlyHours: number, yearlyHours: number) {
+  const warnings: string[] = [];
+  const exceedsMonthly40 = monthlyHours > 40;
+  const exceedsYearly200 = yearlyHours > 200;
+  const exceedsYearly300 = yearlyHours > 300;
+
+  if (exceedsMonthly40) {
+    warnings.push(
+      `Lũy kế tháng (${monthlyHours}h) vượt ngưỡng 40h/tháng — Duyệt theo thỏa thuận 2 bên / công việc cấp bách.`
+    );
+  }
+  if (exceedsYearly300) {
+    warnings.push(
+      `Lũy kế năm (${yearlyHours}h) vượt trần đặc thù 300h/năm (Điều 107/108 BLLĐ 2019).`
+    );
+  } else if (exceedsYearly200) {
+    warnings.push(
+      `Lũy kế năm (${yearlyHours}h) vượt ngưỡng chuẩn 200h/năm (trong khung đặc thù 300h/năm).`
+    );
+  }
+
+  return {
+    monthlyHours,
+    yearlyHours,
+    exceedsMonthly40,
+    exceedsYearly200,
+    exceedsYearly300,
+    warnings,
+  };
+}
+
 export async function getOvertimeRequests(scope: Scope, month?: number, year?: number) {
   const ids = await visibleEmployeeIds(scope);
   const date = month && year ? {
     gte: new Date(Date.UTC(year, month - 1, 1)),
     lt: new Date(Date.UTC(year, month, 1)),
   } : undefined;
-  return prisma.overtimeRequest.findMany({
+  const requests = await prisma.overtimeRequest.findMany({
     where: { ...(ids ? { employeeId: { in: ids } } : {}), ...(date ? { date } : {}) },
     include: { employee: { select: { userId: true, user: { select: { name: true } }, department: { select: { name: true } } } } },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 200,
+  });
+
+  if (requests.length === 0) return [];
+
+  const empIds = [...new Set(requests.map((r) => r.employeeId))];
+  const years = [...new Set(requests.map((r) => r.date.getUTCFullYear()))];
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+
+  const allActiveYearRequests = await prisma.overtimeRequest.findMany({
+    where: {
+      employeeId: { in: empIds },
+      status: { in: ["APPROVED", "PENDING"] },
+      date: {
+        gte: new Date(Date.UTC(minYear, 0, 1)),
+        lt: new Date(Date.UTC(maxYear + 1, 0, 1)),
+      },
+    },
+    select: { employeeId: true, date: true, hours: true, status: true },
+  });
+
+  const monthlyTotals = new Map<string, number>();
+  const yearlyTotals = new Map<string, number>();
+
+  for (const item of allActiveYearRequests) {
+    const y = item.date.getUTCFullYear();
+    const m = item.date.getUTCMonth() + 1;
+    const mKey = `${item.employeeId}:${y}-${m}`;
+    const yKey = `${item.employeeId}:${y}`;
+    monthlyTotals.set(mKey, (monthlyTotals.get(mKey) || 0) + item.hours);
+    yearlyTotals.set(yKey, (yearlyTotals.get(yKey) || 0) + item.hours);
+  }
+
+  return requests.map((req) => {
+    const y = req.date.getUTCFullYear();
+    const m = req.date.getUTCMonth() + 1;
+    const monthlyAccumulatedHours = monthlyTotals.get(`${req.employeeId}:${y}-${m}`) || req.hours;
+    const yearlyAccumulatedHours = yearlyTotals.get(`${req.employeeId}:${y}`) || req.hours;
+    const thresholdInfo = evaluateOvertimeThresholds(monthlyAccumulatedHours, yearlyAccumulatedHours);
+    return {
+      ...req,
+      monthlyAccumulatedHours,
+      yearlyAccumulatedHours,
+      warnings: thresholdInfo.warnings,
+    };
   });
 }
 
@@ -105,8 +181,11 @@ export async function decideOvertimeRequest(scope: Scope, id: string, decision: 
     const payroll = await tx.payroll.findUnique({ where: { employeeId_month_year: { employeeId: request.employeeId, month: request.date.getUTCMonth() + 1, year: request.date.getUTCFullYear() } }, select: { status: true } });
     if (payroll?.status === "PAID") throw new Error("Kỳ lương đã khóa; cần xử lý điều chỉnh riêng.");
 
+    let agreementNote = "";
     if (decision === "APPROVED") {
-      const [approvedLeave, workedAttendance] = await Promise.all([
+      const reqYear = request.date.getUTCFullYear();
+      const reqMonth = request.date.getUTCMonth();
+      const [approvedLeave, workedAttendance, monthAggregate, yearAggregate] = await Promise.all([
         tx.leaveRequest.findFirst({
           where: {
             employeeId: request.employeeId,
@@ -120,6 +199,28 @@ export async function decideOvertimeRequest(scope: Scope, id: string, decision: 
           where: { employeeId_date: { employeeId: request.employeeId, date: request.date } },
           select: { status: true, checkIn: true },
         }),
+        tx.overtimeRequest.aggregate({
+          where: {
+            employeeId: request.employeeId,
+            status: "APPROVED",
+            date: {
+              gte: new Date(Date.UTC(reqYear, reqMonth, 1)),
+              lt: new Date(Date.UTC(reqYear, reqMonth + 1, 1)),
+            },
+          },
+          _sum: { hours: true },
+        }),
+        tx.overtimeRequest.aggregate({
+          where: {
+            employeeId: request.employeeId,
+            status: "APPROVED",
+            date: {
+              gte: new Date(Date.UTC(reqYear, 0, 1)),
+              lt: new Date(Date.UTC(reqYear + 1, 0, 1)),
+            },
+          },
+          _sum: { hours: true },
+        }),
       ]);
       const actuallyWorked =
         workedAttendance &&
@@ -127,10 +228,16 @@ export async function decideOvertimeRequest(scope: Scope, id: string, decision: 
       if (approvedLeave && !actuallyWorked) {
         throw new Error("Không thể duyệt OT vào ngày nhân sự đang nghỉ phép đã duyệt.");
       }
+
+      const newMonthlyTotal = (monthAggregate._sum.hours || 0) + request.hours;
+      const newYearlyTotal = (yearAggregate._sum.hours || 0) + request.hours;
+      if (newMonthlyTotal > 40 || newYearlyTotal > 200) {
+        agreementNote = ` [Xác nhận thỏa thuận 2 bên: Lũy kế tháng ${newMonthlyTotal}h, năm ${newYearlyTotal}h]`;
+      }
     }
 
     const updated = await tx.overtimeRequest.update({ where: { id, status: "PENDING" }, data: { status: decision, approvedBy: scope.userId, approvedAt: new Date() } });
-    await tx.auditLog.create({ data: { userName: scope.actorName, userRole: scope.roleName, action: `${decision === "APPROVED" ? "Duyệt" : "Từ chối"} OT ${request.hours} giờ ngày ${request.date.toISOString().slice(0, 10)} của ${request.employee.user.name}`, target: "OvertimeRequest", ip: "127.0.0.1", status: "SUCCESS" } });
+    await tx.auditLog.create({ data: { userName: scope.actorName, userRole: scope.roleName, action: `${decision === "APPROVED" ? "Duyệt" : "Từ chối"} OT ${request.hours} giờ ngày ${request.date.toISOString().slice(0, 10)} của ${request.employee.user.name}${agreementNote}`, target: "OvertimeRequest", ip: "127.0.0.1", status: "SUCCESS" } });
     return updated;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }

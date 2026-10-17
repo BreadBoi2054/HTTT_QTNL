@@ -102,18 +102,16 @@
 
 ---
 
-### 4. Đối chiếu pháp lý & Các quyết định chính sách chờ xác nhận
+### 4. Đối chiếu pháp lý & Các quyết định chính sách đã chốt và triển khai (Đợt 4)
 
-1. **Căn cứ đóng BHXH, BHYT, BHTN và trường hợp nghỉ không lương $\ge 14$ ngày** (Luật BHXH 2024 — Luật số 41/2024/QH15 có hiệu lực từ 01/07/2025):
-   - *Hiện trạng*: Hệ thống đang tính BHXH (8%), BHYT (1.5%), BHTN (1%) trên lương cơ bản tính theo ngày công thực tế (`proRatedBaseSalary`), chưa áp trần đóng tối đa và chưa miễn đóng khi nghỉ không lương/nghỉ ốm $\ge 14$ ngày làm việc trong tháng.
-   - *Lựa chọn cần chốt*:
-     - **Phương án A**: Đóng BHXH trên mức lương cố định ghi trong hợp đồng (`Contract.salary` / `EmployeeSalaryConfig.baseSalary`), có áp trần 20 lần mức tham chiếu/lương tối thiểu vùng và miễn đóng tháng đó nếu tổng ngày nghỉ không lương/nghỉ ốm $\ge 14$ ngày làm việc.
-     - **Phương án B**: Giữ cách tính tỷ lệ theo ngày công thực tế hiện tại cho mục đích quản trị nội bộ.
-2. **Giới hạn giờ OT và phụ cấp làm đêm** (Điều 98 & Điều 107 Bộ luật Lao động 2019):
-   - *Hiện trạng*: Đã chặn OT quá số giờ trong 1 ngày và chặn trùng ngày nghỉ phép, áp hệ số 150% (ngày thường & ngày làm bù cuối tuần), 200% (ngày nghỉ hàng tuần), 300% (ngày lễ/Tết). Chưa tách riêng phụ cấp ca đêm (+30% từ 22h00–06h00) và trần tổng giờ OT 40 giờ/tháng, 200–300 giờ/năm.
-   - *Lựa chọn cần chốt*: Có bật chặn cứng trần 40 giờ/tháng khi gửi đơn OT và thêm trường giờ làm đêm hay không.
-3. **Bản ghi chấm công `LEAVE` lịch sử trước migration 17/10/2026**:
-   - *Khuyến nghị an toàn*: Giữ nguyên không tự động xóa hàng loạt; HR có thể lọc các bản ghi `status = 'LEAVE'` và `leaveRequestId IS NULL` để đối chiếu thủ công với đơn giấy/đơn cũ khi cần.
+1. **`1.A` — Căn cứ đóng BHXH, BHYT, BHTN và trường hợp nghỉ không lương $\ge 14$ ngày** (Luật BHXH 2024 — Luật số 41/2024/QH15; Nghị định 161/2026/NĐ-CP & Nghị định 293/2025/NĐ-CP):
+   - **Đã triển khai**: Hệ thống tính BHXH (8%), BHYT (1.5%) trên mức lương cơ bản hợp đồng (`Contract.salary` / `baseSalary`), áp trần 20 lần mức tham chiếu (`46.800.000đ` trước 01/07/2026; `50.600.000đ` từ 01/07/2026); tính BHTN (1%) áp trần 20 lần lương tối thiểu vùng I (`106.200.000đ` từ 01/01/2026). Nếu tổng số ngày nghỉ không hưởng lương / nghỉ ốm trong tháng $\ge 14$ ngày làm việc (`standardWorkingDays - effectiveDays >= 14`), hệ thống tự động miễn trích đóng BHXH/BHYT/BHTN tháng đó.
+2. **`2.A` — Cảnh báo mềm ngưỡng giờ OT và duyệt linh hoạt theo thỏa thuận hai bên** (Điều 107 & Điều 108 Bộ luật Lao động 2019):
+   - **Đã triển khai**: Hệ thống tự động tính tổng số giờ OT lũy kế trong tháng và trong năm của từng nhân sự, hiển thị cảnh báo mềm khi vượt ngưỡng `40 giờ/tháng` hoặc `200–300 giờ/năm` ngay trên biểu mẫu gửi đơn và danh sách chờ duyệt (`OvertimePanel.tsx`), đồng thời cho phép Quản lý/HR phê duyệt linh hoạt khi có sự đồng thuận của hai bên và ghi nhận rõ vào Nhật ký kiểm toán (`AuditLog`).
+3. **`3.A` — Đối chiếu thủ công bản ghi chấm công `LEAVE` lịch sử trước migration 17/10/2026**:
+   - **Đã triển khai**: Giữ nguyên an toàn các bản ghi `LEAVE` lịch sử (`leaveRequestId = null`); bổ sung thanh cảnh báo nhanh, bộ lọc chuyên biệt (`Nghỉ phép lịch sử / thủ công`) và nhãn truy vết mã đơn trên màn hình Giám sát Chấm công (`/dashboard/attendance`).
+4. **Cập nhật Sổ tay nghiệp vụ (`/dashboard/guide`)**:
+   - **Đã triển khai**: Đồng bộ toàn bộ quy định `1.A`, `2.A`, `3.A` vào Sổ tay nghiệp vụ HRMIS v3.3.
 
 ---
 

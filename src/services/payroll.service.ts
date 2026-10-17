@@ -28,6 +28,55 @@ export function calculateVietnamesePIT(taxableIncome: number): number {
   }
 }
 
+export function calculateStatutoryInsurance(
+  contractBaseSalary: number,
+  standardWorkingDays: number,
+  effectivePaidDays: number,
+  month: number = 10,
+  year: number = 2026
+) {
+  const nonPaidWorkingDays = Math.max(0, standardWorkingDays - effectivePaidDays);
+  if (nonPaidWorkingDays >= 14 || contractBaseSalary <= 0) {
+    return {
+      exempt: nonPaidWorkingDays >= 14,
+      nonPaidWorkingDays,
+      bhxh: 0,
+      bhyt: 0,
+      bhtn: 0,
+      total: 0,
+      bhxhBhytBase: 0,
+      bhtnBase: 0,
+    };
+  }
+
+  // Mức tham chiếu / lương cơ sở: 2.340.000đ (trước 01/07/2026) và 2.530.000đ (từ 01/07/2026)
+  const referenceLevel =
+    year > 2026 || (year === 2026 && month >= 7) ? 2_530_000 : 2_340_000;
+  // Lương tối thiểu vùng I: 5.310.000đ (từ 01/01/2026 theo NĐ 293/2025/NĐ-CP), trước đó 4.960.000đ
+  const regionalMinimumWage = year >= 2026 ? 5_310_000 : 4_960_000;
+
+  const bhxhBhytCap = 20 * referenceLevel;
+  const bhtnCap = 20 * regionalMinimumWage;
+
+  const bhxhBhytBase = Math.min(contractBaseSalary, bhxhBhytCap);
+  const bhtnBase = Math.min(contractBaseSalary, bhtnCap);
+
+  const bhxh = Math.round(bhxhBhytBase * 0.08);
+  const bhyt = Math.round(bhxhBhytBase * 0.015);
+  const bhtn = Math.round(bhtnBase * 0.01);
+
+  return {
+    exempt: false,
+    nonPaidWorkingDays,
+    bhxh,
+    bhyt,
+    bhtn,
+    total: bhxh + bhyt + bhtn,
+    bhxhBhytBase,
+    bhtnBase,
+  };
+}
+
 function buildManualPayrollDetails(
   baseSalary: number,
   bonus: number,
@@ -57,28 +106,26 @@ function buildManualPayrollDetails(
   }
 
   if (deductions > 0) {
-    const bhxh = Math.round(baseSalary * 0.08);
-    const bhyt = Math.round(baseSalary * 0.015);
-    const bhtn = Math.round(baseSalary * 0.01);
-    const statutoryTotal = bhxh + bhyt + bhtn;
+    const ins = calculateStatutoryInsurance(baseSalary, 22, 22);
+    const statutoryTotal = ins.total;
 
     if (deductions >= statutoryTotal && baseSalary > 0) {
       details.push({
         name: "Bảo hiểm Xã hội (BHXH 8%)",
         type: "DEDUCTION",
-        amount: bhxh,
+        amount: ins.bhxh,
         amountType: "FIXED",
       });
       details.push({
         name: "Bảo hiểm Y tế (BHYT 1.5%)",
         type: "DEDUCTION",
-        amount: bhyt,
+        amount: ins.bhyt,
         amountType: "FIXED",
       });
       details.push({
         name: "Bảo hiểm Thất nghiệp (BHTN 1.0%)",
         type: "DEDUCTION",
-        amount: bhtn,
+        amount: ins.bhtn,
         amountType: "FIXED",
       });
       const remainingDeduction = deductions - statutoryTotal;
@@ -640,34 +687,46 @@ export async function calculateMonthlyPayroll(
     );
 
     let statutoryInsuranceAmount = 0;
+    const nonPaidWorkingDays = Math.max(0, standardWorkingDays - effectiveDays);
     if (!hasStatutoryInsuranceInConfig) {
-      const bhxh = Math.round(proRatedBaseSalary * 0.08);
-      const bhyt = Math.round(proRatedBaseSalary * 0.015);
-      const bhtn = Math.round(proRatedBaseSalary * 0.01);
-      const statutoryTotal = bhxh + bhyt + bhtn;
+      const ins = calculateStatutoryInsurance(
+        baseSalary,
+        standardWorkingDays,
+        effectiveDays,
+        month,
+        year
+      );
+      if (ins.exempt) {
+        details.push({
+          name: `Miễn trích đóng BHXH/BHYT/BHTN (Nghỉ không hưởng lương ${ins.nonPaidWorkingDays} ngày ≥ 14 ngày công)`,
+          type: "INFO",
+          amount: 0,
+          amountType: "FIXED",
+        });
+      } else {
+        statutoryInsuranceAmount = ins.total;
+        totalDeduction += ins.total;
 
-      statutoryInsuranceAmount = statutoryTotal;
-      totalDeduction += statutoryTotal;
-
-      details.push({
-        name: "Bảo hiểm Xã hội (BHXH 8%)",
-        type: "DEDUCTION",
-        amount: bhxh,
-        amountType: "FIXED",
-      });
-      details.push({
-        name: "Bảo hiểm Y tế (BHYT 1.5%)",
-        type: "DEDUCTION",
-        amount: bhyt,
-        amountType: "FIXED",
-      });
-      details.push({
-        name: "Bảo hiểm Thất nghiệp (BHTN 1.0%)",
-        type: "DEDUCTION",
-        amount: bhtn,
-        amountType: "FIXED",
-      });
-    } else {
+        details.push({
+          name: "Bảo hiểm Xã hội (BHXH 8% lương HĐ)",
+          type: "DEDUCTION",
+          amount: ins.bhxh,
+          amountType: "FIXED",
+        });
+        details.push({
+          name: "Bảo hiểm Y tế (BHYT 1.5% lương HĐ)",
+          type: "DEDUCTION",
+          amount: ins.bhyt,
+          amountType: "FIXED",
+        });
+        details.push({
+          name: "Bảo hiểm Thất nghiệp (BHTN 1.0% lương HĐ)",
+          type: "DEDUCTION",
+          amount: ins.bhtn,
+          amountType: "FIXED",
+        });
+      }
+    } else if (nonPaidWorkingDays < 14) {
       const insComp = components.filter(
         (c) =>
           c.component.type === "DEDUCTION" &&

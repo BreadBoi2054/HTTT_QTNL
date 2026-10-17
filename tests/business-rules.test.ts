@@ -3,13 +3,14 @@ import test from "node:test";
 import { calculateWorkingDays, normalizeLeaveDate, workingDaysInYear } from "../src/services/leave.service";
 import {
   bulkDisbursePayrolls,
+  calculateStatutoryInsurance,
   calculateVietnamesePIT,
   createPayroll,
   getPayrolls,
   overtimeMultiplier,
 } from "../src/services/payroll.service";
 import { holidayDatesForYear, monthlyWorkdays } from "../src/lib/work-calendar";
-import { createOvertimeRequest } from "../src/services/overtime.service";
+import { createOvertimeRequest, evaluateOvertimeThresholds } from "../src/services/overtime.service";
 import { saveWorkCalendar } from "../src/services/work-calendar.service";
 import { computeGradeAndBonus } from "../src/services/performance.service";
 
@@ -107,4 +108,47 @@ test("xếp hạng KPI và tỷ lệ thưởng/phạt đúng theo thang điểm 
     bonusLabel: "-10% Phạt KPI",
   });
 });
+
+test("BHXH/BHYT/BHTN tính trên lương hợp đồng, áp trần 20 lần mức tham chiếu/vùng và miễn đóng khi nghỉ >= 14 ngày công (1.A)", () => {
+  // Đi làm 10/22 ngày công (nghỉ 12 ngày < 14 ngày): vẫn đóng trên 100% lương hợp đồng 20.000.000đ
+  const normal = calculateStatutoryInsurance(20_000_000, 22, 10, 10, 2026);
+  assert.equal(normal.exempt, false);
+  assert.equal(normal.bhxh, 1_600_000);
+  assert.equal(normal.bhyt, 300_000);
+  assert.equal(normal.bhtn, 200_000);
+  assert.equal(normal.total, 2_100_000);
+
+  // Nghỉ không lương 14/22 ngày công (chỉ hưởng lương 8/22 ngày): miễn trích đóng BHXH/BHYT/BHTN tháng đó
+  const exempt = calculateStatutoryInsurance(20_000_000, 22, 8, 10, 2026);
+  assert.equal(exempt.exempt, true);
+  assert.equal(exempt.nonPaidWorkingDays, 14);
+  assert.equal(exempt.total, 0);
+
+  // Áp trần từ 01/07/2026: BHXH/BHYT trần 50.600.000đ (20 × 2.530.000đ), BHTN trần 106.200.000đ (20 × 5.310.000đ)
+  const capped = calculateStatutoryInsurance(120_000_000, 22, 22, 10, 2026);
+  assert.equal(capped.bhxhBhytBase, 50_600_000);
+  assert.equal(capped.bhtnBase, 106_200_000);
+  assert.equal(capped.bhxh, Math.round(50_600_000 * 0.08));
+  assert.equal(capped.bhyt, Math.round(50_600_000 * 0.015));
+  assert.equal(capped.bhtn, Math.round(106_200_000 * 0.01));
+});
+
+test("cảnh báo mềm ngưỡng giờ OT tháng (>40h) và năm (>200h-300h) theo thỏa thuận hai bên (2.A)", () => {
+  const safe = evaluateOvertimeThresholds(32, 120);
+  assert.equal(safe.exceedsMonthly40, false);
+  assert.equal(safe.exceedsYearly200, false);
+  assert.equal(safe.warnings.length, 0);
+
+  const overMonth = evaluateOvertimeThresholds(44, 150);
+  assert.equal(overMonth.exceedsMonthly40, true);
+  assert.equal(overMonth.exceedsYearly200, false);
+  assert.equal(overMonth.warnings.length, 1);
+
+  const overYear = evaluateOvertimeThresholds(45, 240);
+  assert.equal(overYear.exceedsMonthly40, true);
+  assert.equal(overYear.exceedsYearly200, true);
+  assert.equal(overYear.exceedsYearly300, false);
+  assert.equal(overYear.warnings.length, 2);
+});
+
 

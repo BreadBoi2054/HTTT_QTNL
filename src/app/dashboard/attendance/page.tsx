@@ -340,7 +340,14 @@ export default function AttendancePage() {
       record.employee?.user?.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (record.employee?.department?.name && record.employee.department.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesStatus = statusFilter === "ALL" ? true : record.status === statusFilter;
+    let matchesStatus = true;
+    if (statusFilter === "LEAVE_HISTORICAL") {
+      matchesStatus = record.status === "LEAVE" && !record.leaveRequestId;
+    } else if (statusFilter === "LEAVE_LINKED") {
+      matchesStatus = record.status === "LEAVE" && Boolean(record.leaveRequestId);
+    } else if (statusFilter !== "ALL") {
+      matchesStatus = record.status === statusFilter;
+    }
     return matchesSearch && matchesStatus;
   });
 
@@ -349,6 +356,7 @@ export default function AttendancePage() {
   const onTimeCount = attendances.filter(a => a.status === "PRESENT").length;
   const lateCount = attendances.filter(a => a.status === "LATE").length;
   const absentCount = attendances.filter(a => a.status === "ABSENT").length;
+  const historicalLeaveCount = attendances.filter(a => a.status === "LEAVE" && !a.leaveRequestId).length;
 
   return (
     <div className="space-y-6 pb-12 animate-swiss-in max-w-7xl mx-auto">
@@ -742,7 +750,9 @@ export default function AttendancePage() {
                 <option value="PRESENT">Đúng giờ</option>
                 <option value="LATE">Đi trễ</option>
                 <option value="ABSENT">Vắng mặt</option>
-                <option value="LEAVE">Nghỉ phép</option>
+                <option value="LEAVE">Nghỉ phép (Tất cả)</option>
+                <option value="LEAVE_LINKED">Nghỉ phép tự động (Có mã đơn)</option>
+                <option value="LEAVE_HISTORICAL">Nghỉ phép lịch sử / thủ công (Cần đối chiếu)</option>
               </select>
             </div>
 
@@ -776,6 +786,21 @@ export default function AttendancePage() {
               </button>
             </div>
           </div>
+
+          {historicalLeaveCount > 0 && (
+            <div className="px-4 py-2.5 bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-200/70 dark:border-amber-900/50 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-800 dark:text-amber-300">
+              <span>
+                Phát hiện <strong>{historicalLeaveCount}</strong> bản ghi <code className="font-mono">LEAVE</code> lịch sử / nhập tay chưa gắn mã đơn nghỉ phép (<code className="font-mono">leaveRequestId = null</code>). Các bản ghi này được giữ nguyên an toàn để đối chiếu thủ công.
+              </span>
+              <button
+                type="button"
+                onClick={() => setStatusFilter(statusFilter === "LEAVE_HISTORICAL" ? "ALL" : "LEAVE_HISTORICAL")}
+                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors cursor-pointer"
+              >
+                {statusFilter === "LEAVE_HISTORICAL" ? "Bỏ lọc đối chiếu" : "Lọc đối chiếu ngay"}
+              </button>
+            </div>
+          )}
 
           {/* Table */}
           <div className="overflow-x-auto">
@@ -827,7 +852,22 @@ export default function AttendancePage() {
                         {formatTime(record.checkOut)}
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <StatusBadge status={record.status} />
+                        <div className="inline-flex flex-col items-end gap-1">
+                          <StatusBadge status={record.status} />
+                          {record.status === "LEAVE" && (
+                            <span
+                              className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                                record.leaveRequestId
+                                  ? "bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                                  : "bg-amber-50/80 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                              }`}
+                            >
+                              {record.leaveRequestId
+                                ? `Đơn #${String(record.leaveRequestId).slice(-6).toUpperCase()}`
+                                : "Lịch sử / Thủ công (Cần đối chiếu)"}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

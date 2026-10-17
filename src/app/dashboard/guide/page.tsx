@@ -295,10 +295,10 @@ export default function UserGuidePage() {
           <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-800/30">
             <div className="flex items-center gap-2 font-bold text-sm text-zinc-900 dark:text-zinc-100 mb-2">
               <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-semibold">3</span>
-              <span>Quy trình Nghỉ phép & Tự động Đồng bộ Điểm danh</span>
+              <span>Quy trình Nghỉ phép, Tăng ca (OT) & Truy vết Chấm công Tự động</span>
             </div>
             <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Nhân viên tạo đơn xin nghỉ phép (hoặc Lãnh đạo/HR tạo hộ bằng cách chọn nhân viên từ danh sách) &rarr; Trưởng phòng hoặc HR xem xét và bấm <strong>Phê duyệt (Approved)</strong> &rarr; Hệ thống lập tức quét toàn bộ các ngày làm việc trong khoảng thời gian nghỉ (tự động loại trừ ngày Chủ nhật) và tạo bản ghi chấm công trạng thái <code>Nghỉ phép</code>. Nhân viên vẫn được hưởng nguyên lương đối với nghỉ phép năm.
+              Nhân viên tạo đơn xin nghỉ phép (`ANNUAL_LEAVE`, `SICK_LEAVE`, `UNPAID_LEAVE`) hoặc đề nghị tăng ca (`OT`) &rarr; Trưởng phòng hoặc HR phê duyệt (`APPROVED`). Khi đơn nghỉ phép được duyệt, hệ thống tự động tạo hoặc cập nhật bản ghi chấm công `LEAVE` có gắn mã truy vết `leaveRequestId` và lưu `statusBeforeLeave` để hoàn tác chính xác nếu rút đơn. Các bản ghi `LEAVE` lịch sử/nhập tay (`leaveRequestId = null`) được giữ nguyên an toàn và có bộ lọc riêng trên trang Chấm công để HR đối chiếu thủ công. Đối với đơn OT, hệ thống hiển thị <strong>cảnh báo mềm lũy kế tháng (&gt;40h/tháng) và năm (&gt;200h–300h/năm)</strong> nhưng vẫn cho phép phê duyệt linh hoạt khi có sự đồng thuận của hai bên kèm ghi nhận vào Nhật ký kiểm toán (`AuditLog`).
             </p>
           </div>
 
@@ -381,7 +381,7 @@ export default function UserGuidePage() {
               4. Cơ Chế Nghiệp Vụ: Đánh Giá KPI, Chấm Công & Bảng Tính Lương
             </h2>
           </div>
-          <span className="text-xs text-zinc-400 font-semibold font-mono">Quy chuẩn vận hành HRMIS v3.2</span>
+          <span className="text-xs text-zinc-400 font-semibold font-mono">Quy chuẩn vận hành HRMIS v3.3</span>
         </div>
 
         {/* 4.1 Thuật toán Đánh giá KPI & Phân bổ thưởng */}
@@ -443,13 +443,13 @@ export default function UserGuidePage() {
           </div>
         </div>
 
-        {/* 4.2 Nghiệp vụ Chấm công & Ngày công chuẩn */}
+        {/* 4.2 Nghiệp vụ Chấm công, Lịch công & Tăng ca (OT) */}
         <div className="p-4 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/30 dark:bg-blue-950/20 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-blue-600" /> Phân hệ 2: Cơ Chế Chấm Công & Xác Định Ngày Công Chuẩn (Timesheet)
+              <Clock className="w-4 h-4 text-blue-600" /> Phân hệ 2: Cơ Chế Chấm Công, Lịch Công Chuẩn & Tăng Ca (OT)
             </span>
-            <span className="text-[11px] font-mono font-semibold text-zinc-500">Công chuẩn theo lịch từng tháng</span>
+            <span className="text-[11px] font-mono font-semibold text-zinc-500">Công chuẩn thực tế & OT 2 bên thỏa thuận</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
@@ -461,16 +461,16 @@ export default function UserGuidePage() {
             </div>
 
             <div className="p-3 bg-white dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 space-y-1">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Ngày công chuẩn của kỳ:</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Ngày công chuẩn & Làm bù:</span>
               <p className="text-zinc-600 dark:text-zinc-400 text-xs">
-                Số ngày làm việc từ Thứ 2 đến Thứ 6 của tháng, sau khi trừ ngày nghỉ lễ. Công hưởng lương = min(công chuẩn, ngày đi làm + ngày phép năm đã duyệt).
+                Số ngày làm việc từ Thứ 2 đến Thứ 6 của tháng, trừ ngày nghỉ lễ và cộng ngày làm bù cuối tuần (<code>extraWorkdays</code>). Công hưởng lương = min(công chuẩn, ngày đi làm + ngày phép năm đã duyệt).
               </p>
             </div>
 
             <div className="p-3 bg-white dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 space-y-1">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Loại trừ cuối tuần và ngày lễ:</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Tăng ca (OT) & Cảnh báo mềm:</span>
               <p className="text-zinc-600 dark:text-zinc-400 text-xs">
-                Bảng lương không tính ngày nghỉ hằng tuần hoặc ngày lễ vào công chuẩn; lịch nghỉ lễ cần được cấu hình đúng theo năm.
+                Hệ số OT: <strong>150%</strong> (ngày thường & ngày làm bù cuối tuần), <strong>200%</strong> (nghỉ cuối tuần), <strong>300%</strong> (lễ/Tết). Hệ thống cảnh báo mềm khi vượt <strong>40h/tháng</strong> hoặc <strong>200h–300h/năm</strong>, nhưng vẫn cho phép duyệt khi có thỏa thuận hai bên.
               </p>
             </div>
           </div>
@@ -480,31 +480,31 @@ export default function UserGuidePage() {
         <div className="p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Banknote className="w-4 h-4 text-emerald-600" /> Phân hệ 3: Thuật Toán Quyết Toán Lương Thực Lĩnh (Net Payroll)
+              <Banknote className="w-4 h-4 text-emerald-600" /> Phân hệ 3: Thuật Toán Quyết Toán Lương Thực Lĩnh & Bảo Hiểm (Luật BHXH 2024)
             </span>
-            <span className="text-[11px] font-mono font-semibold text-zinc-500">BHXH Bắt buộc 10.5%</span>
+            <span className="text-[11px] font-mono font-semibold text-zinc-500">BHXH/BHYT/BHTN 10.5% trên Lương HĐ</span>
           </div>
 
           <div className="p-3 bg-white dark:bg-zinc-800/80 rounded-lg border border-emerald-200 dark:border-emerald-800 font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300">
-            Lương Thực Lĩnh (Net) = max(0, Lương CB theo công + Phụ Cấp + Thưởng KPI - Bảo Hiểm Bắt Buộc (10.5%) - Thuế TNCN Lũy Tiến)
+            Lương Thực Lĩnh (Net) = max(0, Lương CB theo công + Phụ Cấp + OT đã duyệt + Thưởng KPI - Bảo Hiểm Bắt Buộc (10.5% Lương HĐ) - Thuế TNCN Lũy Tiến)
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div className="space-y-1">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">3 Cấu phần Phụ cấp định mức:</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Cấu phần Phụ cấp định mức & Thuế TNCN:</span>
               <ul className="text-zinc-600 dark:text-zinc-400 list-disc list-inside space-y-0.5">
-                <li><strong>Phụ cấp ăn trưa:</strong> 730.000 VNĐ / tháng (miễn thuế TNCN).</li>
-                <li><strong>Phụ cấp xăng xe & liên lạc:</strong> 500.000 VNĐ / tháng.</li>
-                <li><strong>Phụ cấp trách nhiệm:</strong> 2.000.000 VNĐ / tháng (Trưởng phòng, Giám đốc, Lead).</li>
+                <li><strong>Phụ cấp ăn trưa:</strong> Miễn thuế TNCN tối đa 730.000 VNĐ / tháng.</li>
+                <li><strong>Phụ cấp xăng xe, liên lạc & trách nhiệm:</strong> Theo cấu hình từng vị trí.</li>
+                <li><strong>Giảm trừ gia cảnh 2026:</strong> Bản thân 15.500.000 ₫/tháng; người phụ thuộc 6.200.000 ₫/người/tháng.</li>
               </ul>
             </div>
 
             <div className="space-y-1">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Bảo hiểm bắt buộc (10.5% theo Luật BHXH):</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Bảo hiểm bắt buộc (10.5% theo Hợp đồng & Luật BHXH 2024):</span>
               <ul className="text-zinc-600 dark:text-zinc-400 list-disc list-inside space-y-0.5">
-                <li>Bảo hiểm Xã hội (BHXH): 8.0% × Lương CB theo công.</li>
-                <li>Bảo hiểm Y tế (BHYT): 1.5% × Lương CB theo công.</li>
-                <li>Bảo hiểm Thất nghiệp (BHTN): 1.0% × Lương CB theo công.</li>
+                <li><strong>BHXH (8.0%) & BHYT (1.5%):</strong> Tính trên Lương cơ bản hợp đồng, áp trần 20 × mức tham chiếu (46,8tr trước 01/07/2026; 50,6tr từ 01/07/2026).</li>
+                <li><strong>BHTN (1.0%):</strong> Tính trên Lương cơ bản hợp đồng, áp trần 20 × lương tối thiểu vùng I (106,2tr từ 01/01/2026).</li>
+                <li><strong>Quy tắc ≥ 14 ngày không lương:</strong> Nếu tổng số ngày nghỉ không hưởng lương / nghỉ ốm trong tháng ≥ 14 ngày công, hệ thống tự động miễn trích đóng BHXH/BHYT/BHTN tháng đó.</li>
               </ul>
             </div>
           </div>
@@ -513,7 +513,7 @@ export default function UserGuidePage() {
         {/* 4.4 Quy tắc khi nghỉ 1-2 buổi */}
         <div className="space-y-3">
           <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            Quy Tắc Tính Lương Khi Nghỉ 1 Hoặc 2 Buổi:
+            Quy Tắc Tính Lương Khi Nghỉ Phép, Nghỉ Ốm Hoặc Nghỉ Không Lương:
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -528,7 +528,7 @@ export default function UserGuidePage() {
                 Hưởng đủ 100% lương cơ bản (Không bị trừ lương)
               </div>
               <p className="text-[11px] text-zinc-500">
-                Hệ thống cộng ngày phép năm vào công hưởng lương, tối đa bằng công chuẩn của kỳ. Nghỉ ốm được theo dõi riêng để làm hồ sơ hưởng chế độ BHXH; ngày này không cộng vào lương công ty.
+                Hệ thống cộng ngày phép năm vào công hưởng lương, tối đa bằng công chuẩn của kỳ. Nếu ngày đã xin phép năm nhưng thực tế vẫn đi làm (<code>PRESENT</code>/<code>LATE</code>), hệ thống không trừ ngày phép năm đó. Nghỉ ốm được theo dõi riêng để hưởng chế độ BHXH.
               </p>
             </div>
 
@@ -540,11 +540,11 @@ export default function UserGuidePage() {
                 Áp dụng cho trường hợp <strong>Vắng mặt tự do</strong> hoặc làm đơn <strong>Nghỉ không hưởng lương</strong>:
               </p>
               <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300 font-semibold">
-                Bị trừ lương theo đúng tỷ lệ công thực tế
+                Bị trừ lương theo đúng tỷ lệ công thực tế; nghỉ ≥ 14 ngày công miễn đóng BHXH
               </div>
               <ul className="text-xs text-zinc-600 dark:text-zinc-400 list-disc list-inside space-y-0.5">
-                <li>Nghỉ 1 ngày: Nhận 21/22 lương CB (Bị trừ 1/22 ≈ 4.55% lương)</li>
-                <li>Nghỉ 2 ngày: Nhận 20/22 lương CB (Bị trừ 2/22 ≈ 9.09% lương)</li>
+                <li>Nghỉ 1 ngày: Nhận 21/22 lương CB (Bị trừ 1/22 ≈ 4.55% lương, BHXH vẫn đóng theo lương HĐ)</li>
+                <li>Nghỉ ≥ 14 ngày công không hưởng lương: Trừ lương theo ngày công và miễn trích BHXH tháng đó</li>
               </ul>
             </div>
           </div>
