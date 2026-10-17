@@ -181,3 +181,68 @@
 
 - **Kiểm thử đơn vị (`node --import tsx --test tests/business-rules.test.ts`)**: **15/15 bài kiểm thử đạt (0 lỗi)**.
 - **Kiểm thử Migration & Tích hợp trên PostgreSQL cách ly (`tests/payroll-integration.test.ts` trên `hrmis_codex_test_batch5`)**: **Đạt 100%** (áp dụng thành công cả 6 migrations từ đầu trên DB mới, kiểm chứng đầy đủ: thiếu chấm công không tự miễn BHXH, nghỉ không lương 13 ngày vs 14 ngày, component bảo hiểm riêng được miễn đóng nhất quán khi nghỉ $\ge 14$ ngày, lương cấu hình `12.000.000đ` khác lương HĐ `20.000.000đ`, đề xuất nâng lương `PENDING -> APPROVED`, chặn đảo ngược quyết định đã `APPROVED`, chặn phòng ban không tồn tại, quyết định hiệu lực tương lai `QĐ-2027-001` và đồng bộ khi đến hạn).
+
+---
+
+### 7. Rà soát & Sửa lỗi Đợt 6 — Quyết định Nhân sự Lịch sử, Thi hành Đúng Ngày Hiệu Lực & Bảo hiểm Theo Địa bàn (17/10/2026)
+
+#### 7.1. Ưu tiên Khẩn — Đối chiếu 4 Quyết định `APPROVED` Lịch sử (`appliedAt IS NULL`) & Tách `GET` khỏi Thao tác Ghi
+
+1. **Kết quả đối chiếu chỉ-đọc 4 bản ghi `APPROVED` lịch sử trên DB `hrmis` (không tự động đánh dấu hoặc chạy lại hàng loạt)**:
+
+| Mã QĐ | Nhân sự & Email | Loại & Ngày hiệu lực gốc | Nội dung trong Quyết định (`PersonnelChange`) | Trạng thái thực tế trên `EmployeeProfile` / `Department` / `Contract` / `AuditLog` | Phân loại & Phương án xử lý |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`QĐ-2026-041`** (`cmv7ttbh700d0rwu8wgstd97d`) | **Nguyễn Văn An** (`user@nexustech.vn`) | `PROMOTION` — `01/10/2026` | Phòng đích: `Phòng Công nghệ (IT)`, Chức danh: `Senior Frontend Lead & Tech Lead`, `newSalary`: `null`, `employeeId`: `null`, `toDeptId`: `null` | Hồ sơ `cmv6gbvu3000vl4u83vt4fce8` đang ở `Phòng Công nghệ (IT)`, chức vụ `Senior Frontend Lead & Tech Lead`, HĐ `HĐLĐ-2026/NX-0007` lương `32.000.000đ`. | **`HISTORICAL_MATCHED`** (Đã khớp 100% hồ sơ hiện tại). Không cần chạy đồng bộ lại; HR có thể bấm **"Xác nhận lịch sử"** (`MARK_HISTORICAL_APPLIED`) để đóng dấu `appliedAt` và gắn `employeeId`/`toDeptId`. |
+| **`QĐ-2026-042`** (`cmv7ttbh900d1rwu8g4fixtzy`) | **Trần Thị Mai** (`hr@nexustech.vn`) | `PROMOTION` — `05/10/2026` | Phòng đích: `Phòng Nhân sự (HR)`, Chức danh: `Trưởng phòng Nhân sự & Đào tạo (HR Manager)`, `employeeId`: `null`, `toDeptId`: `null` | Hồ sơ `cmv6gbvxa001gl4u8q7zane30` đang ở phòng `Phòng Nhân sự & Đào tạo (HR)` (không tồn tại tên `Phòng Nhân sự (HR)` trong bảng `Department`), chức vụ hiện tại là `Trưởng phòng Nhân sự (HR Manager)`. | **`HISTORICAL_NEEDS_REVIEW`** (Khác biệt chuỗi tên phòng ban và tên chức vụ rút gọn). Đã khóa tự động chạy lại để không gây lỗi thiếu phòng ban `Phòng Nhân sự (HR)` hoặc ghi đè chức vụ hiện tại; chờ HR xác nhận đối chiếu. |
+| **`QĐ-2026-043`** (`cmv7ttbhc00d2rwu8wlna2svk`) | **Vũ Minh Tuấn** (`tuan.vu@nexustech.vn`) | `TRANSFER` — `10/10/2026` | Từ `Phòng Vận hành (Operations)` sang `Phòng Công nghệ (IT)`, Chức danh: `DevOps & Cloud Security Engineer`, `employeeId`: `null`, `toDeptId`: `null` | Hồ sơ `cmv6gbvvg0014l4u879sxnn7g` đang ở `Phòng Công nghệ (IT)`, chức vụ `DevOps & Cloud Security Engineer`, HĐ `HĐTV-2026/NX-0010` lương `28.000.000đ`. | **`HISTORICAL_MATCHED`** (Đã khớp 100% hồ sơ hiện tại). Không tự động chạy lại; HR có thể bấm **"Xác nhận lịch sử"** (`MARK_HISTORICAL_APPLIED`). |
+| **`QĐ-2026-044`** (`cmv7ttbhf00d3rwu8qvitr5jy`) | **Phạm Quỳnh Anh** (`quynhanh.pham@nexustech.vn`) | `NEW_HIRE` — `14/10/2026` | Từ `Ứng viên Tuyển dụng` sang `Phòng Nhân sự (HR)`, Chức danh: `Chuyên viên Tuyển dụng & Thu hút Nhân tài`, `employeeId`: `null`, `toDeptId`: `null` | Ứng viên trong bảng `Application` (`cmv6gbwwo00zfl4u89t5pqash`, email `quynhanh.pham@gmail.com`) có `status = HIRED`, có `AuditLog` phê duyệt QĐ-2026-044, nhưng **chưa được khởi tạo tài khoản `User` và `EmployeeProfile`**, tên phòng đích ghi `Phòng Nhân sự (HR)`. | **`HISTORICAL_NEEDS_REVIEW`** (Quyết định tiếp nhận ứng viên chưa hoàn tất tạo `EmployeeProfile`). Đã khóa tự động chạy lại; HR cần tạo hồ sơ nhân viên mới (Onboarding) trước khi đóng dấu hoàn tất. |
+
+2. **Giải pháp kỹ thuật đã triển khai**:
+   - **Tách hoàn toàn đọc danh sách khỏi thao tác ghi (`src/app/api/personnel-changes/route.ts`)**: Xóa lời gọi `applyDuePersonnelChanges()` khỏi `GET /api/personnel-changes`. Endpoint `GET` hiện chỉ đọc dữ liệu và phân loại trạng thái vòng đời (`enrichPersonnelChangesWithLifecycle`: `APPLIED`, `SCHEDULED`, `DUE_READY`, `HISTORICAL_MATCHED`, `HISTORICAL_NEEDS_REVIEW`, `PENDING`, `REJECTED`).
+   - **Chặn tự động chạy lại quyết định lịch sử chưa xác minh (`isUnverifiedHistoricalDecision`)**: Các quyết định `APPROVED` lịch sử có `appliedAt === null` nhưng thiếu khóa định danh chuẩn (`employeeId === null && toDeptId === null`) được tự động đưa vào danh sách `skippedUnverified`, tuyệt đối không tự động ghi đè lên hồ sơ nhân sự hiện tại.
+   - **Chuẩn hóa định dạng ngày `DD/MM/YYYY` lịch sử (`normalizeEffectiveDateString`)**: Hỗ trợ cả `YYYY-MM-DD` và `DD/MM/YYYY` (ví dụ `"20/10/2026"` $\rightarrow$ `"2026-10-20"`, `"01/11/2026"` $\rightarrow$ `"2026-11-01"`), khắc phục triệt để nguy cơ chuỗi `"01/11/2026"` bị so sánh từ điển hoặc phân tích nhầm theo kiểu `MM/DD/YYYY` thành tháng 01/2026.
+
+---
+
+#### 7.2. Ưu tiên Cao — Cơ chế Thi hành Quyết định Đúng Ngày Hiệu Lực (`POST /api/personnel-changes/apply-due`)
+
+- **Endpoint vận hành & định kỳ chuyên biệt (`src/app/api/personnel-changes/apply-due/route.ts`)**:
+  - Hỗ trợ xác thực tác vụ định kỳ qua header `x-cron-secret` hoặc `Authorization: Bearer <CRON_SECRET>` (khi cấu hình `CRON_SECRET`), đồng thời hỗ trợ Quản trị hệ thống / Ban Giám Đốc / HR kích hoạt trực tiếp từ giao diện quản trị.
+- **So sánh ngày hiệu lực theo múi giờ Việt Nam (`Asia/Ho_Chi_Minh`)**:
+  - Hàm `formatVietnamDate(date)` chuẩn hóa ngày tham chiếu về `YYYY-MM-DD` theo đúng múi giờ `Asia/Ho_Chi_Minh`.
+- **Chống chạy trùng & Cô lập lỗi từng quyết định**:
+  - Mỗi quyết định đến hạn được thực thi trong một giao dịch `Serializable` độc lập kèm kiểm tra `updateMany({ where: { id, appliedAt: null } })` và xử lý xung đột tuần tự hóa (`P2034`), đảm bảo hai lần chạy đồng thời không bao giờ thi hành trùng.
+  - Bọc `try / catch` riêng cho từng quyết định: nếu một quyết định bị lỗi (ví dụ phòng ban đích hoặc hồ sơ nhân sự bị xóa), lỗi được ghi vào mảng `failed` và `AuditLog` (`status: "WARNING"`), không làm gãy các quyết định hợp lệ khác hoặc gây lỗi 500 trên trang quản trị, và cho phép chạy lại an toàn sau khi khắc phục.
+
+---
+
+#### 7.3. Ưu tiên Nghiệp vụ — Bảo hiểm Theo Địa bàn (Vùng I–IV), Chặn Mức Pháp lý Năm Tương lai Chưa Cấu hình, Ngày Nghỉ Việc Thực tế & Phiếu lương Thủ công (`src/services/payroll.service.ts`)
+
+1. **Biểu mức lương tối thiểu 4 vùng (`WageRegion = "I" | "II" | "III" | "IV"`) & Trần BHTN theo kỳ (`resolveStatutoryWageParameters`)**:
+   - Đối chiếu đầy đủ quy định chính thức:
+     - **Từ 01/01/2026 (Nghị định 293/2025/NĐ-CP)**: Vùng I = `5.310.000đ` (trần BHTN `106.200.000đ`), Vùng II = `4.730.000đ` (trần BHTN `94.600.000đ`), Vùng III = `4.140.000đ` (trần BHTN `82.800.000đ`), Vùng IV = `3.700.000đ` (trần BHTN `74.000.000đ`).
+     - **Từ 01/07/2024 đến 31/12/2025 (Nghị định 74/2024/NĐ-CP)**: Vùng I = `4.960.000đ` (trần BHTN `99.200.000đ`), Vùng II = `4.410.000đ` (trần BHTN `88.200.000đ`), Vùng III = `3.860.000đ` (trần BHTN `77.200.000đ`), Vùng IV = `3.450.000đ` (trần BHTN `69.000.000đ`).
+   - **Chặn tự suy diễn mức pháp lý cho năm tương lai chưa cấu hình (`year > 2026`)**: Nếu tính bảo hiểm cho năm `> 2026` mà chưa khai báo cấu hình `PAYROLL_STATUTORY_WAGES_<YEAR>`, hệ thống từ chối ngay với thông báo yêu cầu cập nhật biểu mức pháp lý thay vì tự áp dụng ngầm mức năm 2026.
+   - **Cảnh báo vùng địa bàn khi chưa cấu hình riêng**: Khi chưa xác nhận vùng địa bàn (`regionConfirmed = false`) và lương hợp đồng vượt trần BHTN vùng thấp nhất (`69.000.000đ`), phiếu lương ghi rõ dòng thuyết minh vùng đang tạm áp dụng để HR đối chiếu.
+2. **Phân biệt ngày nghỉ việc thực tế với ngày chấm công cuối (`calculateMonthlyPayroll`)**:
+   - Đã loại bỏ việc dùng `lastActiveDateKey` (ngày chấm công cuối cùng trong tháng) để suy diễn ngày nghỉ việc.
+   - Chỉ tính vào `midMonthUnworkedDays` (ngày ngoài thời gian làm việc do nghỉ việc giữa tháng) khi nhân sự có **bằng chứng ngày thôi việc thực tế** trong kỳ (từ quyết định `RESIGNATION` đã `APPROVED` hoặc ngày kết thúc `endDate` của hợp đồng `TERMINATED`). Nếu chỉ thiếu bản ghi chấm công ở nửa cuối tháng mà chưa có quyết định thôi việc xác nhận ngày hiệu lực, các ngày đó được tính vào `missingAttendanceDays` (thiếu dữ liệu chấm công cần HR đối chiếu).
+3. **Chuẩn hóa thuyết minh trên phiếu lương tạo/sửa thủ công (`buildManualPayrollDetails`)**:
+   - Đã xóa bỏ lời gọi `calculateStatutoryInsurance(baseSalary, 22, 22)` dùng giả định 22 ngày công mặc định và tự tách khoản `deductions` thủ công thành 3 dòng BHXH/BHYT/BHTN giả tạo.
+   - Bảo toàn các dòng khấu trừ chi tiết sẵn có nếu tổng số tiền khấu trừ không đổi, hoặc ghi nhận chính xác khoản giảm trừ/khấu trừ áp dụng thủ công khớp 100% với số tiền thực trừ (`deductions`).
+
+---
+
+#### 7.4. Bằng chứng Kiểm thử Đợt 6
+
+- **Kiểm tra kiểu tĩnh (`npx tsc --noEmit`)**: **0 lỗi**.
+- **Kiểm tra ESLint trên toàn bộ các tệp sửa/tạo mới**: **0 lỗi**.
+- **Kiểm thử đơn vị (`node --import tsx --test tests/business-rules.test.ts`)**: **18/18 bài kiểm thử đạt (0 lỗi)**.
+- **Kiểm thử tích hợp trên PostgreSQL cách ly (`tests/payroll-integration.test.ts` trên `hrmis_codex_test_batch6`)**: **Đạt 100%**, đã kiểm chứng thực tế:
+  1. Quyết định lịch sử chưa xác minh (`employeeId = null, toDeptId = null`) được giữ nguyên trong `skippedUnverified`, không tự động chạy lại làm ghi đè hồ sơ mới hơn.
+  2. Hai tiến trình `applyDuePersonnelChanges` chạy đồng thời (`Promise.all`) kích hoạt kiểm soát giao dịch `Serializable` của PostgreSQL và chỉ thi hành đúng 1 lần.
+  3. Quyết định lỗi (phòng ban đích không còn tồn tại) được cô lập vào `failed`, không làm gãy quyết định hợp lệ khác, và chạy lại thành công sau khi khắc phục.
+  4. Đối chiếu lịch sử (`MARK_HISTORICAL_APPLIED`) đóng dấu `appliedAt` và chuẩn hóa `effectiveDate` mà giữ nguyên hồ sơ hiện tại.
+  5. Phân biệt chính xác 18 ngày thiếu chấm công (`missingAttendanceDays`) khi chưa có quyết định `RESIGNATION` với 18 ngày sau khi nghỉ việc (`midMonthUnworkedDays`) khi đã có quyết định `RESIGNATION` xác nhận.
+- **Kiểm tra biên dịch sản phẩm (`npm run build`)**: **Thành công 100%** (Next.js 16.3.1 Turbopack, 46/46 static pages và toàn bộ API routes).
+

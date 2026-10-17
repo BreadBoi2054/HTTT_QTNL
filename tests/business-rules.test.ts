@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateWorkingDays, normalizeLeaveDate, workingDaysInYear } from "../src/services/leave.service";
 import {
+  buildManualPayrollDetails,
   bulkDisbursePayrolls,
   calculateStatutoryInsurance,
   calculateVietnamesePIT,
@@ -13,6 +14,10 @@ import { holidayDatesForYear, monthlyWorkdays } from "../src/lib/work-calendar";
 import { createOvertimeRequest, evaluateOvertimeThresholds } from "../src/services/overtime.service";
 import { saveWorkCalendar } from "../src/services/work-calendar.service";
 import { computeGradeAndBonus } from "../src/services/performance.service";
+import {
+  formatVietnamDate,
+  normalizeEffectiveDateString,
+} from "../src/services/personnel-change.service";
 
 test("phép năm vắt qua năm được tính riêng theo từng năm, kể cả ngày cuối tuần", () => {
   process.env.PAYROLL_HOLIDAYS_2027 = "2027-01-01";
@@ -185,3 +190,70 @@ test("thiếu dữ liệu chấm công không được tự động miễn đón
   assert.equal(confirmedExempt.needsHrReconciliation, false);
   assert.equal(confirmedExempt.total, 0);
 });
+
+test("trần BHTN tính đúng theo từng vùng (I, II, III, IV) và không tự suy diễn mức pháp lý cho năm tương lai chưa cấu hình", () => {
+  // Năm 2026 (NĐ 293/2025/NĐ-CP): Vùng II = 4.730.000đ -> trần BHTN = 94.600.000đ; Vùng IV = 3.700.000đ -> trần BHTN = 74.000.000đ
+  const region2 = calculateStatutoryInsurance(100_000_000, 22, 22, 10, 2026, {
+    confirmedUnpaidDays: 0,
+    confirmedSickDays: 0,
+    missingAttendanceDays: 0,
+    region: "II",
+    regionConfirmed: true,
+  });
+  assert.equal(region2.region, "II");
+  assert.equal(region2.regionConfirmed, true);
+  assert.equal(region2.bhtnBase, 94_600_000);
+  assert.equal(region2.bhtn, 946_000);
+
+  const region4 = calculateStatutoryInsurance(100_000_000, 22, 22, 10, 2026, {
+    confirmedUnpaidDays: 0,
+    confirmedSickDays: 0,
+    missingAttendanceDays: 0,
+    region: "IV",
+  });
+  assert.equal(region4.bhtnBase, 74_000_000);
+  assert.equal(region4.bhtn, 740_000);
+
+  // Năm 2025 (NĐ 74/2024/NĐ-CP): Vùng III = 3.860.000đ -> trần BHTN = 77.200.000đ
+  const region3_2025 = calculateStatutoryInsurance(90_000_000, 22, 22, 12, 2025, {
+    confirmedUnpaidDays: 0,
+    confirmedSickDays: 0,
+    missingAttendanceDays: 0,
+    region: "III",
+  });
+  assert.equal(region3_2025.bhtnBase, 77_200_000);
+  assert.equal(region3_2025.bhxhBhytBase, 46_800_000);
+
+  // Năm 2028 chưa cấu hình phải từ chối, không tự áp dụng ngầm mức 2026
+  assert.throws(
+    () => calculateStatutoryInsurance(20_000_000, 22, 22, 1, 2028),
+    /Chưa cấu hình mức tham chiếu BHXH và lương tối thiểu vùng cho năm 2028/
+  );
+});
+
+test("buildManualPayrollDetails không dùng giả định 22 ngày công và khớp 100% với số tiền thực trừ", () => {
+  const manualDetails = buildManualPayrollDetails(15_000_000, 2_000_000, 3_500_000);
+  const earningSum = manualDetails
+    .filter((d) => d.type === "EARNING")
+    .reduce((sum, d) => sum + d.amount, 0);
+  const deductionSum = manualDetails
+    .filter((d) => d.type === "DEDUCTION" && d.amountType !== "DAYS")
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  assert.equal(earningSum, 17_000_000);
+  assert.equal(deductionSum, 3_500_000);
+  assert.ok(!manualDetails.some((d) => d.name.includes("BHXH 8%")));
+});
+
+test("chuẩn hóa ngày hiệu lực quyết định hỗ trợ cả YYYY-MM-DD, DD/MM/YYYY và múi giờ Asia/Ho_Chi_Minh", () => {
+  assert.equal(normalizeEffectiveDateString("2026-10-20"), "2026-10-20");
+  assert.equal(normalizeEffectiveDateString("20/10/2026"), "2026-10-20");
+  // Ngày 01/11/2026 (DD/MM/YYYY) phải là 2026-11-01, tuyệt đối không bị hiểu nhầm thành 2026-01-11
+  assert.equal(normalizeEffectiveDateString("01/11/2026"), "2026-11-01");
+  // Thời điểm 2026-10-16T18:30:00.000Z theo giờ Việt Nam (UTC+7) là ngày 2026-10-17 (01:30 sáng)
+  assert.equal(
+    formatVietnamDate(new Date("2026-10-16T18:30:00.000Z")),
+    "2026-10-17"
+  );
+});
+

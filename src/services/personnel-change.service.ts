@@ -24,25 +24,53 @@ const VALID_CHANGE_TYPES = new Set([
   "RESIGNATION",
 ]);
 
+export function formatVietnamDate(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (year && month && day) {
+    return `${year}-${month}-${day}`;
+  }
+  return date.toISOString().slice(0, 10);
+}
+
 export function normalizeEffectiveDateString(rawDate?: string): string {
   const trimmed = String(rawDate || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+  let isoCandidate = trimmed;
+
+  const dmyMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  if (dmyMatch) {
+    isoCandidate = `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+  } else if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) {
+    const parsedIso = new Date(trimmed);
+    if (!Number.isNaN(parsedIso.getTime())) {
+      isoCandidate = formatVietnamDate(parsedIso);
+    }
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoCandidate)) {
     throw new PersonnelChangeError(
-      "Ngày có hiệu lực thi hành không hợp lệ (định dạng chuẩn YYYY-MM-DD).",
+      "Ngày có hiệu lực thi hành không hợp lệ (định dạng chuẩn YYYY-MM-DD hoặc DD/MM/YYYY).",
       400
     );
   }
-  const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+  const parsed = new Date(`${isoCandidate}T00:00:00.000Z`);
   if (
     Number.isNaN(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !== trimmed
+    parsed.toISOString().slice(0, 10) !== isoCandidate
   ) {
     throw new PersonnelChangeError(
       "Ngày có hiệu lực thi hành không tồn tại trên lịch.",
       400
     );
   }
-  return trimmed;
+  return isoCandidate;
 }
 
 export function parseProposedSalary(rawNewSalary: unknown): number | null {
@@ -126,7 +154,13 @@ export async function syncEmployeeFromApprovedDecision(
     newSalary?: number | null;
   },
   overrideSalary?: number | null
-) {
+): Promise<{
+  synced: boolean;
+  employeeId: string | null;
+  fromDeptId: string | null;
+  toDeptId: string | null;
+  toDeptName: string;
+}> {
   let employeeProfile = change.employeeId
     ? await tx.employeeProfile.findUnique({
         where: { id: change.employeeId },
@@ -150,22 +184,28 @@ export async function syncEmployeeFromApprovedDecision(
       : null;
   }
 
-  if (!employeeProfile) {
-    if (change.type === "NEW_HIRE") {
-      return false;
-    }
-    throw new PersonnelChangeError(
-      "Không tìm thấy hồ sơ nhân sự để đồng bộ quyết định biến động.",
-      400
-    );
-  }
-
   const resolvedDept = await resolveTargetDepartment(
     tx,
     change.type,
     change.toDeptId,
     change.toDept
   );
+
+  if (!employeeProfile) {
+    if (change.type === "NEW_HIRE") {
+      return {
+        synced: false,
+        employeeId: null,
+        fromDeptId: null,
+        toDeptId: resolvedDept.id,
+        toDeptName: resolvedDept.name,
+      };
+    }
+    throw new PersonnelChangeError(
+      "Không tìm thấy hồ sơ nhân sự để đồng bộ quyết định biến động.",
+      400
+    );
+  }
 
   const salaryToApply =
     overrideSalary !== undefined && overrideSalary !== null
@@ -273,59 +313,202 @@ export async function syncEmployeeFromApprovedDecision(
     });
   }
 
-  return true;
+  return {
+    synced: true,
+    employeeId: employeeProfile.id,
+    fromDeptId: employeeProfile.departmentId ?? null,
+    toDeptId: resolvedDept.id,
+    toDeptName: resolvedDept.name,
+  };
 }
 
-export async function applyDuePersonnelChanges(referenceDate: Date = new Date()) {
-  const referenceIso = referenceDate.toISOString().slice(0, 10);
-  const dueChanges = await prisma.personnelChange.findMany({
+export interface AppliedDuePersonnelChangesResult extends Array<string> {
+  appliedIds: string[];
+  skippedUnverified: Array<{
+    id: string;
+    code: string;
+    employeeName: string;
+    effectiveDate: string;
+    reason: string;
+  }>;
+  failed: Array<{
+    id: string;
+    code: string;
+    employeeName: string;
+    effectiveDate: string;
+    error: string;
+  }>;
+  referenceDateIso: string;
+}
+
+export function isUnverifiedHistoricalDecision(change: {
+  status: string;
+  appliedAt?: Date | string | null;
+  employeeId?: string | null;
+  toDeptId?: string | null;
+  type?: string;
+}): boolean {
+  if (change.status !== "APPROVED" || change.appliedAt !== null) {
+    return false;
+  }
+  const hasEmployeeId = Boolean(change.employeeId && String(change.employeeId).trim());
+  const hasToDeptId =
+    change.type === "RESIGNATION" ||
+    Boolean(change.toDeptId && String(change.toDeptId).trim());
+  return !hasEmployeeId && !hasToDeptId;
+}
+
+export async function applyDuePersonnelChanges(
+  referenceDate: Date = new Date(),
+  options?: {
+    actorName?: string;
+    actorRole?: string;
+  }
+): Promise<AppliedDuePersonnelChangesResult> {
+  const referenceIso = formatVietnamDate(referenceDate);
+  const actorName = options?.actorName || "Hệ thống / Tự động theo ngày hiệu lực";
+  const actorRole = options?.actorRole || "SYSTEM_ADMIN";
+
+  const candidateChanges = await prisma.personnelChange.findMany({
     where: {
       status: "APPROVED",
       appliedAt: null,
-      effectiveDate: { lte: referenceIso },
     },
-    orderBy: [{ effectiveDate: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ createdAt: "asc" }],
   });
 
   const appliedIds: string[] = [];
-  for (const item of dueChanges) {
-    await prisma.$transaction(
-      async (tx) => {
-        const fresh = await tx.personnelChange.findUnique({
+  const skippedUnverified: AppliedDuePersonnelChangesResult["skippedUnverified"] = [];
+  const failed: AppliedDuePersonnelChangesResult["failed"] = [];
+
+  for (const item of candidateChanges) {
+    let normalizedEffectiveDate: string;
+    try {
+      normalizedEffectiveDate = normalizeEffectiveDateString(item.effectiveDate);
+    } catch (dateErr: unknown) {
+      const msg =
+        dateErr instanceof Error
+          ? dateErr.message
+          : "Ngày hiệu lực không hợp lệ.";
+      failed.push({
+        id: item.id,
+        code: item.code,
+        employeeName: item.employeeName,
+        effectiveDate: item.effectiveDate,
+        error: msg,
+      });
+      continue;
+    }
+
+    if (normalizedEffectiveDate > referenceIso) {
+      continue;
+    }
+
+    // Chặn tự động thi hành lại các quyết định lịch sử chưa được xác minh khóa định danh
+    if (isUnverifiedHistoricalDecision(item)) {
+      skippedUnverified.push({
+        id: item.id,
+        code: item.code,
+        employeeName: item.employeeName,
+        effectiveDate: normalizedEffectiveDate,
+        reason:
+          "Quyết định lịch sử tạo trước khi có cơ chế đóng dấu appliedAt và định danh hồ sơ; cần HR đối chiếu thủ công để tránh ghi đè hồ sơ nhân sự mới hơn.",
+      });
+      continue;
+    }
+
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          const fresh = await tx.personnelChange.findUnique({
+            where: { id: item.id },
+          });
+          if (!fresh || fresh.status !== "APPROVED" || fresh.appliedAt !== null) {
+            return;
+          }
+          const freshEffectiveIso = normalizeEffectiveDateString(fresh.effectiveDate);
+          if (freshEffectiveIso > referenceIso) {
+            return;
+          }
+          if (isUnverifiedHistoricalDecision(fresh)) {
+            return;
+          }
+
+          const syncResult = await syncEmployeeFromApprovedDecision(tx, fresh);
+          if (syncResult.synced) {
+            const updateResult = await tx.personnelChange.updateMany({
+              where: { id: fresh.id, appliedAt: null },
+              data: {
+                appliedAt: new Date(),
+                effectiveDate: freshEffectiveIso,
+                employeeId: fresh.employeeId ?? syncResult.employeeId,
+                toDeptId: fresh.toDeptId ?? syncResult.toDeptId,
+              },
+            });
+            if (updateResult.count === 0) {
+              return;
+            }
+            await tx.auditLog.create({
+              data: {
+                userName: actorName,
+                userRole: actorRole,
+                action: `Thi hành Quyết định biến động nhân sự đến hạn hiệu lực ${fresh.code} (${fresh.employeeName} - ngày hiệu lực ${freshEffectiveIso})`,
+                target: "PersonnelChange",
+                ip: "127.0.0.1",
+                status: "SUCCESS",
+              },
+            });
+            appliedIds.push(fresh.id);
+          }
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
+    } catch (err: unknown) {
+      const prismaCode = (err as { code?: string })?.code;
+      const errMsg = err instanceof Error ? err.message : "Lỗi không xác định khi đồng bộ hồ sơ.";
+      if (
+        prismaCode === "P2034" ||
+        errMsg.includes("could not serialize access") ||
+        errMsg.includes("deadlock")
+      ) {
+        const afterCheck = await prisma.personnelChange.findUnique({
           where: { id: item.id },
+          select: { appliedAt: true },
         });
-        if (
-          !fresh ||
-          fresh.status !== "APPROVED" ||
-          fresh.appliedAt !== null ||
-          fresh.effectiveDate > referenceIso
-        ) {
-          return;
+        if (afterCheck?.appliedAt) {
+          continue;
         }
-        const synced = await syncEmployeeFromApprovedDecision(tx, fresh);
-        if (synced) {
-          await tx.personnelChange.update({
-            where: { id: fresh.id },
-            data: { appliedAt: new Date() },
-          });
-          await tx.auditLog.create({
-            data: {
-              userName: "Hệ thống / Tự động theo ngày hiệu lực",
-              userRole: "SYSTEM_ADMIN",
-              action: `Tự động thi hành Quyết định biến động nhân sự đến hạn hiệu lực ${fresh.code} (${fresh.employeeName} - ngày hiệu lực ${fresh.effectiveDate})`,
-              target: "PersonnelChange",
-              ip: "127.0.0.1",
-              status: "SUCCESS",
-            },
-          });
-          appliedIds.push(fresh.id);
-        }
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
-    );
+      }
+
+      failed.push({
+        id: item.id,
+        code: item.code,
+        employeeName: item.employeeName,
+        effectiveDate: normalizedEffectiveDate,
+        error: errMsg,
+      });
+
+      await prisma.auditLog
+        .create({
+          data: {
+            userName: actorName,
+            userRole: actorRole,
+            action: `Lỗi khi thi hành Quyết định đến hạn ${item.code} (${item.employeeName}): ${errMsg}`,
+            target: "PersonnelChange",
+            ip: "127.0.0.1",
+            status: "WARNING",
+          },
+        })
+        .catch(() => undefined);
+    }
   }
 
-  return appliedIds;
+  return Object.assign([...appliedIds], {
+    appliedIds,
+    skippedUnverified,
+    failed,
+    referenceDateIso: referenceIso,
+  });
 }
 
 export async function createPersonnelChangeDecision(
@@ -488,7 +671,7 @@ export async function createPersonnelChangeDecision(
         ? "PENDING"
         : "APPROVED";
 
-  const referenceIso = referenceDate.toISOString().slice(0, 10);
+  const referenceIso = formatVietnamDate(referenceDate);
   const decisionYear = effectiveDate.slice(0, 4);
 
   return prisma.$transaction(
@@ -548,15 +731,19 @@ export async function createPersonnelChangeDecision(
 
       let finalRecord = created;
       if (shouldApplyImmediately) {
-        const synced = await syncEmployeeFromApprovedDecision(
+        const syncResult = await syncEmployeeFromApprovedDecision(
           tx,
           created,
           proposedSalary
         );
-        if (synced) {
+        if (syncResult.synced) {
           finalRecord = await tx.personnelChange.update({
             where: { id: created.id },
-            data: { appliedAt: new Date() },
+            data: {
+              appliedAt: new Date(),
+              employeeId: created.employeeId ?? syncResult.employeeId,
+              toDeptId: created.toDeptId ?? syncResult.toDeptId,
+            },
           });
         }
       }
@@ -677,7 +864,7 @@ export async function decidePersonnelChangeDecision(
     }
   }
 
-  const referenceIso = referenceDate.toISOString().slice(0, 10);
+  const referenceIso = formatVietnamDate(referenceDate);
 
   return prisma.$transaction(
     async (tx) => {
@@ -689,28 +876,73 @@ export async function decidePersonnelChangeDecision(
         );
       }
 
+      const normalizedEffectiveDate = normalizeEffectiveDateString(
+        fresh.effectiveDate
+      );
+
+      let resolvedEmpId = fresh.employeeId;
+      let resolvedFromDeptId = fresh.fromDeptId;
+      let resolvedToDeptId = fresh.toDeptId;
+      let resolvedToDeptName = fresh.toDept;
+
+      if (status === "APPROVED") {
+        if (!resolvedEmpId && fresh.employeeEmail) {
+          const matchedUser = await tx.user.findUnique({
+            where: { email: fresh.employeeEmail },
+            include: { employee: true },
+          });
+          if (matchedUser?.employee) {
+            resolvedEmpId = matchedUser.employee.id;
+            resolvedFromDeptId =
+              resolvedFromDeptId ?? matchedUser.employee.departmentId ?? null;
+          } else if (fresh.type !== "NEW_HIRE") {
+            throw new PersonnelChangeError(
+              "Không tìm thấy hồ sơ nhân sự để phê duyệt quyết định biến động.",
+              400
+            );
+          }
+        }
+        const resolvedDept = await resolveTargetDepartment(
+          tx,
+          fresh.type,
+          fresh.toDeptId,
+          fresh.toDept
+        );
+        resolvedToDeptId = resolvedDept.id;
+        resolvedToDeptName = resolvedDept.name;
+      }
+
       const shouldApplyImmediately =
-        status === "APPROVED" && fresh.effectiveDate <= referenceIso;
+        status === "APPROVED" && normalizedEffectiveDate <= referenceIso;
 
       let record = await tx.personnelChange.update({
         where: { id },
         data: {
           status,
+          effectiveDate: normalizedEffectiveDate,
+          employeeId: resolvedEmpId,
+          fromDeptId: resolvedFromDeptId,
+          toDeptId: resolvedToDeptId,
+          toDept: resolvedToDeptName,
           newSalary: effectiveSalary,
           signer: actor.userName || fresh.signer,
         },
       });
 
       if (shouldApplyImmediately) {
-        const synced = await syncEmployeeFromApprovedDecision(
+        const syncResult = await syncEmployeeFromApprovedDecision(
           tx,
           record,
           effectiveSalary
         );
-        if (synced) {
+        if (syncResult.synced) {
           record = await tx.personnelChange.update({
             where: { id },
-            data: { appliedAt: new Date() },
+            data: {
+              appliedAt: new Date(),
+              employeeId: record.employeeId ?? syncResult.employeeId,
+              toDeptId: record.toDeptId ?? syncResult.toDeptId,
+            },
           });
         }
       }
@@ -720,8 +952,8 @@ export async function decidePersonnelChangeDecision(
           ? ` - Lương áp dụng: ${effectiveSalary.toLocaleString("vi-VN")} VNĐ`
           : "";
       const scheduleNote =
-        status === "APPROVED" && fresh.effectiveDate > referenceIso
-          ? ` (Chờ đến ngày hiệu lực ${fresh.effectiveDate})`
+        status === "APPROVED" && normalizedEffectiveDate > referenceIso
+          ? ` (Chờ đến ngày hiệu lực ${normalizedEffectiveDate})`
           : "";
 
       await tx.auditLog.create({
@@ -742,3 +974,299 @@ export async function decidePersonnelChangeDecision(
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );
 }
+
+export type DecisionLifecycleState =
+  | "APPLIED"
+  | "SCHEDULED"
+  | "DUE_READY"
+  | "HISTORICAL_MATCHED"
+  | "HISTORICAL_NEEDS_REVIEW"
+  | "PENDING"
+  | "REJECTED";
+
+export async function enrichPersonnelChangesWithLifecycle<
+  T extends {
+    id: string;
+    code: string;
+    employeeId?: string | null;
+    employeeEmail: string;
+    type: string;
+    toDeptId?: string | null;
+    toDept: string;
+    toPosition: string;
+    newSalary?: number | null;
+    effectiveDate: string;
+    appliedAt?: Date | string | null;
+    status: string;
+  },
+>(changes: T[], referenceDate: Date = new Date()) {
+  const referenceIso = formatVietnamDate(referenceDate);
+  const unappliedApproved = changes.filter(
+    (c) => c.status === "APPROVED" && !c.appliedAt
+  );
+
+  if (unappliedApproved.length === 0) {
+    return changes.map((c) => ({
+      ...c,
+      effectiveDateIso: (() => {
+        try {
+          return normalizeEffectiveDateString(c.effectiveDate);
+        } catch {
+          return c.effectiveDate;
+        }
+      })(),
+      lifecycleState: (c.status === "APPROVED"
+        ? "APPLIED"
+        : c.status === "REJECTED"
+          ? "REJECTED"
+          : "PENDING") as DecisionLifecycleState,
+      lifecycleNote: null as string | null,
+    }));
+  }
+
+  const emails = [
+    ...new Set(unappliedApproved.map((c) => c.employeeEmail).filter(Boolean)),
+  ];
+  const empIds = [
+    ...new Set(
+      unappliedApproved
+        .map((c) => c.employeeId)
+        .filter((v): v is string => Boolean(v))
+    ),
+  ];
+
+  const [profiles, departments] = await Promise.all([
+    prisma.employeeProfile.findMany({
+      where: {
+        OR: [
+          ...(empIds.length > 0 ? [{ id: { in: empIds } }] : []),
+          ...(emails.length > 0 ? [{ user: { email: { in: emails } } }] : []),
+        ],
+      },
+      include: {
+        user: { select: { email: true, name: true } },
+        department: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.department.findMany({
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const profileByEmail = new Map(
+    profiles.map((p) => [p.user.email.toLowerCase(), p])
+  );
+  const deptByName = new Map(
+    departments.map((d) => [d.name.trim().toLowerCase(), d])
+  );
+
+  return changes.map((c) => {
+    let effectiveDateIso = c.effectiveDate;
+    try {
+      effectiveDateIso = normalizeEffectiveDateString(c.effectiveDate);
+    } catch {
+      // Giữ nguyên nếu chuỗi ngày lịch sử bị lỗi định dạng
+    }
+
+    if (c.status === "REJECTED") {
+      return {
+        ...c,
+        effectiveDateIso,
+        lifecycleState: "REJECTED" as DecisionLifecycleState,
+        lifecycleNote: null,
+      };
+    }
+    if (c.status !== "APPROVED") {
+      return {
+        ...c,
+        effectiveDateIso,
+        lifecycleState: "PENDING" as DecisionLifecycleState,
+        lifecycleNote: null,
+      };
+    }
+    if (c.appliedAt) {
+      return {
+        ...c,
+        effectiveDateIso,
+        lifecycleState: "APPLIED" as DecisionLifecycleState,
+        lifecycleNote: null,
+      };
+    }
+
+    if (effectiveDateIso > referenceIso) {
+      return {
+        ...c,
+        effectiveDateIso,
+        lifecycleState: "SCHEDULED" as DecisionLifecycleState,
+        lifecycleNote: `Chờ đến ngày hiệu lực ${effectiveDateIso}`,
+      };
+    }
+
+    if (!isUnverifiedHistoricalDecision(c)) {
+      return {
+        ...c,
+        effectiveDateIso,
+        lifecycleState: "DUE_READY" as DecisionLifecycleState,
+        lifecycleNote: `Đã đến ngày hiệu lực (${effectiveDateIso}), sẵn sàng thi hành`,
+      };
+    }
+
+    const matchedProfile =
+      (c.employeeId ? profileById.get(c.employeeId) : undefined) ||
+      profileByEmail.get(c.employeeEmail.toLowerCase());
+    const matchedDept = deptByName.get(c.toDept.trim().toLowerCase());
+
+    if (!matchedProfile) {
+      return {
+        ...c,
+        effectiveDateIso,
+        lifecycleState: "HISTORICAL_NEEDS_REVIEW" as DecisionLifecycleState,
+        lifecycleNote:
+          c.type === "NEW_HIRE"
+            ? "Quyết định lịch sử tiếp nhận nhân sự chưa khởi tạo hồ sơ EmployeeProfile; cần HR đối chiếu onboarding."
+            : "Quyết định lịch sử không tìm thấy hồ sơ nhân sự khớp; cần HR đối chiếu.",
+      };
+    }
+
+    const positionMatched =
+      matchedProfile.position.trim().toLowerCase() ===
+      c.toPosition.trim().toLowerCase();
+    const deptMatched =
+      c.type === "RESIGNATION"
+        ? matchedProfile.status === "RESIGNED"
+        : Boolean(
+            matchedDept && matchedProfile.departmentId === matchedDept.id
+          );
+
+    if (positionMatched && deptMatched) {
+      return {
+        ...c,
+        effectiveDateIso,
+        lifecycleState: "HISTORICAL_MATCHED" as DecisionLifecycleState,
+        lifecycleNote:
+          "Quyết định lịch sử đã khớp với hồ sơ thực tế hiện tại (chưa đóng dấu appliedAt).",
+      };
+    }
+
+    return {
+      ...c,
+      effectiveDateIso,
+      lifecycleState: "HISTORICAL_NEEDS_REVIEW" as DecisionLifecycleState,
+      lifecycleNote:
+        "Quyết định lịch sử khác biệt với hồ sơ/phòng ban hiện tại; đã khóa tự động chạy lại để tránh ghi đè hồ sơ mới hơn.",
+    };
+  });
+}
+
+export async function reconcileHistoricalPersonnelChange(
+  actor: PersonnelChangeActor,
+  body: Record<string, unknown>
+) {
+  const roleName = actor.roleName || "USER";
+  if (!["SYSTEM_ADMIN", "BOD", "HR"].includes(roleName)) {
+    throw new PersonnelChangeError(
+      "Chỉ Quản trị hệ thống, Ban Giám Đốc hoặc Nhân sự mới có quyền đối chiếu quyết định lịch sử.",
+      403
+    );
+  }
+
+  const id = String(body.id || "").trim();
+  const action = String(body.reconcileAction || "").trim();
+  if (!id || !["MARK_HISTORICAL_APPLIED", "APPLY_DECISION_NOW"].includes(action)) {
+    throw new PersonnelChangeError(
+      "Thao tác đối chiếu quyết định lịch sử không hợp lệ.",
+      400
+    );
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      const decision = await tx.personnelChange.findUnique({ where: { id } });
+      if (!decision) {
+        throw new PersonnelChangeError("Không tìm thấy quyết định biến động.", 404);
+      }
+      if (decision.status !== "APPROVED") {
+        throw new PersonnelChangeError(
+          "Chỉ có thể đối chiếu các quyết định ở trạng thái APPROVED.",
+          400
+        );
+      }
+      if (decision.appliedAt) {
+        return decision;
+      }
+
+      const normalizedEffectiveDate = normalizeEffectiveDateString(
+        decision.effectiveDate
+      );
+
+      if (action === "MARK_HISTORICAL_APPLIED") {
+        const matchedUser = decision.employeeEmail
+          ? await tx.user.findUnique({
+              where: { email: decision.employeeEmail },
+              include: { employee: true },
+            })
+          : null;
+        const matchedDept = await tx.department.findFirst({
+          where: { name: { equals: decision.toDept.trim(), mode: "insensitive" } },
+        });
+
+        const updated = await tx.personnelChange.update({
+          where: { id: decision.id },
+          data: {
+            appliedAt: new Date(),
+            effectiveDate: normalizedEffectiveDate,
+            employeeId: decision.employeeId ?? matchedUser?.employee?.id ?? null,
+            toDeptId: decision.toDeptId ?? matchedDept?.id ?? null,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userName: actor.userName || "Nhân sự / Quản trị",
+            userRole: roleName,
+            action: `Xác nhận đối chiếu lịch sử (đóng dấu đã thi hành, giữ nguyên hồ sơ hiện tại) cho Quyết định ${decision.code} (${decision.employeeName})`,
+            target: "PersonnelChange",
+            ip: "127.0.0.1",
+            status: "SUCCESS",
+          },
+        });
+
+        return updated;
+      }
+
+      const syncResult = await syncEmployeeFromApprovedDecision(tx, decision);
+      if (!syncResult.synced) {
+        throw new PersonnelChangeError(
+          "Không thể thi hành quyết định tiếp nhận mới khi ứng viên chưa có hồ sơ nhân sự (EmployeeProfile).",
+          400
+        );
+      }
+
+      const updated = await tx.personnelChange.update({
+        where: { id: decision.id },
+        data: {
+          appliedAt: new Date(),
+          effectiveDate: normalizedEffectiveDate,
+          employeeId: decision.employeeId ?? syncResult.employeeId,
+          toDeptId: decision.toDeptId ?? syncResult.toDeptId,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userName: actor.userName || "Nhân sự / Quản trị",
+          userRole: roleName,
+          action: `Xác nhận thi hành thủ công Quyết định ${decision.code} (${decision.employeeName})`,
+          target: "PersonnelChange",
+          ip: "127.0.0.1",
+          status: "SUCCESS",
+        },
+      });
+
+      return updated;
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+  );
+}
+

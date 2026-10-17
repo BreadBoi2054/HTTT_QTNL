@@ -28,11 +28,106 @@ export function calculateVietnamesePIT(taxableIncome: number): number {
   }
 }
 
+export type WageRegion = "I" | "II" | "III" | "IV";
+
+export const REGIONAL_MINIMUM_WAGES_ND74_2024: Record<WageRegion, number> = {
+  I: 4_960_000,
+  II: 4_410_000,
+  III: 3_860_000,
+  IV: 3_450_000,
+};
+
+export const REGIONAL_MINIMUM_WAGES_ND293_2025: Record<WageRegion, number> = {
+  I: 5_310_000,
+  II: 4_730_000,
+  III: 4_140_000,
+  IV: 3_700_000,
+};
+
 export interface InsuranceAttendanceBreakdown {
   confirmedUnpaidDays: number;
   confirmedSickDays: number;
   midMonthUnworkedDays?: number;
   missingAttendanceDays: number;
+  region?: WageRegion;
+  regionConfirmed?: boolean;
+}
+
+export function resolveStatutoryWageParameters(
+  month: number,
+  year: number,
+  requestedRegion?: WageRegion
+): {
+  referenceLevel: number;
+  regionalMinimumWage: number;
+  region: WageRegion;
+  regionConfirmed: boolean;
+} {
+  const validRegions: WageRegion[] = ["I", "II", "III", "IV"];
+  const envDefaultRegion = process.env.HRMIS_DEFAULT_WAGE_REGION?.trim() as
+    | WageRegion
+    | undefined;
+  const normalizedDefaultRegion: WageRegion =
+    envDefaultRegion && validRegions.includes(envDefaultRegion)
+      ? envDefaultRegion
+      : "I";
+  const region: WageRegion =
+    requestedRegion && validRegions.includes(requestedRegion)
+      ? requestedRegion
+      : normalizedDefaultRegion;
+  const regionConfirmed = Boolean(
+    (requestedRegion && validRegions.includes(requestedRegion)) ||
+      (envDefaultRegion && validRegions.includes(envDefaultRegion))
+  );
+
+  // Kiểm tra cấu hình năm tương lai qua biến môi trường PAYROLL_STATUTORY_WAGES_<YEAR>
+  const customYearConfigRaw =
+    process.env[`PAYROLL_STATUTORY_WAGES_${year}`]?.trim();
+  if (customYearConfigRaw) {
+    try {
+      const parsed = JSON.parse(customYearConfigRaw) as {
+        referenceLevel?: number;
+        regionalMinimumWages?: Partial<Record<WageRegion, number>>;
+      };
+      const ref = Number(parsed.referenceLevel);
+      const regWage = Number(parsed.regionalMinimumWages?.[region]);
+      if (Number.isFinite(ref) && ref > 0 && Number.isFinite(regWage) && regWage > 0) {
+        return {
+          referenceLevel: ref,
+          regionalMinimumWage: regWage,
+          region,
+          regionConfirmed,
+        };
+      }
+    } catch {
+      // Fall through to validation error if malformed
+    }
+  }
+
+  if (year < 2024 || year > 2026) {
+    throw new Error(
+      `Chưa cấu hình mức tham chiếu BHXH và lương tối thiểu vùng cho năm ${year}. Vui lòng cập nhật biểu mức pháp lý trước khi tính bảo hiểm kỳ ${month}/${year}.`
+    );
+  }
+
+  // Mức tham chiếu / lương cơ sở: 2.340.000đ (trước 01/07/2026 theo NĐ 73/2024/NĐ-CP) và 2.530.000đ (từ 01/07/2026)
+  const referenceLevel =
+    year === 2026 && month >= 7 ? 2_530_000 : 2_340_000;
+
+  // Lương tối thiểu vùng theo tháng:
+  // - Năm 2026 (từ 01/01/2026): theo Nghị định 293/2025/NĐ-CP (Vùng I: 5.310.000đ, Vùng II: 4.730.000đ, Vùng III: 4.140.000đ, Vùng IV: 3.700.000đ)
+  // - Năm 2024–2025: theo Nghị định 74/2024/NĐ-CP (Vùng I: 4.960.000đ, Vùng II: 4.410.000đ, Vùng III: 3.860.000đ, Vùng IV: 3.450.000đ)
+  const regionalMinimumWage =
+    year === 2026
+      ? REGIONAL_MINIMUM_WAGES_ND293_2025[region]
+      : REGIONAL_MINIMUM_WAGES_ND74_2024[region];
+
+  return {
+    referenceLevel,
+    regionalMinimumWage,
+    region,
+    regionConfirmed,
+  };
 }
 
 export function isStatutoryInsuranceComponent(comp: {
@@ -53,6 +148,12 @@ export function calculateStatutoryInsurance(
   year: number = 2026,
   breakdown?: InsuranceAttendanceBreakdown
 ) {
+  const { referenceLevel, regionalMinimumWage, region, regionConfirmed } =
+    resolveStatutoryWageParameters(month, year, breakdown?.region);
+  const effectiveRegionConfirmed = Boolean(
+    breakdown?.regionConfirmed ?? regionConfirmed
+  );
+
   const nonPaidWorkingDays = Math.max(0, standardWorkingDays - effectivePaidDays);
   const confirmedUnpaidDays = breakdown
     ? Math.max(0, breakdown.confirmedUnpaidDays)
@@ -73,10 +174,19 @@ export function calculateStatutoryInsurance(
       (missingAttendanceDays > 0 || midMonthUnworkedDays > 0)
   );
 
+  const bhxhBhytCap = 20 * referenceLevel;
+  const bhtnCap = 20 * regionalMinimumWage;
+
   if (exempt || contractBaseSalary <= 0) {
     return {
       exempt,
       needsHrReconciliation: false,
+      region,
+      regionConfirmed: effectiveRegionConfirmed,
+      referenceLevel,
+      regionalMinimumWage,
+      bhxhBhytCap,
+      bhtnCap,
       nonPaidWorkingDays,
       confirmedExemptDays,
       confirmedUnpaidDays,
@@ -92,15 +202,6 @@ export function calculateStatutoryInsurance(
     };
   }
 
-  // Mức tham chiếu / lương cơ sở: 2.340.000đ (trước 01/07/2026) và 2.530.000đ (từ 01/07/2026)
-  const referenceLevel =
-    year > 2026 || (year === 2026 && month >= 7) ? 2_530_000 : 2_340_000;
-  // Lương tối thiểu vùng I: 5.310.000đ (từ 01/01/2026 theo NĐ 293/2025/NĐ-CP), trước đó 4.960.000đ
-  const regionalMinimumWage = year >= 2026 ? 5_310_000 : 4_960_000;
-
-  const bhxhBhytCap = 20 * referenceLevel;
-  const bhtnCap = 20 * regionalMinimumWage;
-
   const bhxhBhytBase = Math.min(contractBaseSalary, bhxhBhytCap);
   const bhtnBase = Math.min(contractBaseSalary, bhtnCap);
 
@@ -111,6 +212,12 @@ export function calculateStatutoryInsurance(
   return {
     exempt: false,
     needsHrReconciliation,
+    region,
+    regionConfirmed: effectiveRegionConfirmed,
+    referenceLevel,
+    regionalMinimumWage,
+    bhxhBhytCap,
+    bhtnCap,
     nonPaidWorkingDays,
     confirmedExemptDays,
     confirmedUnpaidDays,
@@ -134,24 +241,38 @@ export interface PayrollDetailItem {
   amountType: string;
 }
 
-function buildManualPayrollDetails(
+export function buildManualPayrollDetails(
   baseSalary: number,
   bonus: number,
   deductions: number,
   existingDetails?: unknown
 ): PayrollDetailItem[] {
-  const dayItems: PayrollDetailItem[] = Array.isArray(existingDetails)
+  const validExisting: PayrollDetailItem[] = Array.isArray(existingDetails)
     ? existingDetails.filter(
         (d): d is PayrollDetailItem =>
           Boolean(
             d &&
               typeof d === "object" &&
-              (d as { amountType?: unknown }).amountType === "DAYS"
+              typeof (d as { name?: unknown }).name === "string" &&
+              typeof (d as { type?: unknown }).type === "string" &&
+              typeof (d as { amount?: unknown }).amount === "number" &&
+              typeof (d as { amountType?: unknown }).amountType === "string"
           )
       )
     : [];
 
-  const details: PayrollDetailItem[] = [...dayItems];
+  const nonMonetaryItems = validExisting.filter(
+    (d) => d.type === "INFO" || d.amountType === "DAYS"
+  );
+  const existingMonetaryDeductions = validExisting.filter(
+    (d) => d.type === "DEDUCTION" && d.amountType !== "DAYS"
+  );
+  const existingDeductionSum = existingMonetaryDeductions.reduce(
+    (sum, item) => sum + item.amount,
+    0
+  );
+
+  const details: PayrollDetailItem[] = [...nonMonetaryItems];
 
   details.push({
     name: "Lương cơ bản theo kỳ",
@@ -170,40 +291,14 @@ function buildManualPayrollDetails(
   }
 
   if (deductions > 0) {
-    const ins = calculateStatutoryInsurance(baseSalary, 22, 22);
-    const statutoryTotal = ins.total;
-
-    if (deductions >= statutoryTotal && baseSalary > 0) {
-      details.push({
-        name: "Bảo hiểm Xã hội (BHXH 8%)",
-        type: "DEDUCTION",
-        amount: ins.bhxh,
-        amountType: "FIXED",
-      });
-      details.push({
-        name: "Bảo hiểm Y tế (BHYT 1.5%)",
-        type: "DEDUCTION",
-        amount: ins.bhyt,
-        amountType: "FIXED",
-      });
-      details.push({
-        name: "Bảo hiểm Thất nghiệp (BHTN 1.0%)",
-        type: "DEDUCTION",
-        amount: ins.bhtn,
-        amountType: "FIXED",
-      });
-      const remainingDeduction = deductions - statutoryTotal;
-      if (remainingDeduction > 0) {
-        details.push({
-          name: "Khấu trừ khác / Thuế TNCN",
-          type: "DEDUCTION",
-          amount: remainingDeduction,
-          amountType: "FIXED",
-        });
-      }
+    if (
+      existingMonetaryDeductions.length > 0 &&
+      existingDeductionSum === deductions
+    ) {
+      details.push(...existingMonetaryDeductions);
     } else {
       details.push({
-        name: "Tổng khoản giảm trừ nghĩa vụ",
+        name: "Tổng khoản giảm trừ / khấu trừ (Áp dụng thủ công)",
         type: "DEDUCTION",
         amount: deductions,
         amountType: "FIXED",
@@ -504,7 +599,7 @@ export async function calculateMonthlyPayroll(
   return prisma.$transaction(async (tx) => {
   const { holidays, extraWorkdays } = await getWorkCalendar(year, tx);
   const standardWorkingDays = monthlyWorkdays(year, month, holidays, extraWorkdays);
-  const [employeeConfigs, existingPayrolls] = await Promise.all([
+  const [employeeConfigs, existingPayrolls, resignationDecisions] = await Promise.all([
     tx.employeeSalaryConfig.findMany({
       orderBy: { createdAt: "asc" },
       include: {
@@ -533,11 +628,10 @@ export async function calculateMonthlyPayroll(
               orderBy: { createdAt: "desc" },
             },
             contracts: {
-              where: { status: "ACTIVE" },
+              where: { status: { in: ["ACTIVE", "TERMINATED"] } },
               orderBy: { startDate: "desc" },
-              take: 1,
             },
-            user: { select: { name: true } },
+            user: { select: { name: true, email: true } },
           },
         },
         components: {
@@ -550,13 +644,48 @@ export async function calculateMonthlyPayroll(
     tx.payroll.findMany({
       where: { month, year },
     }),
+    tx.personnelChange.findMany({
+      where: {
+        type: "RESIGNATION",
+        status: "APPROVED",
+      },
+      select: {
+        employeeId: true,
+        employeeEmail: true,
+        effectiveDate: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
+
+  const parseDecisionDateIso = (raw: string): string | null => {
+    const trimmed = String(raw || "").trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+    if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+    return null;
+  };
+
+  const resignationDateByEmpId = new Map<string, string>();
+  const resignationDateByEmail = new Map<string, string>();
+  for (const dec of resignationDecisions) {
+    const iso = parseDecisionDateIso(dec.effectiveDate);
+    if (!iso) continue;
+    if (dec.employeeId && !resignationDateByEmpId.has(dec.employeeId)) {
+      resignationDateByEmpId.set(dec.employeeId, iso);
+    }
+    if (dec.employeeEmail && !resignationDateByEmail.has(dec.employeeEmail.toLowerCase())) {
+      resignationDateByEmail.set(dec.employeeEmail.toLowerCase(), iso);
+    }
+  }
 
   const existingPayrollMap = new Map(
     existingPayrolls.map((p) => [p.employeeId, p])
   );
 
   const payrollsCreated = [];
+  const startDateKey = startDate.toISOString().slice(0, 10);
+  const endDateKey = endDate.toISOString().slice(0, 10);
 
   for (const config of employeeConfigs) {
     const { employee, components } = config;
@@ -638,7 +767,7 @@ export async function calculateMonthlyPayroll(
       continue;
     }
 
-    // Phân biệt ngày không thuộc thời gian làm việc (vào/nghỉ việc giữa tháng) và ngày thiếu dữ liệu chấm công
+    // Phân biệt ngày không thuộc thời gian làm việc (vào/nghỉ việc giữa tháng có bằng chứng) và ngày thiếu dữ liệu chấm công
     const activeDateKeys = [...workedDateKeys, ...leaveDateKeys].sort();
     const hasExplicitJoinDate =
       Boolean(employee.joinDate) &&
@@ -660,9 +789,36 @@ export async function calculateMonthlyPayroll(
         activeDateKeys[0] >= normalizedJoinDate.toISOString().slice(0, 10))
         ? normalizedJoinDate
         : null;
-    const lastActiveDateKey =
-      employee.status === "RESIGNED" && activeDateKeys.length > 0
-        ? activeDateKeys[activeDateKeys.length - 1]
+
+    const activeContracts = (employee.contracts || []).filter(
+      (c) => c.status === "ACTIVE"
+    );
+    const latestTerminatedContract = (employee.contracts || []).find(
+      (c) => c.status === "TERMINATED" && c.endDate !== null
+    );
+    const terminatedContractEndIso =
+      employee.status === "RESIGNED" &&
+      activeContracts.length === 0 &&
+      latestTerminatedContract?.endDate
+        ? latestTerminatedContract.endDate.toISOString().slice(0, 10)
+        : null;
+
+    const decisionResignIso =
+      resignationDateByEmpId.get(employee.id) ||
+      (employee.user?.email
+        ? resignationDateByEmail.get(employee.user.email.toLowerCase())
+        : undefined) ||
+      null;
+
+    // Chỉ ghi nhận ngày nghỉ việc giữa tháng khi có bằng chứng ngày hiệu lực thôi việc hoặc ngày kết thúc hợp đồng thực tế
+    const rawResignDateKey = decisionResignIso ?? terminatedContractEndIso;
+    const confirmedResignationDateKey =
+      rawResignDateKey &&
+      rawResignDateKey >= startDateKey &&
+      rawResignDateKey <= endDateKey &&
+      (activeDateKeys.length === 0 ||
+        activeDateKeys[activeDateKeys.length - 1] <= rawResignDateKey)
+        ? rawResignDateKey
         : null;
 
     let midMonthUnworkedDays = 0;
@@ -678,9 +834,10 @@ export async function calculateMonthlyPayroll(
       ) {
         const isBeforeJoin =
           effectiveJoinDateInMonth !== null && dayCursor < effectiveJoinDateInMonth;
-        const isAfterResign =
-          lastActiveDateKey !== null && dateKey > lastActiveDateKey;
-        if (isBeforeJoin || isAfterResign) {
+        const isAfterConfirmedResign =
+          confirmedResignationDateKey !== null &&
+          dateKey >= confirmedResignationDateKey;
+        if (isBeforeJoin || isAfterConfirmedResign) {
           midMonthUnworkedDays++;
         } else {
           missingAttendanceDays++;
@@ -695,8 +852,8 @@ export async function calculateMonthlyPayroll(
     // 3. Căn cứ đóng bảo hiểm theo hợp đồng (contractInsuranceBaseSalary): lấy từ HĐLĐ ACTIVE (nếu có), ngược lại dùng lương cấu hình
     const configuredBaseSalary = config.baseSalary;
     const activeContractSalary =
-      employee.contracts?.[0]?.salary && employee.contracts[0].salary > 0
-        ? employee.contracts[0].salary
+      activeContracts[0]?.salary && activeContracts[0].salary > 0
+        ? activeContracts[0].salary
         : null;
     const contractInsuranceBaseSalary = activeContractSalary ?? configuredBaseSalary;
 
@@ -898,6 +1055,15 @@ export async function calculateMonthlyPayroll(
         type: "INFO",
         amount: ins.nonPaidWorkingDays,
         amountType: "DAYS",
+      });
+    }
+
+    if (!ins.regionConfirmed && contractInsuranceBaseSalary > 20 * REGIONAL_MINIMUM_WAGES_ND74_2024.IV) {
+      details.push({
+        name: `Trần BHTN đang tạm tính theo Vùng ${ins.region} (${ins.bhtnCap.toLocaleString("vi-VN")} VNĐ — Cần HR xác nhận vùng địa bàn làm việc nếu khác Vùng ${ins.region})`,
+        type: "INFO",
+        amount: ins.bhtnCap,
+        amountType: "FIXED",
       });
     }
 

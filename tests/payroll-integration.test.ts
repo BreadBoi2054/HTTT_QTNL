@@ -8,6 +8,8 @@ import {
   applyDuePersonnelChanges,
   createPersonnelChangeDecision,
   decidePersonnelChangeDecision,
+  enrichPersonnelChangesWithLifecycle,
+  reconcileHistoricalPersonnelChange,
 } from "../src/services/personnel-change.service";
 
 const isolated = /\/hrmis_codex_test_[a-z0-9]+(?:\?|$)/.test(process.env.DATABASE_URL || "");
@@ -278,11 +280,152 @@ test("lịch công, duyệt OT, chặn OT ngày nghỉ phép, lương nghỉ vi�
   assert.equal((await prisma.employeeProfile.findUniqueOrThrow({ where: { id: diffEmp.id } })).position, "Trưởng nhóm Kỹ thuật");
   assert.equal((await prisma.employeeSalaryConfig.findUniqueOrThrow({ where: { id: diffConfig.id } })).baseSalary, 28_000_000);
 
-  // Khi đến ngày hiệu lực 2027-01-15, applyDuePersonnelChanges đồng bộ hồ sơ
-  const appliedIds = await applyDuePersonnelChanges(new Date("2027-01-15T00:00:00.000Z"));
-  assert.ok(appliedIds.includes(futureDecision.id));
+  // 5. Kiểm thử phân biệt ngày thiếu chấm công với ngày nghỉ việc thực tế:
+  // Nhân viên resignedEmp có status = RESIGNED và mới chỉ có 2 ngày chấm công (03/09 và 04/09, thêm 05/09 làm bù = 3 ngày công) trong tháng 9/2026,
+  // nhưng CHƯA có quyết định RESIGNATION xác nhận ngày thôi việc -> 18 ngày làm việc còn lại phải nằm trong missingAttendanceDays (Cần HR đối chiếu), KHÔNG tự suy diễn từ ngày chấm công cuối!
+  const resignedSepBeforeDecision = await prisma.payroll.findUniqueOrThrow({
+    where: { employeeId_month_year: { employeeId: resignedEmp.id, month: 9, year: 2026 } },
+  });
+  const resignedSepBeforeDetails = resignedSepBeforeDecision.details as Array<{
+    name: string;
+    amount: number;
+  }>;
+  assert.ok(
+    resignedSepBeforeDetails.some(
+      (d) => d.name.includes("Ngày chưa có dữ liệu chấm công") && d.amount === 18
+    )
+  );
+  assert.ok(
+    resignedSepBeforeDetails.some((d) =>
+      d.name.includes("Cần HR đối chiếu chấm công/bảo hiểm")
+    )
+  );
+
+  // Khi có quyết định RESIGNATION đã APPROVED với effectiveDate = "2026-09-07", các ngày làm việc từ 07/09 trở đi (18 ngày) mới được ghi nhận là midMonthUnworkedDays
+  await prisma.personnelChange.create({
+    data: {
+      code: "QĐ-2026-899",
+      employeeId: resignedEmp.id,
+      employeeName: resignedUser.name,
+      employeeEmail: resignedUser.email,
+      type: "RESIGNATION",
+      fromDept: "Phòng Công nghệ (IT)",
+      toDept: "Lưu trữ hồ sơ thôi việc",
+      fromPosition: "Chuyên viên",
+      toPosition: "Thôi việc",
+      effectiveDate: "2026-09-07",
+      appliedAt: new Date("2026-09-07T00:00:00.000Z"),
+      signer: "CEO thử nghiệm",
+      status: "APPROVED",
+    },
+  });
+  await prisma.payroll.update({ where: { id: original.id }, data: { status: "DRAFT" } });
+  await calculateMonthlyPayroll(9, 2026);
+  const resignedSepAfterDecision = await prisma.payroll.findUniqueOrThrow({
+    where: { employeeId_month_year: { employeeId: resignedEmp.id, month: 9, year: 2026 } },
+  });
+  const resignedSepAfterDetails = resignedSepAfterDecision.details as Array<{
+    name: string;
+    amount: number;
+  }>;
+  assert.ok(
+    resignedSepAfterDetails.some(
+      (d) =>
+        d.name.includes("Ngày ngoài thời gian làm việc (Vào/nghỉ việc giữa tháng)") &&
+        d.amount === 18
+    )
+  );
+
+  // 6. Kiểm thử quyết định lịch sử chưa xác minh (employeeId = null, toDeptId = null, appliedAt = null):
+  // KHÔNG được tự động chạy lại làm ghi đè vị trí "Trưởng nhóm Kỹ thuật" về vị trí cũ!
+  const legacyUnverified = await prisma.personnelChange.create({
+    data: {
+      code: "QĐ-2026-041-LEGACY",
+      employeeName: diffUser.name,
+      employeeEmail: diffUser.email,
+      type: "PROMOTION",
+      fromDept: "Phòng Công nghệ (IT)",
+      toDept: "Phòng Công nghệ (IT)",
+      fromPosition: "Thực tập sinh",
+      toPosition: "Chức danh lịch sử cũ",
+      effectiveDate: "01/10/2026",
+      signer: "CEO thử nghiệm",
+      status: "APPROVED",
+      employeeId: null,
+      toDeptId: null,
+      appliedAt: null,
+    },
+  });
+
+  const enrichedCheck = await enrichPersonnelChangesWithLifecycle([legacyUnverified]);
+  assert.equal(enrichedCheck[0].lifecycleState, "HISTORICAL_NEEDS_REVIEW");
+
+  // 7. Kiểm thử quyết định có phòng ban đích bị xóa trước ngày hiệu lực (cô lập lỗi, không làm gãy quyết định hợp lệ khác)
+  const tempDept = await prisma.department.create({ data: { name: "Phòng Tạm Thời" } });
+  const brokenDecision = await createPersonnelChangeDecision(
+    { userId: bodUser.id, userEmail: bodUser.email, userName: bodUser.name, roleName: "BOD" },
+    {
+      employeeId: customInsEmp.id,
+      type: "TRANSFER",
+      toDeptId: tempDept.id,
+      toPosition: "Chuyên viên Điều phối",
+      status: "APPROVED",
+      effectiveDate: "2027-01-10",
+    },
+    new Date("2026-10-17T00:00:00.000Z")
+  );
+  await prisma.department.delete({ where: { id: tempDept.id } });
+  await prisma.personnelChange.update({
+    where: { id: brokenDecision.id },
+    data: { toDeptId: "deleted-dept-id", toDept: "Phòng Đã Giải Thể" },
+  });
+
+  // 8. Chạy đồng thời 2 tiến trình applyDuePersonnelChanges tại ngày 2027-01-15:
+  // - futureDecision được thi hành đúng 1 lần (chống chạy trùng)
+  // - legacyUnverified được đưa vào skippedUnverified (không ghi đè hồ sơ!)
+  // - brokenDecision bị lỗi được cô lập vào failed (không làm gãy futureDecision!)
+  const [runA, runB] = await Promise.all([
+    applyDuePersonnelChanges(new Date("2027-01-15T00:00:00.000Z")),
+    applyDuePersonnelChanges(new Date("2027-01-15T00:00:00.000Z")),
+  ]);
+  const combinedApplied = [...new Set([...runA.appliedIds, ...runB.appliedIds])];
+  assert.ok(combinedApplied.includes(futureDecision.id));
+  assert.equal(runA.appliedIds.length + runB.appliedIds.length, 1);
+  assert.ok(
+    runA.skippedUnverified.some((s) => s.id === legacyUnverified.id) ||
+      runB.skippedUnverified.some((s) => s.id === legacyUnverified.id)
+  );
+  assert.ok(
+    runA.failed.some((f) => f.id === brokenDecision.id) ||
+      runB.failed.some((f) => f.id === brokenDecision.id)
+  );
+
+  // Hồ sơ của diffEmp được nâng lên "Kiến trúc sư trưởng" (35.000.000đ) và KHÔNG bị legacyUnverified ghi đè thành "Chức danh lịch sử cũ"
   assert.equal((await prisma.employeeProfile.findUniqueOrThrow({ where: { id: diffEmp.id } })).position, "Kiến trúc sư trưởng");
   assert.equal((await prisma.employeeSalaryConfig.findUniqueOrThrow({ where: { id: diffConfig.id } })).baseSalary, 35_000_000);
+
+  // 9. Chạy lại sau khi khắc phục lỗi phòng ban đích cho brokenDecision -> thành công, và futureDecision đã áp dụng không bị chạy lại!
+  await prisma.personnelChange.update({
+    where: { id: brokenDecision.id },
+    data: { toDeptId: deptProduct.id, toDept: deptProduct.name },
+  });
+  const retryRun = await applyDuePersonnelChanges(new Date("2027-01-15T00:00:00.000Z"));
+  assert.ok(retryRun.appliedIds.includes(brokenDecision.id));
+  assert.ok(!retryRun.appliedIds.includes(futureDecision.id));
+  assert.equal(retryRun.failed.length, 0);
+  assert.equal(
+    (await prisma.employeeProfile.findUniqueOrThrow({ where: { id: customInsEmp.id } })).position,
+    "Chuyên viên Điều phối"
+  );
+
+  // 10. HR xác nhận đối chiếu lịch sử (MARK_HISTORICAL_APPLIED) cho legacyUnverified: đóng dấu appliedAt mà giữ nguyên vị trí "Kiến trúc sư trưởng"
+  const reconciledLegacy = await reconcileHistoricalPersonnelChange(
+    { userId: hrUser.id, userEmail: hrUser.email, userName: hrUser.name, roleName: "HR" },
+    { id: legacyUnverified.id, reconcileAction: "MARK_HISTORICAL_APPLIED" }
+  );
+  assert.ok(reconciledLegacy.appliedAt !== null);
+  assert.equal(reconciledLegacy.effectiveDate, "2026-10-01");
+  assert.equal((await prisma.employeeProfile.findUniqueOrThrow({ where: { id: diffEmp.id } })).position, "Kiến trúc sư trưởng");
 
   await prisma.$disconnect();
 });

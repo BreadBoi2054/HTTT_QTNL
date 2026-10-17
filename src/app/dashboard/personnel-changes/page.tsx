@@ -33,7 +33,17 @@ interface PersonnelChange {
   toPosition: string;
   newSalary?: number | null;
   effectiveDate: string;
+  effectiveDateIso?: string;
   appliedAt?: string | null;
+  lifecycleState?:
+    | "APPLIED"
+    | "SCHEDULED"
+    | "DUE_READY"
+    | "HISTORICAL_MATCHED"
+    | "HISTORICAL_NEEDS_REVIEW"
+    | "PENDING"
+    | "REJECTED";
+  lifecycleNote?: string | null;
   signer: string;
   status: string;
 }
@@ -66,6 +76,7 @@ export default function PersonnelChangesPage() {
   const [employees, setEmployees] = useState<EmployeeItem[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [applyingDue, setApplyingDue] = useState(false);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -199,12 +210,64 @@ export default function PersonnelChangesPage() {
     }
   };
 
+  const handleReconcileHistorical = async (
+    id: string,
+    reconcileAction: "MARK_HISTORICAL_APPLIED" | "APPLY_DECISION_NOW"
+  ) => {
+    try {
+      const res = await fetch("/api/personnel-changes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, reconcileAction }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Không thể đối chiếu quyết định lịch sử.");
+      }
+      await fetchChanges();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Không thể đối chiếu quyết định lịch sử.");
+    }
+  };
+
+  const handleApplyDueDecisions = async () => {
+    setApplyingDue(true);
+    try {
+      const res = await fetch("/api/personnel-changes/apply-due", {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Không thể chạy đồng bộ quyết định đến hạn.");
+      }
+      await fetchChanges();
+      const summaryParts = [
+        `Đã thi hành: ${data.appliedCount ?? 0} quyết định.`,
+      ];
+      if ((data.skippedUnverifiedCount ?? 0) > 0) {
+        summaryParts.push(
+          `Giữ nguyên chờ HR đối chiếu lịch sử: ${data.skippedUnverifiedCount} quyết định.`
+        );
+      }
+      if ((data.failedCount ?? 0) > 0) {
+        summaryParts.push(`Lỗi cần kiểm tra: ${data.failedCount} quyết định.`);
+      }
+      alert(summaryParts.join("\n"));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Không thể chạy đồng bộ quyết định đến hạn.");
+    } finally {
+      setApplyingDue(false);
+    }
+  };
+
   const filteredChanges = changes.filter((c) => {
     const matchesSearch = c.employeeName?.toLowerCase().includes(search.toLowerCase()) || 
                           c.code?.toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === "ALL" || c.type === filterType;
     return matchesSearch && matchesType;
   });
+
+  const dueReadyCount = changes.filter((c) => c.lifecycleState === "DUE_READY").length;
 
   const getTypeLabel = (type: string) => {
     switch (type) {
@@ -229,15 +292,34 @@ export default function PersonnelChangesPage() {
           </p>
         </div>
 
-        {canManageChanges && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tạo quyết định biến động</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canApproveChanges && (
+            <button
+              type="button"
+              onClick={handleApplyDueDecisions}
+              disabled={applyingDue}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-60 shrink-0"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>
+                {applyingDue
+                  ? "Đang đồng bộ..."
+                  : dueReadyCount > 0
+                    ? `Thi hành QĐ đến hạn (${dueReadyCount})`
+                    : "Rà soát QĐ đến hạn"}
+              </span>
+            </button>
+          )}
+          {canManageChanges && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tạo quyết định biến động</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -390,12 +472,39 @@ export default function PersonnelChangesPage() {
                     <td className="px-5 py-3.5 text-right">
                       <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
                         {item.status === "APPROVED" ? (
-                          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-medium">
-                            <CheckCircle2 className="w-3 h-3" />{" "}
-                            {item.effectiveDate > new Date().toISOString().slice(0, 10) && !item.appliedAt
-                              ? `Đã duyệt (Hiệu lực ${item.effectiveDate})`
-                              : "Đã ban hành"}
-                          </span>
+                          item.lifecycleState === "HISTORICAL_NEEDS_REVIEW" ? (
+                            <span
+                              title={item.lifecycleNote || undefined}
+                              className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-700/70 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 font-medium"
+                            >
+                              <Clock className="w-3 h-3" /> Lịch sử: Cần HR đối chiếu
+                            </span>
+                          ) : item.lifecycleState === "HISTORICAL_MATCHED" ? (
+                            <span
+                              title={item.lifecycleNote || undefined}
+                              className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800/60 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 font-medium"
+                            >
+                              <CheckCircle2 className="w-3 h-3" /> Lịch sử: Đã khớp hồ sơ
+                            </span>
+                          ) : item.lifecycleState === "DUE_READY" ? (
+                            <span
+                              title={item.lifecycleNote || undefined}
+                              className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 font-medium"
+                            >
+                              <Clock className="w-3 h-3" /> Đến hạn thi hành ({item.effectiveDateIso || item.effectiveDate})
+                            </span>
+                          ) : item.lifecycleState === "SCHEDULED" ? (
+                            <span
+                              title={item.lifecycleNote || undefined}
+                              className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-medium"
+                            >
+                              <Clock className="w-3 h-3" /> Đã duyệt (Hiệu lực {item.effectiveDateIso || item.effectiveDate})
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-medium">
+                              <CheckCircle2 className="w-3 h-3" /> Đã ban hành
+                            </span>
+                          )
                         ) : item.status === "REJECTED" ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 font-medium">
                             <X className="w-3 h-3" /> Đã từ chối
@@ -405,6 +514,40 @@ export default function PersonnelChangesPage() {
                             <Clock className="w-3 h-3" /> Chờ phê duyệt
                           </span>
                         )}
+                        {item.status === "APPROVED" &&
+                          canApproveChanges &&
+                          (item.lifecycleState === "HISTORICAL_MATCHED" ||
+                            item.lifecycleState === "HISTORICAL_NEEDS_REVIEW") && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleReconcileHistorical(
+                                  item.id,
+                                  "MARK_HISTORICAL_APPLIED"
+                                )
+                              }
+                              title="Đóng dấu đã đối chiếu lịch sử mà không ghi đè hồ sơ nhân sự hiện tại"
+                              className="text-xs px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-medium transition-colors"
+                            >
+                              Xác nhận lịch sử
+                            </button>
+                          )}
+                        {item.status === "APPROVED" &&
+                          canApproveChanges &&
+                          item.lifecycleState === "DUE_READY" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleReconcileHistorical(
+                                  item.id,
+                                  "APPLY_DECISION_NOW"
+                                )
+                              }
+                              className="text-xs px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors"
+                            >
+                              Thi hành
+                            </button>
+                          )}
                         {item.status === "PENDING" && canApproveChanges && (
                           <>
                             <button

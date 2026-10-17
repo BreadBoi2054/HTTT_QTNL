@@ -3,10 +3,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import {
-  applyDuePersonnelChanges,
   createPersonnelChangeDecision,
   decidePersonnelChangeDecision,
+  enrichPersonnelChangesWithLifecycle,
   PersonnelChangeError,
+  reconcileHistoricalPersonnelChange,
 } from "@/services/personnel-change.service";
 
 interface SessionUserWithRole {
@@ -32,8 +33,7 @@ export async function GET() {
       );
     }
 
-    await applyDuePersonnelChanges();
-
+    // Tuyệt đối không tự động ghi/cập nhật hồ sơ trong thao tác GET đọc danh sách
     if (roleName === "MANAGER") {
       const managerProfile = await prisma.employeeProfile.findUnique({
         where: { userId: user.id },
@@ -81,14 +81,16 @@ export async function GET() {
         where: { OR: orConditions },
         orderBy: { createdAt: "desc" },
       });
-      return NextResponse.json(scopedChanges);
+      const enrichedScoped = await enrichPersonnelChangesWithLifecycle(scopedChanges);
+      return NextResponse.json(enrichedScoped);
     }
 
     const changes = await prisma.personnelChange.findMany({
       orderBy: { createdAt: "desc" },
     });
+    const enriched = await enrichPersonnelChangesWithLifecycle(changes);
 
-    return NextResponse.json(changes);
+    return NextResponse.json(enriched);
   } catch (error) {
     console.error("GET personnel-changes error:", error);
     return NextResponse.json(
@@ -143,15 +145,16 @@ export async function PATCH(req: Request) {
     const roleName = user.roleName || "USER";
     const body = (await req.json()) as Record<string, unknown>;
 
-    const updated = await decidePersonnelChangeDecision(
-      {
-        userId: user.id,
-        userEmail: user.email || undefined,
-        userName: user.name || undefined,
-        roleName,
-      },
-      body
-    );
+    const actor = {
+      userId: user.id,
+      userEmail: user.email || undefined,
+      userName: user.name || undefined,
+      roleName,
+    };
+
+    const updated = body.reconcileAction
+      ? await reconcileHistoricalPersonnelChange(actor, body)
+      : await decidePersonnelChangeDecision(actor, body);
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -165,3 +168,4 @@ export async function PATCH(req: Request) {
     );
   }
 }
+
