@@ -343,6 +343,17 @@ export async function deletePayroll(
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
+export function overtimeMultiplier(
+  date: Date,
+  holidays: Set<string>,
+  extraWorkdays: Set<string> = new Set()
+): number {
+  const dateKey = date.toISOString().slice(0, 10);
+  if (holidays.has(dateKey)) return 3;
+  if (extraWorkdays.has(dateKey)) return 1.5;
+  return [0, 6].includes(date.getUTCDay()) ? 2 : 1.5;
+}
+
 export async function calculateMonthlyPayroll(
   month: number,
   year: number,
@@ -363,70 +374,62 @@ export async function calculateMonthlyPayroll(
   return prisma.$transaction(async (tx) => {
   const { holidays, extraWorkdays } = await getWorkCalendar(year, tx);
   const standardWorkingDays = monthlyWorkdays(year, month, holidays, extraWorkdays);
-  const employeeConfigs = await tx.employeeSalaryConfig.findMany({
-    orderBy: { createdAt: "asc" },
-    include: {
-      employee: {
-        include: {
-          attendances: {
-            where: {
-              date: { gte: startDate, lte: endDate },
+  const [employeeConfigs, existingPayrolls] = await Promise.all([
+    tx.employeeSalaryConfig.findMany({
+      orderBy: { createdAt: "asc" },
+      include: {
+        employee: {
+          include: {
+            attendances: {
+              where: {
+                date: { gte: startDate, lte: endDate },
+              },
             },
-          },
-          overtimeRequests: {
-            where: { date: { gte: startDate, lte: endDate }, status: "APPROVED" },
-          },
-          leaveRequests: {
-            where: {
-              startDate: { lte: endDate },
-              endDate: { gte: startDate },
-              status: "APPROVED",
+            overtimeRequests: {
+              where: { date: { gte: startDate, lte: endDate }, status: "APPROVED" },
             },
-          },
-          evaluations: {
-            where: {
-              year: year,
-              status: "APPROVED",
+            leaveRequests: {
+              where: {
+                startDate: { lte: endDate },
+                endDate: { gte: startDate },
+                status: "APPROVED",
+              },
             },
-            orderBy: { createdAt: "desc" },
+            evaluations: {
+              where: {
+                year: year,
+                status: "APPROVED",
+              },
+              orderBy: { createdAt: "desc" },
+            },
+            contracts: {
+              where: { status: "ACTIVE" },
+              orderBy: { startDate: "desc" },
+              take: 1,
+            },
+            user: { select: { name: true } },
           },
-          contracts: {
-            where: { status: "ACTIVE" },
-            orderBy: { startDate: "desc" },
-            take: 1,
+        },
+        components: {
+          include: {
+            component: true,
           },
-          user: { select: { name: true } },
         },
       },
-      components: {
-        include: {
-          component: true,
-        },
-      },
-    },
-  });
+    }),
+    tx.payroll.findMany({
+      where: { month, year },
+    }),
+  ]);
+
+  const existingPayrollMap = new Map(
+    existingPayrolls.map((p) => [p.employeeId, p])
+  );
 
   const payrollsCreated = [];
 
   for (const config of employeeConfigs) {
     const { employee, components } = config;
-
-    if (employee.status === "RESIGNED" || employee.status === "SUSPENDED") {
-      continue;
-    }
-
-    let baseSalary = config.baseSalary;
-    if (
-      baseSalary === 12000000 &&
-      employee.contracts?.[0]?.salary &&
-      employee.contracts[0].salary > 0
-    ) {
-      baseSalary = employee.contracts[0].salary;
-      await tx.employeeSalaryConfig.update({
-        where: { id: config.id },
-        data: { baseSalary },
-      });
-    }
 
     const workedDateKeys = new Set(
       employee.attendances
@@ -445,8 +448,22 @@ export async function calculateMonthlyPayroll(
     const leaveDateKeys = new Set<string>();
 
     for (const leave of employee.leaveRequests) {
-      const cur = new Date(leave.startDate > startDate ? leave.startDate : startDate);
-      const leaveEnd = new Date(leave.endDate < endDate ? leave.endDate : endDate);
+      const normalizedLeaveStart = new Date(
+        Date.UTC(
+          leave.startDate.getUTCFullYear(),
+          leave.startDate.getUTCMonth(),
+          leave.startDate.getUTCDate()
+        )
+      );
+      const normalizedLeaveEnd = new Date(
+        Date.UTC(
+          leave.endDate.getUTCFullYear(),
+          leave.endDate.getUTCMonth(),
+          leave.endDate.getUTCDate()
+        )
+      );
+      const cur = new Date(normalizedLeaveStart > startDate ? normalizedLeaveStart : startDate);
+      const leaveEnd = new Date(normalizedLeaveEnd < endDate ? normalizedLeaveEnd : endDate);
       while (cur <= leaveEnd) {
         const dateKey = cur.toISOString().slice(0, 10);
         if (isScheduledWorkday(cur, holidays, extraWorkdays) &&
@@ -465,6 +482,28 @@ export async function calculateMonthlyPayroll(
     }
 
     const paidLeaveDays = calculatedPaidLeaveDays;
+
+    if (
+      (employee.status === "RESIGNED" || employee.status === "SUSPENDED") &&
+      workedDays === 0 &&
+      paidLeaveDays === 0 &&
+      employee.overtimeRequests.length === 0
+    ) {
+      continue;
+    }
+
+    let baseSalary = config.baseSalary;
+    if (
+      baseSalary === 12000000 &&
+      employee.contracts?.[0]?.salary &&
+      employee.contracts[0].salary > 0
+    ) {
+      baseSalary = employee.contracts[0].salary;
+      await tx.employeeSalaryConfig.update({
+        where: { id: config.id },
+        data: { baseSalary },
+      });
+    }
 
     // Chỉ ghi nhận ngày công có bằng chứng; dữ liệu chấm công thiếu không được tự suy ra đủ lương.
     const effectiveDays = Math.min(workedDays + paidLeaveDays, standardWorkingDays);
@@ -519,8 +558,7 @@ export async function calculateMonthlyPayroll(
 
     const overtimeByRate = new Map<number, number>();
     for (const request of employee.overtimeRequests) {
-      const rate = holidays.has(request.date.toISOString().slice(0, 10)) ? 3 :
-        [0, 6].includes(request.date.getUTCDay()) ? 2 : 1.5;
+      const rate = overtimeMultiplier(request.date, holidays, extraWorkdays);
       overtimeByRate.set(rate, (overtimeByRate.get(rate) || 0) + request.hours);
     }
     for (const [rate, totalOtHours] of overtimeByRate) {
@@ -564,8 +602,7 @@ export async function calculateMonthlyPayroll(
     const matchedKpi =
       employee.evaluations?.find((ev) => ev.period === monthPeriod) ||
       (month % 3 === 0
-        ? employee.evaluations?.find((ev) => ev.period === quarterPeriod) ||
-          employee.evaluations?.[0]
+        ? employee.evaluations?.find((ev) => ev.period === quarterPeriod)
         : undefined);
 
     if (matchedKpi && matchedKpi.status === "APPROVED") {
@@ -602,12 +639,14 @@ export async function calculateMonthlyPayroll(
           c.component.name.includes("BHYT"))
     );
 
+    let statutoryInsuranceAmount = 0;
     if (!hasStatutoryInsuranceInConfig) {
       const bhxh = Math.round(proRatedBaseSalary * 0.08);
       const bhyt = Math.round(proRatedBaseSalary * 0.015);
       const bhtn = Math.round(proRatedBaseSalary * 0.01);
       const statutoryTotal = bhxh + bhyt + bhtn;
 
+      statutoryInsuranceAmount = statutoryTotal;
       totalDeduction += statutoryTotal;
 
       details.push({
@@ -628,11 +667,6 @@ export async function calculateMonthlyPayroll(
         amount: bhtn,
         amountType: "FIXED",
       });
-    }
-
-    let statutoryInsuranceAmount = 0;
-    if (!hasStatutoryInsuranceInConfig) {
-      statutoryInsuranceAmount = Math.round(proRatedBaseSalary * 0.105);
     } else {
       const insComp = components.filter(
         (c) =>
@@ -686,15 +720,7 @@ export async function calculateMonthlyPayroll(
       Math.round(proRatedBaseSalary + totalBonus - totalDeduction)
     );
 
-    const existing = await tx.payroll.findUnique({
-      where: {
-        employeeId_month_year: {
-          employeeId: employee.id,
-          month,
-          year,
-        },
-      },
-    });
+    const existing = existingPayrollMap.get(employee.id);
 
     if (existing && existing.status === "PAID") {
       payrollsCreated.push(existing);

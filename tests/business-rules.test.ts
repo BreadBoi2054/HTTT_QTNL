@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateWorkingDays, workingDaysInYear } from "../src/services/leave.service";
-import { bulkDisbursePayrolls, calculateVietnamesePIT, createPayroll, getPayrolls } from "../src/services/payroll.service";
+import { calculateWorkingDays, normalizeLeaveDate, workingDaysInYear } from "../src/services/leave.service";
+import {
+  bulkDisbursePayrolls,
+  calculateVietnamesePIT,
+  createPayroll,
+  getPayrolls,
+  overtimeMultiplier,
+} from "../src/services/payroll.service";
 import { holidayDatesForYear, monthlyWorkdays } from "../src/lib/work-calendar";
 import { createOvertimeRequest } from "../src/services/overtime.service";
 import { saveWorkCalendar } from "../src/services/work-calendar.service";
@@ -30,8 +36,19 @@ test("không tự tính lương khi chưa cấu hình lịch lễ năm mới", (
   assert.throws(() => monthlyWorkdays(2028, 1), /Chưa cấu hình lịch nghỉ lễ/);
 });
 
-test("ngày làm bù cuối tuần được tính vào công chuẩn", () => {
-  assert.equal(monthlyWorkdays(2026, 1, holidayDatesForYear(2026), new Set(["2026-01-10"])), 22);
+test("ngày làm bù cuối tuần được tính vào công chuẩn và OT tính hệ số 150%", () => {
+  const holidays = holidayDatesForYear(2026);
+  const extraWorkdays = new Set(["2026-01-10"]);
+  assert.equal(monthlyWorkdays(2026, 1, holidays, extraWorkdays), 22);
+  assert.equal(overtimeMultiplier(new Date("2026-01-09T00:00:00.000Z"), holidays, extraWorkdays), 1.5);
+  assert.equal(overtimeMultiplier(new Date("2026-01-10T00:00:00.000Z"), holidays, extraWorkdays), 1.5);
+  assert.equal(overtimeMultiplier(new Date("2026-01-17T00:00:00.000Z"), holidays, extraWorkdays), 2);
+  assert.equal(overtimeMultiplier(new Date("2026-01-01T00:00:00.000Z"), holidays, extraWorkdays), 3);
+});
+
+test("chuẩn hóa ngày nghỉ phép về đầu ngày UTC 00:00:00.000Z", () => {
+  assert.equal(normalizeLeaveDate("2026-10-16").toISOString(), "2026-10-16T00:00:00.000Z");
+  assert.equal(normalizeLeaveDate("2026-10-16T00:00:00.000Z").toISOString(), "2026-10-16T00:00:00.000Z");
 });
 
 test("lịch công từ chối ngày ngoài năm và ngày vừa nghỉ vừa làm", async () => {

@@ -192,6 +192,58 @@ export async function getLeaveRequests(userId: string, roleName: string) {
   }
 }
 
+export function normalizeLeaveDate(input: string | Date): Date {
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return new Date(`${trimmed}T00:00:00.000Z`);
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isFinite(parsed.getTime())) return parsed;
+    if (trimmed.endsWith("T00:00:00.000Z") || trimmed.endsWith("T00:00:00Z")) {
+      return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+    }
+    return toUtcDateOnly(parsed);
+  }
+  if (!Number.isFinite(input.getTime())) return input;
+  if (
+    input.getUTCHours() === 0 &&
+    input.getUTCMinutes() === 0 &&
+    input.getUTCSeconds() === 0 &&
+    input.getUTCMilliseconds() === 0
+  ) {
+    return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
+  }
+  return toUtcDateOnly(input);
+}
+
+async function assertNoPaidPayrollForLeaveDates(
+  tx: Prisma.TransactionClient,
+  employeeId: string,
+  dates: Date[]
+): Promise<void> {
+  if (dates.length === 0) return;
+  const periods = new Map<string, { month: number; year: number }>();
+  for (const d of dates) {
+    const month = d.getUTCMonth() + 1;
+    const year = d.getUTCFullYear();
+    periods.set(`${year}-${month}`, { month, year });
+  }
+  const paidPayroll = await tx.payroll.findFirst({
+    where: {
+      employeeId,
+      status: "PAID",
+      OR: [...periods.values()],
+    },
+    select: { month: true, year: true },
+  });
+  if (paidPayroll) {
+    throw new Error(
+      `Kỳ lương tháng ${paidPayroll.month}/${paidPayroll.year} đã khóa sổ (PAID). Không thể thay đổi trạng thái hoặc xóa đơn nghỉ phép thuộc kỳ này.`
+    );
+  }
+}
+
 export async function getLeaveBalance(
   employeeId: string,
   year: number = new Date().getFullYear(),
@@ -208,26 +260,43 @@ export async function getLeaveBalance(
   const endOfYear = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
   const calendars = await loadCalendars(startOfYear, endOfYear, client);
 
-  const leaves = await client.leaveRequest.findMany({
-    where: {
-      employeeId,
-      type: "ANNUAL_LEAVE",
-      status: { in: ["APPROVED", "PENDING"] },
-      startDate: { lte: endOfYear },
-      endDate: { gte: startOfYear },
-    },
-  });
+  const [leaves, workedAttendances] = await Promise.all([
+    client.leaveRequest.findMany({
+      where: {
+        employeeId,
+        type: "ANNUAL_LEAVE",
+        status: { in: ["APPROVED", "PENDING"] },
+        startDate: { lte: endOfYear },
+        endDate: { gte: startOfYear },
+      },
+    }),
+    client.attendance.findMany({
+      where: {
+        employeeId,
+        date: { gte: startOfYear, lte: endOfYear },
+        status: { in: ["PRESENT", "LATE"] },
+      },
+      select: { date: true },
+    }),
+  ]);
+
+  const workedDateKeys = new Set(
+    workedAttendances.map((a) => a.date.toISOString().slice(0, 10))
+  );
 
   let usedDays = 0;
   let pendingDays = 0;
   for (const l of leaves) {
     const s = l.startDate < startOfYear ? startOfYear : l.startDate;
     const e = l.endDate > endOfYear ? endOfYear : l.endDate;
-    const days = calculateWorkingDays(s, e, calendars);
+    const dates = workingDates(s, e, calendars);
     if (l.status === "APPROVED") {
-      usedDays += days;
+      const effectiveUsed = dates.filter(
+        (d) => !workedDateKeys.has(d.toISOString().slice(0, 10))
+      ).length;
+      usedDays += effectiveUsed;
     } else if (l.status === "PENDING") {
-      pendingDays += days;
+      pendingDays += dates.length;
     }
   }
 
@@ -278,8 +347,8 @@ export async function createLeaveRequest(
   }
 
   const { startDate, endDate, type, reason } = data;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = normalizeLeaveDate(startDate);
+  const end = normalizeLeaveDate(endDate);
 
   validateLeaveDateRange(start, end);
   if (!["ANNUAL_LEAVE", "SICK_LEAVE", "UNPAID_LEAVE"].includes(type)) {
@@ -288,9 +357,12 @@ export async function createLeaveRequest(
 
   return prisma.$transaction(async (tx) => {
     const calendars = await loadCalendars(start, end, tx);
-    if (calculateWorkingDays(start, end, calendars) <= 0) {
+    const scheduledDates = workingDates(start, end, calendars);
+    if (scheduledDates.length <= 0) {
       throw new Error("Khoảng nghỉ không có ngày làm việc theo lịch công đã cấu hình.");
     }
+    await assertNoPaidPayrollForLeaveDates(tx, employeeId, scheduledDates);
+
     const overlapping = await tx.leaveRequest.findFirst({
       where: {
         employeeId,
@@ -336,7 +408,7 @@ export async function createLeaveRequest(
       data: {
         userName: applicantName,
         userRole: userRole,
-        action: `Khởi tạo đơn xin nghỉ phép [${type}] cho nhân sự ${applicantName} từ ngày ${startDate} đến ${endDate}`,
+        action: `Khởi tạo đơn xin nghỉ phép [${type}] cho nhân sự ${applicantName} từ ngày ${start.toISOString().slice(0, 10)} đến ${end.toISOString().slice(0, 10)}`,
         target: "LeaveRequest",
         ip: "127.0.0.1",
         status: "SUCCESS",
@@ -375,8 +447,8 @@ export async function updateLeaveRequestDetails(
       throw new Error("Bạn không có quyền chỉnh sửa đơn nghỉ phép này.");
     }
 
-    const start = data.startDate ? new Date(data.startDate) : leave.startDate;
-    const end = data.endDate ? new Date(data.endDate) : leave.endDate;
+    const start = data.startDate ? normalizeLeaveDate(data.startDate) : normalizeLeaveDate(leave.startDate);
+    const end = data.endDate ? normalizeLeaveDate(data.endDate) : normalizeLeaveDate(leave.endDate);
     const type = data.type ?? leave.type;
     const reason = data.reason !== undefined ? data.reason : leave.reason;
 
@@ -400,10 +472,11 @@ export async function updateLeaveRequestDetails(
     }
 
     const calendars = await loadCalendars(start, end, tx);
-    const requestedWorkingDays = calculateWorkingDays(start, end, calendars);
-    if (requestedWorkingDays <= 0) {
+    const scheduledDates = workingDates(start, end, calendars);
+    if (scheduledDates.length <= 0) {
       throw new Error("Khoảng nghỉ không có ngày làm việc theo lịch công đã cấu hình.");
     }
+    await assertNoPaidPayrollForLeaveDates(tx, leave.employeeId, scheduledDates);
 
     if (type === "ANNUAL_LEAVE") {
       for (const year of leaveYears(start, end)) {
@@ -459,6 +532,7 @@ export async function updateLeaveRequestStatus(
     if (!leave) throw new Error("Không tìm thấy đơn nghỉ phép.");
 
     const calendars = await loadCalendars(leave.startDate, leave.endDate, tx);
+    const dates = workingDates(leave.startDate, leave.endDate, calendars);
 
     if (
       actorUserId &&
@@ -487,20 +561,27 @@ export async function updateLeaveRequestStatus(
 
     if (status === leave.status) return leave;
 
-    if (status === "APPROVED" && leave.status !== "APPROVED") {
-      const overlappingApproved = await tx.leaveRequest.findFirst({
+    if (status === "APPROVED" || leave.status === "APPROVED") {
+      await assertNoPaidPayrollForLeaveDates(tx, leave.employeeId, dates);
+    }
+
+    if (
+      (status === "APPROVED" && leave.status !== "APPROVED") ||
+      (status === "PENDING" && leave.status === "REJECTED")
+    ) {
+      const overlappingActive = await tx.leaveRequest.findFirst({
         where: {
           id: { not: id },
           employeeId: leave.employeeId,
-          status: "APPROVED",
+          status: status === "APPROVED" ? "APPROVED" : { in: ["PENDING", "APPROVED"] },
           startDate: { lte: leave.endDate },
           endDate: { gte: leave.startDate },
         },
       });
 
-      if (overlappingApproved) {
+      if (overlappingActive) {
         throw new Error(
-          "Nhân sự này đã có đơn nghỉ phép Đã duyệt trùng khoảng thời gian này."
+          "Nhân sự này đã có đơn nghỉ phép hợp lệ trùng khoảng thời gian này."
         );
       }
 
@@ -509,12 +590,14 @@ export async function updateLeaveRequestStatus(
           const requestedDays = workingDaysInYear(leave.startDate, leave.endDate, year, calendars);
           if (requestedDays === 0) continue;
           const balance = await getLeaveBalance(leave.employeeId, year, tx);
-          if (leave.status === "PENDING" &&
-              balance.usedDays + balance.pendingDays > balance.totalAllowance) {
+          if (
+            leave.status === "PENDING" &&
+            balance.usedDays + requestedDays > balance.totalAllowance
+          ) {
             throw new Error(`Không thể phê duyệt: quỹ phép năm ${year} đã vượt hạn mức.`);
           }
           if (leave.status === "REJECTED" && requestedDays > balance.remainingDays) {
-            throw new Error(`Không thể phê duyệt: phép năm ${year} chỉ còn ${balance.remainingDays} ngày.`);
+            throw new Error(`Không thể chuyển trạng thái: phép năm ${year} chỉ còn ${balance.remainingDays} ngày.`);
           }
         }
       }
@@ -526,7 +609,6 @@ export async function updateLeaveRequestStatus(
     });
 
     if (status === "APPROVED" && leave.status !== "APPROVED") {
-      const dates = workingDates(leave.startDate, leave.endDate, calendars);
       const existing = await tx.attendance.findMany({
         where: { employeeId: leave.employeeId, date: { in: dates } },
         select: { id: true, date: true, status: true, checkIn: true, checkOut: true, leaveRequestId: true },
@@ -622,6 +704,9 @@ export async function deleteLeaveRequest(
     }
 
     if (leave.status === "APPROVED") {
+      const calendars = await loadCalendars(leave.startDate, leave.endDate, tx);
+      const dates = workingDates(leave.startDate, leave.endDate, calendars);
+      await assertNoPaidPayrollForLeaveDates(tx, leave.employeeId, dates);
       await clearLeaveAttendance(tx, leave.id);
     }
 

@@ -44,6 +44,44 @@ export async function createOvertimeRequest(scope: Scope, data: { employeeId?: s
 
   return prisma.$transaction(async (tx) => {
     const overtimeDate = new Date(`${dateText}T00:00:00.000Z`);
+    const payroll = await tx.payroll.findUnique({
+      where: {
+        employeeId_month_year: {
+          employeeId,
+          month: overtimeDate.getUTCMonth() + 1,
+          year: overtimeDate.getUTCFullYear(),
+        },
+      },
+      select: { status: true },
+    });
+    if (payroll?.status === "PAID") {
+      throw new Error("Kỳ lương tháng này đã khóa sổ (PAID); không thể tạo đơn OT.");
+    }
+
+    const [approvedLeave, workedAttendance] = await Promise.all([
+      tx.leaveRequest.findFirst({
+        where: {
+          employeeId,
+          status: "APPROVED",
+          startDate: { lte: overtimeDate },
+          endDate: { gte: overtimeDate },
+        },
+        select: { id: true },
+      }),
+      tx.attendance.findUnique({
+        where: { employeeId_date: { employeeId, date: overtimeDate } },
+        select: { status: true, checkIn: true },
+      }),
+    ]);
+
+    const actuallyWorked =
+      workedAttendance &&
+      (["PRESENT", "LATE"].includes(workedAttendance.status) || Boolean(workedAttendance.checkIn));
+
+    if (approvedLeave && !actuallyWorked) {
+      throw new Error("Không thể đăng ký OT vào ngày đang nghỉ phép đã duyệt.");
+    }
+
     const existing = await tx.overtimeRequest.findUnique({ where: { employeeId_date: { employeeId, date: overtimeDate } } });
     if (existing && existing.status !== "REJECTED") throw new Error("Ngày này đã có đơn OT đang chờ hoặc đã duyệt.");
     const created = existing
@@ -66,6 +104,31 @@ export async function decideOvertimeRequest(scope: Scope, id: string, decision: 
     }
     const payroll = await tx.payroll.findUnique({ where: { employeeId_month_year: { employeeId: request.employeeId, month: request.date.getUTCMonth() + 1, year: request.date.getUTCFullYear() } }, select: { status: true } });
     if (payroll?.status === "PAID") throw new Error("Kỳ lương đã khóa; cần xử lý điều chỉnh riêng.");
+
+    if (decision === "APPROVED") {
+      const [approvedLeave, workedAttendance] = await Promise.all([
+        tx.leaveRequest.findFirst({
+          where: {
+            employeeId: request.employeeId,
+            status: "APPROVED",
+            startDate: { lte: request.date },
+            endDate: { gte: request.date },
+          },
+          select: { id: true },
+        }),
+        tx.attendance.findUnique({
+          where: { employeeId_date: { employeeId: request.employeeId, date: request.date } },
+          select: { status: true, checkIn: true },
+        }),
+      ]);
+      const actuallyWorked =
+        workedAttendance &&
+        (["PRESENT", "LATE"].includes(workedAttendance.status) || Boolean(workedAttendance.checkIn));
+      if (approvedLeave && !actuallyWorked) {
+        throw new Error("Không thể duyệt OT vào ngày nhân sự đang nghỉ phép đã duyệt.");
+      }
+    }
+
     const updated = await tx.overtimeRequest.update({ where: { id, status: "PENDING" }, data: { status: decision, approvedBy: scope.userId, approvedAt: new Date() } });
     await tx.auditLog.create({ data: { userName: scope.actorName, userRole: scope.roleName, action: `${decision === "APPROVED" ? "Duyệt" : "Từ chối"} OT ${request.hours} giờ ngày ${request.date.toISOString().slice(0, 10)} của ${request.employee.user.name}`, target: "OvertimeRequest", ip: "127.0.0.1", status: "SUCCESS" } });
     return updated;
