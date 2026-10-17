@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { 
-  ArrowLeftRight, 
   TrendingUp, 
   UserPlus, 
   UserMinus, 
@@ -14,36 +13,58 @@ import {
   Calendar, 
   CheckCircle2, 
   Clock, 
-  FileText,
   X,
   Printer,
-  Building2
 } from "lucide-react";
 import { TableSkeleton } from "@/components/providers/ToastProvider";
 
 interface PersonnelChange {
   id: string;
   code: string;
+  employeeId?: string | null;
   employeeName: string;
   employeeEmail: string;
   type: string;
+  fromDeptId?: string | null;
   fromDept: string;
+  toDeptId?: string | null;
   toDept: string;
   fromPosition: string;
   toPosition: string;
+  newSalary?: number | null;
   effectiveDate: string;
+  appliedAt?: string | null;
   signer: string;
   status: string;
 }
 
+interface DepartmentItem {
+  id: string;
+  name: string;
+}
+
+interface EmployeeItem {
+  id: string;
+  position?: string;
+  status?: string;
+  user: {
+    name: string;
+    email: string;
+  };
+  department?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 export default function PersonnelChangesPage() {
   const { data: session } = useSession();
-  const userRole = (session?.user as any)?.roleName || "USER";
+  const userRole = (session?.user as { roleName?: string } | undefined)?.roleName || "USER";
   const canManageChanges = ["SYSTEM_ADMIN", "BOD", "HR", "MANAGER"].includes(userRole);
   const canApproveChanges = ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole);
   const [changes, setChanges] = useState<PersonnelChange[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<EmployeeItem[]>([]);
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
@@ -53,18 +74,23 @@ export default function PersonnelChangesPage() {
 
   // Form State
   const [formData, setFormData] = useState({
+    employeeId: "",
     employeeName: "",
     employeeEmail: "",
     type: "PROMOTION",
+    fromDeptId: "",
     fromDept: "Phòng Công nghệ (IT)",
+    toDeptId: "",
     toDept: "Phòng Công nghệ (IT)",
     fromPosition: "",
     toPosition: "",
+    newSalary: "",
+    status: "APPROVED",
     effectiveDate: new Date().toISOString().split("T")[0],
     signer: "Ban Giám Đốc",
   });
 
-  const fetchChanges = async () => {
+  const fetchChanges = useCallback(async () => {
     setLoading(true);
     try {
       const [changesRes, empRes, deptRes] = await Promise.all([
@@ -81,8 +107,16 @@ export default function PersonnelChangesPage() {
       if (Array.isArray(empData)) setEmployees(empData);
       if (Array.isArray(deptData)) {
         setDepartments(deptData);
-        if (deptData.length > 0 && !formData.toDept) {
-          setFormData(prev => ({ ...prev, toDept: deptData[0].name }));
+        if (deptData.length > 0) {
+          setFormData(prev =>
+            prev.toDeptId
+              ? prev
+              : {
+                  ...prev,
+                  toDeptId: deptData[0].id,
+                  toDept: deptData[0].name,
+                }
+          );
         }
       }
     } catch (error) {
@@ -90,11 +124,14 @@ export default function PersonnelChangesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchChanges();
-  }, []);
+    const timer = window.setTimeout(() => {
+      void fetchChanges();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchChanges]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -116,17 +153,22 @@ export default function PersonnelChangesPage() {
         body: JSON.stringify(formData),
       });
       if (res.ok) {
-        fetchChanges();
+        await fetchChanges();
         setIsModalOpen(false);
         setSelectedEmpId("");
         setFormData({
+          employeeId: "",
           employeeName: "",
           employeeEmail: "",
           type: "PROMOTION",
-          fromDept: "Phòng Công nghệ (IT)",
-          toDept: "Phòng Công nghệ (IT)",
+          fromDeptId: "",
+          fromDept: departments[0]?.name || "Phòng Công nghệ (IT)",
+          toDeptId: departments[0]?.id || "",
+          toDept: departments[0]?.name || "Phòng Công nghệ (IT)",
           fromPosition: "",
           toPosition: "",
+          newSalary: "",
+          status: "APPROVED",
           effectiveDate: new Date().toISOString().split("T")[0],
           signer: "Ban Giám Đốc",
         });
@@ -134,9 +176,9 @@ export default function PersonnelChangesPage() {
         const errorData = await res.json().catch(() => ({}));
         alert(errorData.error || "Có lỗi xảy ra khi tạo quyết định biến động.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      alert(error.message || "Lỗi kết nối khi gửi quyết định.");
+      alert(error instanceof Error ? error.message : "Lỗi kết nối khi gửi quyết định.");
     }
   };
 
@@ -151,9 +193,9 @@ export default function PersonnelChangesPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Không thể cập nhật trạng thái quyết định.");
       }
-      fetchChanges();
-    } catch (err: any) {
-      alert(err.message);
+      await fetchChanges();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Không thể cập nhật trạng thái quyết định.");
     }
   };
 
@@ -334,6 +376,11 @@ export default function PersonnelChangesPage() {
                       <div className="text-zinc-900 dark:text-zinc-100 font-medium text-[11px] mt-0.5">
                         → Sang: <span>{item.toPosition}</span> ({item.toDept})
                       </div>
+                      {item.newSalary && item.newSalary > 0 ? (
+                        <div className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold text-[11px] mt-0.5">
+                          Lương đề xuất/mới: {Number(item.newSalary).toLocaleString("vi-VN")} VNĐ
+                        </div>
+                      ) : null}
                     </td>
 
                     <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400 text-xs">
@@ -344,7 +391,10 @@ export default function PersonnelChangesPage() {
                       <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
                         {item.status === "APPROVED" ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-medium">
-                            <CheckCircle2 className="w-3 h-3" /> Đã ban hành
+                            <CheckCircle2 className="w-3 h-3" />{" "}
+                            {item.effectiveDate > new Date().toISOString().slice(0, 10) && !item.appliedAt
+                              ? `Đã duyệt (Hiệu lực ${item.effectiveDate})`
+                              : "Đã ban hành"}
                           </span>
                         ) : item.status === "REJECTED" ? (
                           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 font-medium">
@@ -423,7 +473,20 @@ export default function PersonnelChangesPage() {
                     setFormData(prev => ({
                       ...prev,
                       type: newType,
-                      ...(newType === "RESIGNATION" ? { toPosition: "Thôi việc / Đã bàn giao", toDept: "Lưu trữ hồ sơ" } : {})
+                      ...(newType === "RESIGNATION"
+                        ? {
+                            toPosition: "Thôi việc / Đã bàn giao",
+                            toDeptId: "",
+                            toDept: "Lưu trữ hồ sơ thôi việc",
+                            newSalary: "",
+                          }
+                        : {
+                            toDeptId: prev.toDeptId || departments[0]?.id || "",
+                            toDept:
+                              departments.find((d) => d.id === prev.toDeptId)?.name ||
+                              departments[0]?.name ||
+                              prev.toDept,
+                          }),
                     }));
                   }}
                   className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 text-zinc-800 dark:text-zinc-200"
@@ -451,11 +514,20 @@ export default function PersonnelChangesPage() {
                       if (selected) {
                         setFormData(prev => ({
                           ...prev,
+                          employeeId: selected.id,
                           employeeName: selected.user.name,
                           employeeEmail: selected.user.email,
+                          fromDeptId: selected.department?.id || "",
                           fromDept: selected.department?.name || "Chưa xếp phòng",
                           fromPosition: selected.position || "Nhân viên",
-                          toDept: selected.department?.name || departments[0]?.name || "Phòng Công nghệ (IT)",
+                          toDeptId:
+                            prev.type === "RESIGNATION"
+                              ? ""
+                              : selected.department?.id || departments[0]?.id || "",
+                          toDept:
+                            prev.type === "RESIGNATION"
+                              ? "Lưu trữ hồ sơ thôi việc"
+                              : selected.department?.name || departments[0]?.name || "Phòng Công nghệ (IT)",
                           toPosition: prev.type === "RESIGNATION" ? "Thôi việc" : prev.toPosition
                         }));
                       }
@@ -527,14 +599,37 @@ export default function PersonnelChangesPage() {
                     Đơn vị / Phòng ban tiếp nhận <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={formData.toDept}
-                    onChange={(e) => setFormData({ ...formData, toDept: e.target.value })}
+                    value={formData.type === "RESIGNATION" ? "RESIGNATION_ARCHIVE" : formData.toDeptId || formData.toDept}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "RESIGNATION_ARCHIVE") {
+                        setFormData({
+                          ...formData,
+                          toDeptId: "",
+                          toDept: "Lưu trữ hồ sơ thôi việc",
+                        });
+                        return;
+                      }
+                      const matched = departments.find(
+                        (d) => d.id === val || d.name === val
+                      );
+                      setFormData({
+                        ...formData,
+                        toDeptId: matched?.id || "",
+                        toDept: matched?.name || val,
+                      });
+                    }}
                     className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                   >
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.name}>{d.name}</option>
-                    ))}
-                    {formData.type === "RESIGNATION" && <option value="Lưu trữ hồ sơ thôi việc">Lưu trữ hồ sơ thôi việc</option>}
+                    {formData.type !== "RESIGNATION" &&
+                      departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    {formData.type === "RESIGNATION" && (
+                      <option value="RESIGNATION_ARCHIVE">Lưu trữ hồ sơ thôi việc</option>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -572,8 +667,8 @@ export default function PersonnelChangesPage() {
                       min="0"
                       step="500000"
                       placeholder="Bỏ trống nếu giữ nguyên lương"
-                      value={(formData as any).newSalary || ""}
-                      onChange={(e) => setFormData({ ...formData, newSalary: e.target.value } as any)}
+                      value={formData.newSalary || ""}
+                      onChange={(e) => setFormData({ ...formData, newSalary: e.target.value })}
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 font-mono"
                     />
                   </div>
@@ -582,8 +677,8 @@ export default function PersonnelChangesPage() {
                       Trạng thái quyết định
                     </label>
                     <select
-                      value={(formData as any).status || "APPROVED"}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value } as any)}
+                      value={formData.status || "APPROVED"}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                     >
                       <option value="APPROVED">Ban hành chính thức ngay (Tự động cập nhật Hồ sơ & Lương)</option>
@@ -735,6 +830,11 @@ export default function PersonnelChangesPage() {
                   <div className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-1.5 text-xs">
                     <div>• Vị trí & Đơn vị hiện tại: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{viewingChange.fromPosition}</span> ({viewingChange.fromDept})</div>
                     <div className="text-blue-600 dark:text-blue-400 font-semibold">• Vị trí & Đơn vị bổ nhiệm mới: {viewingChange.toPosition} ({viewingChange.toDept})</div>
+                    {viewingChange.newSalary && viewingChange.newSalary > 0 ? (
+                      <div className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        • Mức lương cơ bản đề xuất / áp dụng: {Number(viewingChange.newSalary).toLocaleString("vi-VN")} VNĐ/tháng
+                      </div>
+                    ) : null}
                   </div>
 
                   <p>

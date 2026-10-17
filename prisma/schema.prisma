@@ -217,20 +217,25 @@ model EmployeeSalaryComponent {
 }
 
 model PersonnelChange {
-  id            String   @id @default(cuid())
-  code          String   @unique
+  id            String    @id @default(cuid())
+  code          String    @unique
+  employeeId    String?
   employeeName  String
   employeeEmail String
-  type          String   // "NEW_HIRE", "PROMOTION", "TRANSFER", "RESIGNATION"
+  type          String    // "NEW_HIRE", "PROMOTION", "TRANSFER", "RESIGNATION"
+  fromDeptId    String?
   fromDept      String
+  toDeptId      String?
   toDept        String
   fromPosition  String
   toPosition    String
+  newSalary     Float?
   effectiveDate String
+  appliedAt     DateTime?
   signer        String
-  status        String   @default("APPROVED") // "APPROVED", "PENDING", "DRAFT"
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  status        String    @default("APPROVED") // "APPROVED", "PENDING", "REJECTED", "DRAFT"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model TrainingCourse {

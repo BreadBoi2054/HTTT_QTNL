@@ -28,18 +28,61 @@ export function calculateVietnamesePIT(taxableIncome: number): number {
   }
 }
 
+export interface InsuranceAttendanceBreakdown {
+  confirmedUnpaidDays: number;
+  confirmedSickDays: number;
+  midMonthUnworkedDays?: number;
+  missingAttendanceDays: number;
+}
+
+export function isStatutoryInsuranceComponent(comp: {
+  type: string;
+  name: string;
+}): boolean {
+  return (
+    comp.type === "DEDUCTION" &&
+    /(bhxh|bhyt|bhtn|bảo hiểm)/i.test(comp.name)
+  );
+}
+
 export function calculateStatutoryInsurance(
   contractBaseSalary: number,
   standardWorkingDays: number,
   effectivePaidDays: number,
   month: number = 10,
-  year: number = 2026
+  year: number = 2026,
+  breakdown?: InsuranceAttendanceBreakdown
 ) {
   const nonPaidWorkingDays = Math.max(0, standardWorkingDays - effectivePaidDays);
-  if (nonPaidWorkingDays >= 14 || contractBaseSalary <= 0) {
+  const confirmedUnpaidDays = breakdown
+    ? Math.max(0, breakdown.confirmedUnpaidDays)
+    : nonPaidWorkingDays;
+  const confirmedSickDays = breakdown ? Math.max(0, breakdown.confirmedSickDays) : 0;
+  const midMonthUnworkedDays = breakdown
+    ? Math.max(0, breakdown.midMonthUnworkedDays ?? 0)
+    : 0;
+  const missingAttendanceDays = breakdown
+    ? Math.max(0, breakdown.missingAttendanceDays)
+    : 0;
+  const confirmedExemptDays = confirmedUnpaidDays + confirmedSickDays;
+  const exempt = confirmedExemptDays >= 14;
+  const needsHrReconciliation = Boolean(
+    breakdown &&
+      !exempt &&
+      nonPaidWorkingDays >= 14 &&
+      (missingAttendanceDays > 0 || midMonthUnworkedDays > 0)
+  );
+
+  if (exempt || contractBaseSalary <= 0) {
     return {
-      exempt: nonPaidWorkingDays >= 14,
+      exempt,
+      needsHrReconciliation: false,
       nonPaidWorkingDays,
+      confirmedExemptDays,
+      confirmedUnpaidDays,
+      confirmedSickDays,
+      midMonthUnworkedDays,
+      missingAttendanceDays,
       bhxh: 0,
       bhyt: 0,
       bhtn: 0,
@@ -67,9 +110,16 @@ export function calculateStatutoryInsurance(
 
   return {
     exempt: false,
+    needsHrReconciliation,
     nonPaidWorkingDays,
+    confirmedExemptDays,
+    confirmedUnpaidDays,
+    confirmedSickDays,
+    midMonthUnworkedDays,
+    missingAttendanceDays,
     bhxh,
     bhyt,
+    bhhtn: bhtn,
     bhtn,
     total: bhxh + bhyt + bhtn,
     bhxhBhytBase,
@@ -77,17 +127,31 @@ export function calculateStatutoryInsurance(
   };
 }
 
+export interface PayrollDetailItem {
+  name: string;
+  type: string;
+  amount: number;
+  amountType: string;
+}
+
 function buildManualPayrollDetails(
   baseSalary: number,
   bonus: number,
   deductions: number,
-  existingDetails?: any
-) {
-  const dayItems = Array.isArray(existingDetails)
-    ? existingDetails.filter((d: any) => d && d.amountType === "DAYS")
+  existingDetails?: unknown
+): PayrollDetailItem[] {
+  const dayItems: PayrollDetailItem[] = Array.isArray(existingDetails)
+    ? existingDetails.filter(
+        (d): d is PayrollDetailItem =>
+          Boolean(
+            d &&
+              typeof d === "object" &&
+              (d as { amountType?: unknown }).amountType === "DAYS"
+          )
+      )
     : [];
 
-  const details: any[] = [...dayItems];
+  const details: PayrollDetailItem[] = [...dayItems];
 
   details.push({
     name: "Lương cơ bản theo kỳ",
@@ -155,7 +219,7 @@ export async function getPayrolls(
   year?: number,
   scope?: { userEmail?: string; roleName?: string; userId?: string }
 ) {
-  const where: any = {};
+  const where: Prisma.PayrollWhereInput = {};
   if (month) where.month = month;
   if (year) where.year = year;
 
@@ -191,8 +255,19 @@ export async function getPayrolls(
   });
 }
 
+export interface PayrollMutationInput {
+  employeeId?: string;
+  month?: number | string;
+  year?: number | string;
+  baseSalary?: number | string;
+  bonus?: number | string;
+  deductions?: number | string;
+  details?: Prisma.InputJsonValue;
+  status?: string;
+}
+
 export async function createPayroll(
-  data: any,
+  data: PayrollMutationInput,
   actorName: string = "Phòng Nhân Sự",
   actorRole: string = "HR",
   actorUserId?: string
@@ -240,7 +315,9 @@ export async function createPayroll(
   }
 
   const netSalary = parsedBase + parsedBonus - parsedDed;
-  const details = data.details ?? buildManualPayrollDetails(parsedBase, parsedBonus, parsedDed);
+  const details =
+    data.details ??
+    (buildManualPayrollDetails(parsedBase, parsedBonus, parsedDed) as unknown as Prisma.InputJsonValue);
 
   return prisma.$transaction(async (tx) => {
     const created = await tx.payroll.create({
@@ -279,7 +356,7 @@ export async function createPayroll(
 
 export async function updatePayroll(
   id: string,
-  data: any,
+  data: PayrollMutationInput,
   actorName: string = "Kế toán / HR",
   actorRole: string = "HR",
   actorUserId?: string
@@ -331,7 +408,13 @@ export async function updatePayroll(
   }
   const netSalary = newBase + newBonus - newDed;
   const details =
-    data.details ?? buildManualPayrollDetails(newBase, newBonus, newDed, payroll.details);
+    data.details ??
+    (buildManualPayrollDetails(
+      newBase,
+      newBonus,
+      newDed,
+      payroll.details
+    ) as unknown as Prisma.InputJsonValue);
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.payroll.update({
@@ -480,14 +563,25 @@ export async function calculateMonthlyPayroll(
 
     const workedDateKeys = new Set(
       employee.attendances
-        .filter((a) => (a.status === "PRESENT" || a.status === "LATE") && isScheduledWorkday(a.date, holidays, extraWorkdays))
+        .filter(
+          (a) =>
+            (a.status === "PRESENT" || a.status === "LATE") &&
+            isScheduledWorkday(a.date, holidays, extraWorkdays)
+        )
         .map((a) => a.date.toISOString().slice(0, 10))
     );
     const workedDays = workedDateKeys.size;
 
-    const unexcusedAbsences = employee.attendances.filter(
-      (a) => a.status === "ABSENT" && isScheduledWorkday(a.date, holidays, extraWorkdays)
-    ).length;
+    const absentDateKeys = new Set(
+      employee.attendances
+        .filter(
+          (a) =>
+            a.status === "ABSENT" &&
+            isScheduledWorkday(a.date, holidays, extraWorkdays) &&
+            !workedDateKeys.has(a.date.toISOString().slice(0, 10))
+        )
+        .map((a) => a.date.toISOString().slice(0, 10))
+    );
 
     let calculatedPaidLeaveDays = 0;
     let calculatedUnpaidLeaveDays = 0;
@@ -513,9 +607,13 @@ export async function calculateMonthlyPayroll(
       const leaveEnd = new Date(normalizedLeaveEnd < endDate ? normalizedLeaveEnd : endDate);
       while (cur <= leaveEnd) {
         const dateKey = cur.toISOString().slice(0, 10);
-        if (isScheduledWorkday(cur, holidays, extraWorkdays) &&
-            !workedDateKeys.has(dateKey) && !leaveDateKeys.has(dateKey)) {
+        if (
+          isScheduledWorkday(cur, holidays, extraWorkdays) &&
+          !workedDateKeys.has(dateKey) &&
+          !leaveDateKeys.has(dateKey)
+        ) {
           leaveDateKeys.add(dateKey);
+          absentDateKeys.delete(dateKey);
           if (leave.type === "UNPAID_LEAVE") {
             calculatedUnpaidLeaveDays++;
           } else if (leave.type === "SICK_LEAVE") {
@@ -528,6 +626,7 @@ export async function calculateMonthlyPayroll(
       }
     }
 
+    const unexcusedAbsences = absentDateKeys.size;
     const paidLeaveDays = calculatedPaidLeaveDays;
 
     if (
@@ -539,31 +638,101 @@ export async function calculateMonthlyPayroll(
       continue;
     }
 
-    let baseSalary = config.baseSalary;
-    if (
-      baseSalary === 12000000 &&
-      employee.contracts?.[0]?.salary &&
-      employee.contracts[0].salary > 0
-    ) {
-      baseSalary = employee.contracts[0].salary;
-      await tx.employeeSalaryConfig.update({
-        where: { id: config.id },
-        data: { baseSalary },
-      });
+    // Phân biệt ngày không thuộc thời gian làm việc (vào/nghỉ việc giữa tháng) và ngày thiếu dữ liệu chấm công
+    const activeDateKeys = [...workedDateKeys, ...leaveDateKeys].sort();
+    const hasExplicitJoinDate =
+      Boolean(employee.joinDate) &&
+      Math.abs(employee.joinDate.getTime() - employee.createdAt.getTime()) > 1000;
+    const normalizedJoinDate = hasExplicitJoinDate
+      ? new Date(
+          Date.UTC(
+            employee.joinDate.getUTCFullYear(),
+            employee.joinDate.getUTCMonth(),
+            employee.joinDate.getUTCDate()
+          )
+        )
+      : null;
+    const effectiveJoinDateInMonth =
+      normalizedJoinDate &&
+      normalizedJoinDate > startDate &&
+      normalizedJoinDate <= endDate &&
+      (activeDateKeys.length === 0 ||
+        activeDateKeys[0] >= normalizedJoinDate.toISOString().slice(0, 10))
+        ? normalizedJoinDate
+        : null;
+    const lastActiveDateKey =
+      employee.status === "RESIGNED" && activeDateKeys.length > 0
+        ? activeDateKeys[activeDateKeys.length - 1]
+        : null;
+
+    let midMonthUnworkedDays = 0;
+    let missingAttendanceDays = 0;
+    const dayCursor = new Date(startDate);
+    while (dayCursor <= endDate) {
+      const dateKey = dayCursor.toISOString().slice(0, 10);
+      if (
+        isScheduledWorkday(dayCursor, holidays, extraWorkdays) &&
+        !workedDateKeys.has(dateKey) &&
+        !leaveDateKeys.has(dateKey) &&
+        !absentDateKeys.has(dateKey)
+      ) {
+        const isBeforeJoin =
+          effectiveJoinDateInMonth !== null && dayCursor < effectiveJoinDateInMonth;
+        const isAfterResign =
+          lastActiveDateKey !== null && dateKey > lastActiveDateKey;
+        if (isBeforeJoin || isAfterResign) {
+          midMonthUnworkedDays++;
+        } else {
+          missingAttendanceDays++;
+        }
+      }
+      dayCursor.setUTCDate(dayCursor.getUTCDate() + 1);
     }
+
+    // Tách bạch 3 mức lương:
+    // 1. Lương cấu hình (configuredBaseSalary): cơ sở tính lương theo ngày công và phụ cấp %
+    // 2. Lương trả theo ngày công (proRatedBaseSalary): lưu vào Payroll.baseSalary
+    // 3. Căn cứ đóng bảo hiểm theo hợp đồng (contractInsuranceBaseSalary): lấy từ HĐLĐ ACTIVE (nếu có), ngược lại dùng lương cấu hình
+    const configuredBaseSalary = config.baseSalary;
+    const activeContractSalary =
+      employee.contracts?.[0]?.salary && employee.contracts[0].salary > 0
+        ? employee.contracts[0].salary
+        : null;
+    const contractInsuranceBaseSalary = activeContractSalary ?? configuredBaseSalary;
 
     // Chỉ ghi nhận ngày công có bằng chứng; dữ liệu chấm công thiếu không được tự suy ra đủ lương.
     const effectiveDays = Math.min(workedDays + paidLeaveDays, standardWorkingDays);
     const actualWorkingDays = workedDays;
 
-    const proRatedBaseSalary = Math.round((baseSalary / standardWorkingDays) * effectiveDays);
+    const proRatedBaseSalary = Math.round(
+      (configuredBaseSalary / standardWorkingDays) * effectiveDays
+    );
 
     let totalBonus = 0;
     let totalDeduction = 0;
     let kpiPenaltyAmount = 0;
-    const details: any[] = [];
+    const details: PayrollDetailItem[] = [];
 
-    details.push({ name: "Ngày công chuẩn của kỳ (đã trừ lễ)", type: "INFO", amount: standardWorkingDays, amountType: "DAYS" });
+    details.push({
+      name: "Lương cơ bản cấu hình (Cơ sở tính công)",
+      type: "INFO",
+      amount: configuredBaseSalary,
+      amountType: "FIXED",
+    });
+
+    details.push({
+      name: "Căn cứ đóng bảo hiểm theo hợp đồng",
+      type: "INFO",
+      amount: contractInsuranceBaseSalary,
+      amountType: "FIXED",
+    });
+
+    details.push({
+      name: "Ngày công chuẩn của kỳ (đã trừ lễ)",
+      type: "INFO",
+      amount: standardWorkingDays,
+      amountType: "DAYS",
+    });
 
     details.push({
       name: "Ngày công thực tế",
@@ -583,7 +752,7 @@ export async function calculateMonthlyPayroll(
 
     if (calculatedUnpaidLeaveDays > 0) {
       details.push({
-        name: "Nghỉ không lương (Khấu trừ ngày công)",
+        name: "Nghỉ không lương đã xác nhận (Khấu trừ ngày công)",
         type: "DEDUCTION",
         amount: calculatedUnpaidLeaveDays,
         amountType: "DAYS",
@@ -591,7 +760,12 @@ export async function calculateMonthlyPayroll(
     }
 
     if (calculatedSickLeaveDays > 0) {
-      details.push({ name: "Nghỉ ốm theo chế độ BHXH (không tính vào lương công ty)", type: "INFO", amount: calculatedSickLeaveDays, amountType: "DAYS" });
+      details.push({
+        name: "Nghỉ ốm theo chế độ BHXH (không tính vào lương công ty)",
+        type: "INFO",
+        amount: calculatedSickLeaveDays,
+        amountType: "DAYS",
+      });
     }
 
     if (unexcusedAbsences > 0) {
@@ -603,13 +777,31 @@ export async function calculateMonthlyPayroll(
       });
     }
 
+    if (midMonthUnworkedDays > 0) {
+      details.push({
+        name: "Ngày ngoài thời gian làm việc (Vào/nghỉ việc giữa tháng)",
+        type: "INFO",
+        amount: midMonthUnworkedDays,
+        amountType: "DAYS",
+      });
+    }
+
+    if (missingAttendanceDays > 0) {
+      details.push({
+        name: "Ngày chưa có dữ liệu chấm công (Cần HR đối chiếu)",
+        type: "INFO",
+        amount: missingAttendanceDays,
+        amountType: "DAYS",
+      });
+    }
+
     const overtimeByRate = new Map<number, number>();
     for (const request of employee.overtimeRequests) {
       const rate = overtimeMultiplier(request.date, holidays, extraWorkdays);
       overtimeByRate.set(rate, (overtimeByRate.get(rate) || 0) + request.hours);
     }
     for (const [rate, totalOtHours] of overtimeByRate) {
-      const hourlyRate = baseSalary / standardWorkingDays / 8;
+      const hourlyRate = configuredBaseSalary / standardWorkingDays / 8;
       const otBonus = Math.round(hourlyRate * rate * totalOtHours);
       totalBonus += otBonus;
       details.push({
@@ -620,12 +812,19 @@ export async function calculateMonthlyPayroll(
       });
     }
 
-    for (const empComp of components) {
+    const regularComponents = components.filter(
+      (empComp) => !isStatutoryInsuranceComponent(empComp.component)
+    );
+    const insuranceComponents = components.filter((empComp) =>
+      isStatutoryInsuranceComponent(empComp.component)
+    );
+
+    for (const empComp of regularComponents) {
       const comp = empComp.component;
       let amount = empComp.customAmount !== null ? empComp.customAmount : comp.defaultVal;
 
       if (comp.amountType === "PERCENTAGE") {
-        amount = (amount / 100) * baseSalary;
+        amount = Math.round((amount / 100) * configuredBaseSalary);
       }
 
       details.push({
@@ -678,70 +877,80 @@ export async function calculateMonthlyPayroll(
       }
     }
 
-    const hasStatutoryInsuranceInConfig = components.some(
-      (c) =>
-        c.component.type === "DEDUCTION" &&
-        (c.component.name.includes("BHXH") ||
-          c.component.name.includes("Bảo hiểm") ||
-          c.component.name.includes("BHYT"))
+    const confirmedUnpaidDays = calculatedUnpaidLeaveDays + unexcusedAbsences;
+    const ins = calculateStatutoryInsurance(
+      contractInsuranceBaseSalary,
+      standardWorkingDays,
+      effectiveDays,
+      month,
+      year,
+      {
+        confirmedUnpaidDays,
+        confirmedSickDays: calculatedSickLeaveDays,
+        midMonthUnworkedDays,
+        missingAttendanceDays,
+      }
     );
 
-    let statutoryInsuranceAmount = 0;
-    const nonPaidWorkingDays = Math.max(0, standardWorkingDays - effectiveDays);
-    if (!hasStatutoryInsuranceInConfig) {
-      const ins = calculateStatutoryInsurance(
-        baseSalary,
-        standardWorkingDays,
-        effectiveDays,
-        month,
-        year
-      );
-      if (ins.exempt) {
-        details.push({
-          name: `Miễn trích đóng BHXH/BHYT/BHTN (Nghỉ không hưởng lương ${ins.nonPaidWorkingDays} ngày ≥ 14 ngày công)`,
-          type: "INFO",
-          amount: 0,
-          amountType: "FIXED",
-        });
-      } else {
-        statutoryInsuranceAmount = ins.total;
-        totalDeduction += ins.total;
-
-        details.push({
-          name: "Bảo hiểm Xã hội (BHXH 8% lương HĐ)",
-          type: "DEDUCTION",
-          amount: ins.bhxh,
-          amountType: "FIXED",
-        });
-        details.push({
-          name: "Bảo hiểm Y tế (BHYT 1.5% lương HĐ)",
-          type: "DEDUCTION",
-          amount: ins.bhyt,
-          amountType: "FIXED",
-        });
-        details.push({
-          name: "Bảo hiểm Thất nghiệp (BHTN 1.0% lương HĐ)",
-          type: "DEDUCTION",
-          amount: ins.bhtn,
-          amountType: "FIXED",
-        });
-      }
-    } else if (nonPaidWorkingDays < 14) {
-      const insComp = components.filter(
-        (c) =>
-          c.component.type === "DEDUCTION" &&
-          (c.component.name.includes("BHXH") ||
-            c.component.name.includes("Bảo hiểm") ||
-            c.component.name.includes("BHYT"))
-      );
-      for (const ic of insComp) {
-        let val = ic.customAmount !== null ? ic.customAmount : ic.component.defaultVal;
-        if (ic.component.amountType === "PERCENTAGE") val = (val / 100) * baseSalary;
-        statutoryInsuranceAmount += val;
-      }
+    if (ins.needsHrReconciliation) {
+      details.push({
+        name: `Cần HR đối chiếu chấm công/bảo hiểm (Thiếu dữ liệu công ${missingAttendanceDays} ngày, vào/nghỉ giữa tháng ${midMonthUnworkedDays} ngày — tạm trích bảo hiểm theo HĐ)`,
+        type: "INFO",
+        amount: ins.nonPaidWorkingDays,
+        amountType: "DAYS",
+      });
     }
 
-    const lunchComp = components.find((c) =>
+    let statutoryInsuranceAmount = 0;
+    if (ins.exempt) {
+      details.push({
+        name: `Miễn trích đóng BHXH/BHYT/BHTN (Nghỉ không hưởng lương/nghỉ ốm đã xác nhận ${ins.confirmedExemptDays} ngày ≥ 14 ngày công)`,
+        type: "INFO",
+        amount: 0,
+        amountType: "FIXED",
+      });
+    } else if (insuranceComponents.length > 0) {
+      for (const ic of insuranceComponents) {
+        let val = ic.customAmount !== null ? ic.customAmount : ic.component.defaultVal;
+        if (ic.component.amountType === "PERCENTAGE") {
+          val = Math.round((val / 100) * contractInsuranceBaseSalary);
+        } else {
+          val = Math.round(val);
+        }
+        statutoryInsuranceAmount += val;
+        totalDeduction += val;
+        details.push({
+          name: ic.component.name,
+          type: "DEDUCTION",
+          amount: val,
+          amountType: ic.component.amountType,
+        });
+      }
+    } else {
+      statutoryInsuranceAmount = ins.total;
+      totalDeduction += ins.total;
+
+      details.push({
+        name: "Bảo hiểm Xã hội (BHXH 8% lương HĐ)",
+        type: "DEDUCTION",
+        amount: ins.bhxh,
+        amountType: "FIXED",
+      });
+      details.push({
+        name: "Bảo hiểm Y tế (BHYT 1.5% lương HĐ)",
+        type: "DEDUCTION",
+        amount: ins.bhyt,
+        amountType: "FIXED",
+      });
+      details.push({
+        name: "Bảo hiểm Thất nghiệp (BHTN 1.0% lương HĐ)",
+        type: "DEDUCTION",
+        amount: ins.bhtn,
+        amountType: "FIXED",
+      });
+    }
+
+    const lunchComp = regularComponents.find((c) =>
       c.component.name.toLowerCase().includes("ăn trưa")
     );
     let lunchAmount = 0;
@@ -751,7 +960,7 @@ export async function calculateMonthlyPayroll(
           ? lunchComp.customAmount
           : lunchComp.component.defaultVal;
       if (lunchComp.component.amountType === "PERCENTAGE") {
-        lunchAmount = (lunchAmount / 100) * baseSalary;
+        lunchAmount = Math.round((lunchAmount / 100) * configuredBaseSalary);
       }
     }
     const taxExemptLunch = Math.min(lunchAmount, 730000);
@@ -786,6 +995,8 @@ export async function calculateMonthlyPayroll(
       continue;
     }
 
+    const jsonDetails = details as unknown as Prisma.InputJsonValue;
+
     const payroll = await tx.payroll.upsert({
       where: {
         employeeId_month_year: {
@@ -799,7 +1010,7 @@ export async function calculateMonthlyPayroll(
         bonus: totalBonus,
         deductions: totalDeduction,
         netSalary: netSalary,
-        details: details,
+        details: jsonDetails,
         status: "DRAFT",
       },
       create: {
@@ -810,7 +1021,7 @@ export async function calculateMonthlyPayroll(
         bonus: totalBonus,
         deductions: totalDeduction,
         netSalary: netSalary,
-        details: details,
+        details: jsonDetails,
         status: "DRAFT",
       },
     });

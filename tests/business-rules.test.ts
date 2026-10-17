@@ -151,4 +151,37 @@ test("cảnh báo mềm ngưỡng giờ OT tháng (>40h) và năm (>200h-300h) t
   assert.equal(overYear.warnings.length, 2);
 });
 
+test("thiếu dữ liệu chấm công không được tự động miễn đóng BHXH mà phải đánh dấu cần HR đối chiếu", () => {
+  // Nhân viên mới chỉ có 5/22 ngày chấm công, nhưng 0 ngày nghỉ không lương/nghỉ ốm xác nhận (17 ngày thiếu dữ liệu công)
+  const missingDataCase = calculateStatutoryInsurance(20_000_000, 22, 5, 10, 2026, {
+    confirmedUnpaidDays: 0,
+    confirmedSickDays: 0,
+    midMonthUnworkedDays: 0,
+    missingAttendanceDays: 17,
+  });
+  assert.equal(missingDataCase.exempt, false);
+  assert.equal(missingDataCase.needsHrReconciliation, true);
+  assert.equal(missingDataCase.total, 2_100_000);
 
+  // Nghỉ không lương 10 ngày + nghỉ ốm 3 ngày = 13 ngày (< 14 ngày): chưa đủ ngưỡng miễn đóng
+  const belowThreshold = calculateStatutoryInsurance(20_000_000, 22, 9, 10, 2026, {
+    confirmedUnpaidDays: 10,
+    confirmedSickDays: 3,
+    midMonthUnworkedDays: 0,
+    missingAttendanceDays: 0,
+  });
+  assert.equal(belowThreshold.exempt, false);
+  assert.equal(belowThreshold.needsHrReconciliation, false);
+  assert.equal(belowThreshold.total, 2_100_000);
+
+  // Nghỉ không lương 10 ngày + nghỉ ốm 4 ngày = 14 ngày (≥ 14 ngày đã xác nhận): miễn đóng hợp lệ
+  const confirmedExempt = calculateStatutoryInsurance(20_000_000, 22, 8, 10, 2026, {
+    confirmedUnpaidDays: 10,
+    confirmedSickDays: 4,
+    midMonthUnworkedDays: 0,
+    missingAttendanceDays: 0,
+  });
+  assert.equal(confirmedExempt.exempt, true);
+  assert.equal(confirmedExempt.needsHrReconciliation, false);
+  assert.equal(confirmedExempt.total, 0);
+});

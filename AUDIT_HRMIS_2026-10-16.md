@@ -126,3 +126,58 @@
 4. **Giám sát & Nhật ký kiểm toán (`AuditLog`)**:
    - Mọi thao tác nhạy cảm (duyệt nghỉ phép, duyệt OT, tạo/sửa/xóa/duyệt chi lương, sửa hợp đồng, biến động nhân sự) đều được ghi nhận nguyên tử trong cùng transaction với dữ liệu nghiệp vụ.
 
+---
+
+### 6. Rà soát & Sửa lỗi Đợt 5 — Tính Bảo hiểm & Vòng đời Quyết định Biến động Nhân sự (17/10/2026)
+
+#### 6.1. Ưu tiên 1 — Nghiệp vụ Tính Bảo hiểm (`src/services/payroll.service.ts`)
+
+1. **Lỗi đã xác nhận & Giải pháp đã triển khai**:
+   - **[Đã sửa - Nghiêm trọng] Suy diễn ngày nghỉ không lương từ `standardWorkingDays - effectiveDays`**:
+     - *Nguyên nhân*: Trước đây `calculateStatutoryInsurance` tính `nonPaidWorkingDays = standardWorkingDays - effectivePaidDays`, dẫn đến nhân viên thiếu dữ liệu chấm công (chưa chấm công, không có đơn nghỉ) hoặc vào/nghỉ việc giữa tháng bị coi nhầm là nghỉ không lương $\ge 14$ ngày và bị miễn đóng BHXH sai quy định.
+     - *Giải pháp*: Bổ sung `InsuranceAttendanceBreakdown` và phân tách rạch ròi từng ngày làm việc chuẩn trong kỳ thành:
+       1. Ngày đi làm hưởng lương (`workedDays`: `PRESENT` / `LATE`) + Ngày nghỉ phép có hưởng lương (`paidLeaveDays`: `ANNUAL_LEAVE` đã duyệt).
+       2. Ngày nghỉ không hưởng lương đã xác nhận (`confirmedUnpaidDays`: `UNPAID_LEAVE` đã duyệt + `ABSENT` không phép đã ghi nhận).
+       3. Ngày nghỉ ốm hưởng chế độ BHXH đã xác nhận (`confirmedSickDays`: `SICK_LEAVE` đã duyệt).
+       4. Ngày ngoài thời gian làm việc do vào/nghỉ việc giữa tháng (`midMonthUnworkedDays`).
+       5. Ngày chưa có dữ liệu chấm công (`missingAttendanceDays`).
+     - Chỉ tự động miễn đóng BHXH/BHYT/BHTN (`exempt = true`) khi tổng ngày nghỉ không lương và nghỉ ốm **đã có bằng chứng xác nhận** (`confirmedExemptDays = confirmedUnpaidDays + confirmedSickDays`) $\ge 14$ ngày công.
+     - Khi `confirmedExemptDays < 14` nhưng `nonPaidWorkingDays >= 14` do thiếu dữ liệu công (`missingAttendanceDays > 0`) hoặc vào/nghỉ việc giữa tháng (`midMonthUnworkedDays > 0`), hệ thống **không tự động miễn đóng** (`exempt = false`), vẫn tạm trích bảo hiểm theo căn cứ hợp đồng và gắn cờ `needsHrReconciliation = true` kèm dòng cảnh báo trên phiếu lương: *"Cần HR đối chiếu chấm công/bảo hiểm (Thiếu dữ liệu công X ngày, vào/nghỉ giữa tháng Y ngày — tạm trích bảo hiểm theo HĐ)"*.
+   - **[Đã sửa - Cao] Nhánh `SalaryComponent` khấu trừ bảo hiểm cấu hình riêng bị cộng vào `totalDeduction` trước khi xét miễn đóng**:
+     - *Nguyên nhân*: Vòng lặp `components` cộng toàn bộ khoản `DEDUCTION` (bao gồm cả component bảo hiểm cấu hình riêng) vào `totalDeduction` và `details` trước khi kiểm tra điều kiện miễn đóng $\ge 14$ ngày.
+     - *Giải pháp*: Tách `regularComponents` và `insuranceComponents` bằng `isStatutoryInsuranceComponent()`. Khi `ins.exempt === true`, không cộng bất kỳ khoản bảo hiểm nào (cả mặc định lẫn cấu hình riêng) vào `totalDeduction` và hiển thị nhất quán dòng miễn đóng trên `details`. Khi không miễn đóng, component bảo hiểm theo tỷ lệ `%` được tính trên `contractInsuranceBaseSalary`.
+   - **[Đã sửa - Cao] Tách bạch 3 mức lương & Loại bỏ điều kiện ngầm `baseSalary === 12000000`**:
+     - Đã xóa bỏ đoạn tự động ghi đè `EmployeeSalaryConfig.baseSalary` khi `baseSalary === 12000000`.
+     - Tách rõ 3 đại lượng trên bảng tính và trên `details` của phiếu lương:
+       1. `configuredBaseSalary` (`config.baseSalary`): Lương cấu hình làm cơ sở tính công và phụ cấp `%`.
+       2. `proRatedBaseSalary`: Lương trả theo ngày công thực tế hưởng lương trong kỳ.
+       3. `contractInsuranceBaseSalary`: Căn cứ đóng BHXH/BHYT/BHTN lấy từ Hợp đồng lao động `ACTIVE` (nếu có), ngược lại mới dùng `configuredBaseSalary`.
+
+2. **Đối chiếu quy định pháp lý & Điểm cần HR / Kế toán xác nhận**:
+   - Căn cứ pháp lý: **Luật Bảo hiểm xã hội 2024 (Luật số 41/2024/QH15, hiệu lực từ 01/07/2025)** — Điều 31, khoản 5 và khoản 6 Điều 33; **Nghị định 293/2025/NĐ-CP** (lương tối thiểu vùng từ 01/01/2026).
+   - **Cần HR/Kế toán xác nhận chính sách nội bộ**:
+     - *Trường hợp 1 (Vào làm hoặc thôi việc giữa tháng có $\ge 14$ ngày không làm việc và không hưởng lương)*: Theo khoản 5 Điều 33 Luật BHXH 2024, người lao động và người sử dụng lao động không phải đóng BHXH tháng đó *trừ trường hợp hai bên có thỏa thuận có đóng BHXH*. Hiện hệ thống đang giữ ở chế độ an toàn (**tạm tính bảo hiểm + gắn cờ "Cần HR đối chiếu"**) để HR kiểm tra thỏa thuận hợp đồng và kỳ báo tăng/báo giảm BHXH.
+     - *Trường hợp 2 (Chênh lệch giữa `EmployeeSalaryConfig.baseSalary` và `Contract.salary`)*: Cần xác nhận khi nào công ty cho phép lương tính công nội bộ (`configuredBaseSalary`) khác với lương ghi trên hợp đồng đóng BHXH (`Contract.salary`), hoặc có muốn đồng bộ 1-1 bắt buộc cho toàn bộ nhân viên hay không.
+
+---
+
+#### 6.2. Ưu tiên 2 — Vòng đời Quyết định Biến động Nhân sự (`src/services/personnel-change.service.ts`, `src/app/api/personnel-changes/route.ts`, `src/app/dashboard/personnel-changes/page.tsx`)
+
+1. **Lỗi đã xác nhận & Giải pháp đã triển khai**:
+   - **[Đã sửa - Nghiêm trọng] Cho phép đổi quyết định đã `APPROVED` sang `REJECTED` làm lệch hồ sơ nhân sự**:
+     - *Giải pháp*: Khóa vòng đời quyết định một chiều trong `decidePersonnelChangeDecision`. Chỉ quyết định ở trạng thái `PENDING` mới được chuyển sang `APPROVED` hoặc `REJECTED`. Mọi yêu cầu sửa hoặc đảo ngược quyết định đã `APPROVED`/`REJECTED` đều bị chặn với mã lỗi `400` và hướng dẫn lập quyết định điều chỉnh mới có ghi nhận `AuditLog`.
+   - **[Đã sửa - Cao] Đề xuất nâng lương `PENDING` làm mất `newSalary` khi phê duyệt**:
+     - *Giải pháp*: Bổ sung migration `20261017010000_personnel_change_lifecycle` thêm cột `newSalary`, `employeeId`, `fromDeptId`, `toDeptId`, `appliedAt` vào bảng `PersonnelChange`. Lưu `newSalary` ngay khi tạo quyết định `PENDING`, hiển thị rõ trên bảng danh sách và văn bản quyết định để người duyệt kiểm tra, và tự động áp dụng đúng `existing.newSalary` khi bấm "Duyệt" (`{ id, status: "APPROVED" }`).
+   - **[Đã sửa - Cao] Tìm kiếm nhân sự qua email và tìm phòng ban gần đúng (`contains`)**:
+     - *Giải pháp*: Lưu và ưu tiên định danh ổn định `employeeId`, `fromDeptId`, `toDeptId`. Kiểm tra chặt sự tồn tại của phòng ban đích (`resolveTargetDepartment` theo `toDeptId` hoặc khớp chính xác tên phòng ban); nếu phòng ban không tồn tại thì trả lỗi `400` thay vì âm thầm bỏ qua.
+   - **[Đã sửa - Trung bình] Xử lý nhất quán ngày hiệu lực (`effectiveDate`) và tiền tố năm mã quyết định (`code`)**:
+     - Chuẩn hóa kiểm tra định dạng ngày `YYYY-MM-DD` có thực trên lịch (`normalizeEffectiveDateString`).
+     - Sinh mã quyết định theo năm của `effectiveDate` (`QĐ-${decisionYear}-xxx`) thay vì cố định `QĐ-2026-`.
+     - Với quyết định đã `APPROVED` nhưng có `effectiveDate > today` (ngày hiệu lực tương lai): hệ thống lưu trạng thái `APPROVED` với `appliedAt = null` (chưa ghi đè sớm hồ sơ nhân sự trước ngày hiệu lực), và tự động đồng bộ hồ sơ (`applyDuePersonnelChanges`) ngay khi đến ngày hiệu lực.
+
+---
+
+#### 6.3. Bằng chứng Kiểm thử Đợt 5
+
+- **Kiểm thử đơn vị (`node --import tsx --test tests/business-rules.test.ts`)**: **15/15 bài kiểm thử đạt (0 lỗi)**.
+- **Kiểm thử Migration & Tích hợp trên PostgreSQL cách ly (`tests/payroll-integration.test.ts` trên `hrmis_codex_test_batch5`)**: **Đạt 100%** (áp dụng thành công cả 6 migrations từ đầu trên DB mới, kiểm chứng đầy đủ: thiếu chấm công không tự miễn BHXH, nghỉ không lương 13 ngày vs 14 ngày, component bảo hiểm riêng được miễn đóng nhất quán khi nghỉ $\ge 14$ ngày, lương cấu hình `12.000.000đ` khác lương HĐ `20.000.000đ`, đề xuất nâng lương `PENDING -> APPROVED`, chặn đảo ngược quyết định đã `APPROVED`, chặn phòng ban không tồn tại, quyết định hiệu lực tương lai `QĐ-2027-001` và đồng bộ khi đến hạn).
