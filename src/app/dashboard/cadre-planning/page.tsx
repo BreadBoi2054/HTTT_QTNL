@@ -175,7 +175,7 @@ export default function CadrePlanningPage() {
           <div className="flex bg-zinc-100/80 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
             <button
               onClick={() => setActiveView("pipeline")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                 activeView === "pipeline"
                   ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -186,7 +186,7 @@ export default function CadrePlanningPage() {
             </button>
             <button
               onClick={() => setActiveView("nineBox")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                 activeView === "nineBox"
                   ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -199,7 +199,7 @@ export default function CadrePlanningPage() {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Đề xuất quy hoạch</span>
@@ -211,7 +211,7 @@ export default function CadrePlanningPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tổng vị trí quy hoạch</span>
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 tracking-tight">Tổng vị trí quy hoạch</span>
             <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
@@ -224,7 +224,7 @@ export default function CadrePlanningPage() {
 
         <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sẵn sàng bổ nhiệm ngay</span>
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 tracking-tight">Sẵn sàng bổ nhiệm ngay</span>
             <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <Award className="w-4 h-4" />
             </div>
@@ -239,7 +239,7 @@ export default function CadrePlanningPage() {
 
         <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tiềm năng phát triển cao</span>
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 tracking-tight">Tiềm năng phát triển cao</span>
             <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <Target className="w-4 h-4" />
             </div>
@@ -254,7 +254,7 @@ export default function CadrePlanningPage() {
 
         <div className="bento-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Đã phê duyệt quy hoạch</span>
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 tracking-tight">Đã phê duyệt quy hoạch</span>
             <div className="squircle w-9 h-9 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -275,7 +275,7 @@ export default function CadrePlanningPage() {
             plans.map((item) => (
               <div
                 key={item.id}
-                className="bento-card rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:shadow-md transition-all group"
+                className="bento-card rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:shadow-md transition-colors group"
               >
                 {/* Left: Position Info */}
                 <div className="lg:w-1/3">
@@ -332,7 +332,7 @@ export default function CadrePlanningPage() {
                       <button
                         type="button"
                         onClick={() => handleUpdatePlan(item.id, { status: "APPROVED" })}
-                        className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-2xs"
+                        className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-2xs"
                       >
                         Phê duyệt
                       </button>
@@ -340,7 +340,7 @@ export default function CadrePlanningPage() {
                     <button 
                       type="button"
                       onClick={() => setSelectedRoadmapItem(item)}
-                      className="px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all flex items-center gap-1 shadow-2xs"
+                      className="px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-1 shadow-2xs"
                     >
                       <span>Lộ trình chi tiết</span>
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -613,7 +613,7 @@ export default function CadrePlanningPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium shadow-xs transition-colors"
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition-colors"
                 >
                   Lưu hồ sơ quy hoạch
                 </button>
@@ -685,7 +685,7 @@ export default function CadrePlanningPage() {
 
             {/* Detailed Roadmap Milestones */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+              <h4 className="text-xs font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
                 Lộ trình 4 giai đoạn đào tạo & thử thách năng lực
               </h4>
 
@@ -796,7 +796,7 @@ export default function CadrePlanningPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRoadmapItem(null)}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
               >
                 <X className="w-4 h-4" />
                 <span>Thoát</span>

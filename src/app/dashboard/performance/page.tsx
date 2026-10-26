@@ -192,7 +192,7 @@ export default function PerformancePage() {
           <div className="flex items-center gap-2.5">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-all border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-colors border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
               title="Xuất bảng đánh giá KPI ra file Excel/CSV"
             >
               <Download className="w-3.5 h-3.5 text-zinc-500" />
@@ -203,30 +203,30 @@ export default function PerformancePage() {
 
         {/* Asymmetric Bell Curve & KPI Distribution Strip */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-          <div className="lg:col-span-5 rounded-2xl bg-zinc-900 dark:bg-zinc-950 text-white p-6 border border-zinc-800 flex flex-col justify-between shadow-sm">
+          <div className="lg:col-span-5 bento-card p-6 flex flex-col justify-between">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400">
+                <span className="swiss-label">
                   Điểm hiệu suất trung bình · Quý 4/2026
                 </span>
                 <div className="flex items-baseline gap-2.5 mt-2">
-                  <span className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-white">
+                  <span className="text-3xl font-semibold font-mono tracking-tight text-zinc-900 dark:text-zinc-100">
                     {avgScore}
                   </span>
-                  <span className="text-xs font-mono text-zinc-400">/ 100 điểm</span>
+                  <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">/ 100 điểm</span>
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-blue-400 shrink-0">
-                <TrendingUp className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-zinc-800 border border-blue-200 dark:border-zinc-700 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                <TrendingUp className="w-4 h-4" />
               </div>
             </div>
 
-            <div className="mt-5 pt-4 border-t border-zinc-800 space-y-2">
-              <div className="flex items-center justify-between text-xs text-zinc-400">
+            <div className="mt-5 pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
                 <span>Phân bổ Bell Curve ({evaluations.length} nhân sự)</span>
-                <span className="text-emerald-400 font-semibold">Đạt chuẩn kỳ vọng</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Đạt chuẩn kỳ vọng</span>
               </div>
-              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden flex">
+              <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden flex">
                 <div
                   className="h-full bg-emerald-500"
                   style={{ width: `${evaluations.length > 0 ? (countGradeA / evaluations.length) * 100 : 0}%` }}
@@ -301,7 +301,7 @@ export default function PerformancePage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm theo tên cán bộ, mã nhân sự..."
-                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs"
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-colors shadow-2xs"
               />
             </div>
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarDays, Clock3, FileText, UsersRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarDays, FileText } from "lucide-react";
 
 type DashboardData = {
   totalEmployees: number | null;
@@ -14,23 +14,37 @@ type DashboardData = {
 };
 
 const statusNames: Record<string, string> = {
-  APPLIED: "Mới tiếp nhận", REVIEWING: "Đang sàng lọc", INTERVIEWING: "Phỏng vấn",
-  OFFERED: "Đã đề nghị", HIRED: "Đã tuyển", REJECTED: "Đã từ chối",
+  APPLIED: "Mới tiếp nhận",
+  REVIEWING: "Đang sàng lọc",
+  INTERVIEWING: "Phỏng vấn",
+  OFFERED: "Đã đề nghị",
+  HIRED: "Đã tuyển",
+  REJECTED: "Đã từ chối",
+};
+
+const statusPillStyles: Record<string, string> = {
+  APPLIED: "bg-[#ebedee] text-[#353736] dark:bg-[#1e2328] dark:text-[#cfd3d8]",
+  REVIEWING: "bg-[#eef7f9] text-[#1b6c80] dark:bg-[#1b6c80]/20 dark:text-[#76bfd0]",
+  INTERVIEWING: "bg-[#fffbeb] text-[#92400e] dark:bg-amber-950/40 dark:text-amber-300",
+  OFFERED: "bg-[#dcfae5] text-[#04250e] dark:bg-emerald-950/40 dark:text-emerald-300",
+  HIRED: "bg-[#dcfae5] text-[#04250e] dark:bg-emerald-950/40 dark:text-emerald-300",
+  REJECTED: "bg-[#ffedea] text-[#831c1e] dark:bg-rose-950/40 dark:text-rose-300",
 };
 
 const personalLinks = [
-  { title: "Không gian của tôi", note: "Hồ sơ và hoạt động cá nhân", href: "/dashboard/my-workspace" },
-  { title: "Chấm công", note: "Ghi nhận và xem ngày làm việc", href: "/dashboard/attendance" },
-  { title: "Nghỉ phép", note: "Quỹ phép và đơn chờ xét duyệt", href: "/dashboard/leave" },
-  { title: "Phiếu lương", note: "Thu nhập theo từng kỳ", href: "/dashboard/payroll" },
-  { title: "Đánh giá", note: "Tiến độ và kết quả hiệu suất", href: "/dashboard/performance" },
+  { title: "Cổng thông tin cá nhân", scope: "Hồ sơ, hợp đồng và lịch sử thu nhập", href: "/dashboard/my-workspace" },
+  { title: "Chấm công trong ngày", scope: "Ghi nhận giờ vào/ra và đối soát ca", href: "/dashboard/attendance" },
+  { title: "Quỹ phép & Đơn từ", scope: "Đăng ký nghỉ phép và theo dõi phê duyệt", href: "/dashboard/leave" },
+  { title: "Phiếu lương định kỳ", scope: "Chi tiết lương Gross, BHXH, thuế TNCN và Net", href: "/dashboard/payroll" },
+  { title: "Đánh giá hiệu suất KPI", scope: "Mục tiêu cá nhân và kết quả nghiệm thu quý", href: "/dashboard/performance" },
 ];
 
 const managementLinks = [
-  { title: "Hồ sơ nhân sự", note: "Danh sách và tình trạng lao động", href: "/dashboard/employees" },
-  { title: "Chấm công", note: "Sổ công trong ngày", href: "/dashboard/attendance" },
-  { title: "Nghỉ phép", note: "Đơn cần theo dõi", href: "/dashboard/leave" },
-  { title: "Bảng lương", note: "Kỳ lương và phiếu chi", href: "/dashboard/payroll" },
+  { title: "Hồ sơ nhân sự & Định biên", scope: "Danh bạ lao động, chức danh và phòng ban", href: "/dashboard/employees" },
+  { title: "Sổ chấm công thời gian thực", scope: "Đối soát hiện diện, đi muộn và tăng ca", href: "/dashboard/attendance" },
+  { title: "Duyệt đơn nghỉ phép", scope: "Rà soát hạn mức phép và phê duyệt đơn chờ", href: "/dashboard/leave" },
+  { title: "Quyết toán bảng lương", scope: "Tính lương, trích nộp BHXH 10.5% và thuế TNCN", href: "/dashboard/payroll" },
+  { title: "Hợp đồng lao động", scope: "Theo dõi hiệu lực pháp lý và phụ lục gia hạn", href: "/dashboard/contracts" },
 ];
 
 export default function DashboardPage() {
@@ -50,75 +64,378 @@ export default function DashboardPage() {
         return response.json();
       })
       .then((result: DashboardData) => setData(result))
-      .catch((cause) => { if (cause.name !== "AbortError") setError(true); })
+      .catch((cause) => {
+        if (cause.name !== "AbortError") setError(true);
+      })
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, []);
 
-  const today = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "long", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
-  const period = new Intl.DateTimeFormat("en-GB", { month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+  const today = new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+  const period = new Intl.DateTimeFormat("en-GB", {
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+
   const attendance = data?.attendanceToday;
-  const present = (attendance?.PRESENT || 0) + (attendance?.LATE || 0);
-  const recorded = present + (attendance?.ABSENT || 0) + (attendance?.LEAVE || 0);
-  const punctuality = present > 0 ? Math.round(((attendance?.PRESENT || 0) / present) * 100) : null;
+  const onTimeCount = attendance?.PRESENT || 0;
+  const lateCount = attendance?.LATE || 0;
+  const leaveCount = attendance?.LEAVE || 0;
+  const absentCount = attendance?.ABSENT || 0;
+  const present = onTimeCount + lateCount;
+  const recorded = present + absentCount + leaveCount;
+  const totalHeadcount = data?.totalEmployees ?? 0;
+  const punctuality = present > 0 ? Math.round((onTimeCount / present) * 100) : 0;
   const departments = data?.headcountByDept || [];
+  const totalDeptHeadcount = departments.reduce((sum, item) => sum + item.value, 0) || 1;
   const maxDepartment = Math.max(1, ...departments.map((item) => item.value));
   const links = isUser ? personalLinks : managementLinks;
 
   return (
-    <div className="folio-page animate-swiss-in space-y-8">
-      <section className="folio-rule grid gap-6 pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+    <div className="folio-page animate-swiss-in space-y-6">
+      {/* Title Row (Framed Sheet Standard: 22px title, 14px finding subline, 1 primary action on the right) */}
+      <header className="flex flex-col gap-4 pb-5 border-b border-[#e6e8eb] dark:border-[#22262b] lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="folio-kicker mb-4 flex items-center gap-3"><span className="inline-block h-px w-8 bg-[#ba7146]" /> Sổ điều hành / {isUser ? "Cá nhân" : "Toàn doanh nghiệp"}</div>
-          <h1 className="text-zinc-900 dark:text-zinc-100">{isUser ? "Một nơi cho công việc của bạn." : "Nhân sự, trong một góc nhìn."}</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-            {isUser ? "Theo dõi ngày công, đơn nghỉ, thu nhập và các việc cần hoàn tất." : "Bức tranh vận hành của kỳ làm việc hiện tại, từ quân số đến chuyên cần và tuyển dụng."}
+          <div className="flex items-center gap-2 text-xs text-[#5d5f60] dark:text-[#9ba3b0] mb-1.5">
+            <span>Nexustech HRIS</span>
+            <span>/</span>
+            <span>Kỳ quyết toán {period}</span>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5 text-[#1b6c80] dark:text-[#2ba3be]" />
+              {today}
+            </span>
+          </div>
+          <h1 className="text-[22px] font-semibold text-[#131416] dark:text-white tracking-tight">
+            {isUser ? `Không gian làm việc · ${session?.user?.name || "Nhân viên"}` : "Tổng quan điều hành nhân lực"}
+          </h1>
+          <p className="mt-1 text-sm text-[#5d5f60] dark:text-[#9ba3b0]">
+            {isUser
+              ? "Theo dõi bảng chấm công, quỹ phép năm, phiếu lương và mục tiêu KPI cá nhân trong kỳ."
+              : loading
+              ? "Đang đồng bộ số liệu biên chế, chuyên cần và tuyển dụng từ cơ sở dữ liệu..."
+              : `Hệ thống ghi nhận ${totalHeadcount} nhân sự biên chế tại ${departments.length} phòng ban; hôm nay có ${present} nhân sự hiện diện (${punctuality}% đúng giờ).`}
           </p>
         </div>
-        <div className="flex items-center gap-3 text-xs text-zinc-600 dark:text-zinc-400 lg:justify-end">
-          <CalendarDays className="h-4 w-4 text-[#ba7146]" /><span>{today}</span><span className="h-4 w-px bg-zinc-300 dark:bg-zinc-700" /><span className="font-mono">KỲ {period}</span>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Link
+            href={isUser ? "/dashboard/attendance" : "/dashboard/payroll"}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#171b1f] px-3.5 text-[13px] font-medium text-[#131416] dark:text-white hover:bg-[#f4f6f8] dark:hover:bg-[#1e2328] transition-colors"
+          >
+            <span>{isUser ? "Chấm công hôm nay" : "Mở sổ lương kỳ này"}</span>
+          </Link>
+          <Link
+            href={isUser ? "/dashboard/my-workspace" : "/dashboard/employees"}
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-[#1b6c80] hover:bg-[#155666] px-3.5 text-[13px] font-medium text-white transition-colors"
+          >
+            <span>{isUser ? "Hồ sơ cá nhân" : "Danh bạ nhân sự"}</span>
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
         </div>
-      </section>
+      </header>
 
-      {error && <div role="alert" className="folio-panel border-red-300 p-5 text-sm text-red-700">Chưa thể tải số liệu. Hãy thử tải lại trang sau khi kiểm tra kết nối dữ liệu.</div>}
+      {error && (
+        <div role="alert" className="rounded-lg border border-[#ffedea] bg-[#ffedea]/60 dark:border-rose-900/50 dark:bg-rose-950/30 p-4 text-[13px] text-[#831c1e] dark:text-rose-300">
+          Chưa thể tải số liệu tổng hợp. Vui lòng kiểm tra kết nối cơ sở dữ liệu và tải lại trang.
+        </div>
+      )}
 
-      <div className="grid gap-5 xl:grid-cols-12">
-        <section className="folio-panel-dark relative overflow-hidden p-6 sm:p-8 xl:col-span-5">
-          <div className="absolute -right-14 -top-16 h-64 w-64 rounded-full border border-white/10" />
-          <div className="absolute -right-4 -top-5 h-44 w-44 rounded-full border border-white/10" />
-          <div className="relative flex h-full min-h-64 flex-col justify-between">
-            <div className="flex items-center justify-between gap-4"><span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#c9dfd0]">{isUser ? "Bàn làm việc" : "Quân số hiện tại"}</span><span className="font-mono text-xs text-[#d59b70]">NT / HR 01</span></div>
-            <div className="py-7">
-              {isUser ? <><p className="folio-display text-3xl leading-tight sm:text-4xl">Xin chào,<br />{session?.user?.name || "đồng nghiệp"}.</p><p className="mt-4 max-w-xs text-sm leading-relaxed text-[#c9dfd0]">Các công cụ và thông tin dành riêng cho bạn nằm ngay bên dưới.</p></> : <><div className="folio-number text-7xl sm:text-8xl">{loading ? "—" : (data?.totalEmployees ?? "—")}</div><p className="mt-4 text-sm text-[#c9dfd0]">nhân sự đang làm việc</p></>}
+      {/* Unified KPI Strip (1 container split by 1px dividers into 4 equal cells, 28px regular weight values) */}
+      {!isUser && (
+        <section
+          aria-label="Chỉ số điều hành trọng tâm"
+          className="kpi-strip grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#e6e8eb] dark:divide-[#22262b]"
+        >
+          <div className="p-5 flex flex-col justify-between gap-2">
+            <span className="text-[13px] font-medium text-[#5d5f60] dark:text-[#9ba3b0]">
+              Tổng biên chế hoạt động
+            </span>
+            <div className="flex items-baseline gap-2 tabular-nums">
+              <span className="text-[28px] font-normal tracking-tight text-[#131416] dark:text-white leading-none">
+                {loading ? "-" : totalHeadcount}
+              </span>
+              <span className="text-xs text-[#5d5f60] dark:text-[#9ba3b0]">nhân sự</span>
             </div>
-            <Link href={isUser ? "/dashboard/my-workspace" : "/dashboard/employees"} className="relative flex items-center justify-between border-t border-white/20 pt-4 text-sm font-medium hover:text-[#e4aa7d]">{isUser ? "Vào không gian cá nhân" : "Mở danh sách nhân sự"}<ArrowUpRight className="h-4 w-4" /></Link>
+            <span className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] tabular-nums">
+              Phân bổ trên {departments.length} đơn vị chuyên môn
+            </span>
+          </div>
+
+          <div className="p-5 flex flex-col justify-between gap-2">
+            <span className="text-[13px] font-medium text-[#5d5f60] dark:text-[#9ba3b0]">
+              Hiện diện trong ca hôm nay
+            </span>
+            <div className="flex items-baseline gap-2 tabular-nums">
+              <span className="text-[28px] font-normal tracking-tight text-[#131416] dark:text-white leading-none">
+                {loading ? "-" : present}
+              </span>
+              <span className="text-xs text-[#5d5f60] dark:text-[#9ba3b0]">
+                / {recorded} bản ghi công
+              </span>
+            </div>
+            <span className="text-xs text-[#1e7b4f] dark:text-emerald-400 tabular-nums">
+              {onTimeCount} đúng giờ · {lateCount} đi muộn
+            </span>
+          </div>
+
+          <div className="p-5 flex flex-col justify-between gap-2">
+            <span className="text-[13px] font-medium text-[#5d5f60] dark:text-[#9ba3b0]">
+              Tỷ lệ tuân thủ giờ công
+            </span>
+            <div className="flex items-baseline gap-2 tabular-nums">
+              <span className="text-[28px] font-normal tracking-tight text-[#1b6c80] dark:text-[#2ba3be] leading-none">
+                {loading ? "-" : `${punctuality}%`}
+              </span>
+              <span className="text-xs text-[#5d5f60] dark:text-[#9ba3b0]">đúng chuẩn 08:00</span>
+            </div>
+            <span className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] tabular-nums">
+              Nghỉ phép: {leaveCount} · Vắng mặt: {absentCount}
+            </span>
+          </div>
+
+          <div className="p-5 flex flex-col justify-between gap-2">
+            <span className="text-[13px] font-medium text-[#5d5f60] dark:text-[#9ba3b0]">
+              Định biên tuyển dụng mở
+            </span>
+            <div className="flex items-baseline gap-2 tabular-nums">
+              <span className="text-[28px] font-normal tracking-tight text-[#131416] dark:text-white leading-none">
+                {loading ? "-" : (data?.activeJobs ?? 0)}
+              </span>
+              <span className="text-xs text-[#5d5f60] dark:text-[#9ba3b0]">vị trí đang tuyển</span>
+            </div>
+            <span className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] tabular-nums">
+              {data?.recentApplications?.length ?? 0} hồ sơ ứng viên mới nhất
+            </span>
           </div>
         </section>
+      )}
 
-        <section className="folio-panel p-6 sm:p-8 xl:col-span-7">
-          <div className="mb-7 flex items-start justify-between gap-4"><div><span className="folio-kicker">Chỉ mục / 02</span><h2 className="mt-2 folio-display text-2xl text-zinc-900 dark:text-zinc-100">Đi thẳng đến công việc</h2></div><ArrowRight className="h-5 w-5 text-[#ba7146]" /></div>
-          <div>{links.map((item, index) => <Link key={item.href} href={item.href} className="folio-link-row group flex items-center gap-4 py-3.5"><span className="folio-index w-8 shrink-0">{String(index + 1).padStart(2, "0")}</span><span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{item.title}</strong><span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{item.note}</span></span><ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-blue-600" /></Link>)}</div>
-        </section>
+      {/* Framed Sheet Main Grid: 1fr Main Column + 360px Right Rail */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] items-start">
+        {/* Main Column */}
+        <div className="space-y-6 min-w-0">
+          {!isUser && (
+            <section className="rounded-lg border border-[#e6e8eb] dark:border-[#22262b] bg-white dark:bg-[#121518] p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-4 pb-4 border-b border-[#e6e8eb] dark:border-[#22262b]">
+                <div>
+                  <h2 className="text-base font-semibold text-[#131416] dark:text-white">
+                    Cơ cấu biên chế theo phòng ban
+                  </h2>
+                  <p className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] mt-0.5">
+                    Số lượng nhân sự chính thức và tỷ trọng định biên tại từng đơn vị
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/departments"
+                  className="text-xs font-medium text-[#1b6c80] dark:text-[#2ba3be] hover:underline inline-flex items-center gap-1"
+                >
+                  <span>Cơ cấu tổ chức</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              {departments.length === 0 ? (
+                <p className="py-10 text-[13px] text-[#5d5f60] dark:text-[#9ba3b0]">
+                  Chưa có dữ liệu phân bổ phòng ban.
+                </p>
+              ) : (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left text-[13px]">
+                    <thead>
+                      <tr className="border-b border-[#e6e8eb] dark:border-[#22262b] text-xs text-[#5d5f60] dark:text-[#9ba3b0]">
+                        <th className="py-2.5 pr-4 font-medium">Đơn vị chuyên môn</th>
+                        <th className="py-2.5 px-4 font-medium w-48 sm:w-64">Mật độ định biên</th>
+                        <th className="py-2.5 px-4 font-medium text-right">Tỷ trọng</th>
+                        <th className="py-2.5 pl-4 font-medium text-right">Nhân sự</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#eef0f2] dark:divide-[#1b1f24] tabular-nums">
+                      {departments.map((item) => {
+                        const share = Math.round((item.value / totalDeptHeadcount) * 100);
+                        return (
+                          <tr key={item.name} className="h-11">
+                            <td className="py-2.5 pr-4 font-medium text-[#131416] dark:text-white">
+                              {item.name}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <div className="folio-progress">
+                                <span style={{ width: `${Math.max(6, (item.value / maxDepartment) * 100)}%` }} />
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-right text-[#5d5f60] dark:text-[#9ba3b0]">
+                              {share}%
+                            </td>
+                            <td className="py-2.5 pl-4 text-right font-medium text-[#131416] dark:text-white">
+                              {item.value} <span className="text-xs font-normal text-[#5d5f60]">người</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Sheet-Native Table for Recent Applications */}
+          {!isUser && canSeeRecruitment && (
+            <section className="rounded-lg border border-[#e6e8eb] dark:border-[#22262b] bg-white dark:bg-[#121518] p-5 sm:p-6">
+              <div className="flex flex-col gap-2 pb-4 border-b border-[#e6e8eb] dark:border-[#22262b] sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-[#131416] dark:text-white">
+                    Hồ sơ ứng viên mới tiếp nhận
+                  </h2>
+                  <p className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] mt-0.5">
+                    Ứng viên nộp hồ sơ trực tuyến qua cổng tuyển dụng của tập đoàn
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/recruitment"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] px-3 text-xs font-medium text-[#131416] dark:text-white hover:bg-[#f4f6f8] dark:hover:bg-[#1e2328] transition-colors w-fit"
+                >
+                  <span>Quản lý tuyển dụng</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              {!data?.recentApplications?.length ? (
+                <p className="py-8 text-[13px] text-[#5d5f60] dark:text-[#9ba3b0]">
+                  Chưa có hồ sơ ứng tuyển mới trong kỳ này.
+                </p>
+              ) : (
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full text-left text-[13px]">
+                    <thead>
+                      <tr className="border-b border-[#e6e8eb] dark:border-[#22262b] text-xs text-[#5d5f60] dark:text-[#9ba3b0]">
+                        <th className="py-2.5 pr-4 font-medium">Họ và tên ứng viên</th>
+                        <th className="py-2.5 px-4 font-medium">Vị trí ứng tuyển</th>
+                        <th className="py-2.5 pl-4 font-medium text-right">Trạng thái xét duyệt</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#eef0f2] dark:divide-[#1b1f24]">
+                      {data.recentApplications.map((item) => (
+                        <tr key={item.id} className="h-12">
+                          <td className="py-2.5 pr-4 font-medium text-[#131416] dark:text-white">
+                            {item.candidateName}
+                          </td>
+                          <td className="py-2.5 px-4 text-[#5d5f60] dark:text-[#9ba3b0]">
+                            {item.jobTitle}
+                          </td>
+                          <td className="py-2.5 pl-4 text-right">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
+                                statusPillStyles[item.status] || statusPillStyles.APPLIED
+                              }`}
+                            >
+                              {statusNames[item.status] || item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {isUser && (
+            <section className="rounded-lg border border-[#e6e8eb] dark:border-[#22262b] bg-white dark:bg-[#121518] p-5 sm:p-6">
+              <h2 className="text-base font-semibold text-[#131416] dark:text-white">
+                Hướng dẫn tra cứu nhanh dành cho cán bộ nhân viên
+              </h2>
+              <p className="mt-1 text-[13px] text-[#5d5f60] dark:text-[#9ba3b0]">
+                Mọi dữ liệu chấm công, hợp đồng lao động và phiếu lương cá nhân được bảo mật theo phân quyền tài khoản.
+              </p>
+              <div className="mt-4 flex items-center gap-2 text-[13px] text-[#5d5f60] dark:text-[#9ba3b0]">
+                <FileText className="h-4 w-4 text-[#1b6c80]" />
+                <span>
+                  Xem chi tiết quy trình nghỉ phép, BHXH và thuế TNCN tại{" "}
+                  <Link href="/dashboard/guide" className="font-semibold text-[#1b6c80] dark:text-[#2ba3be] underline underline-offset-4">
+                    Sổ tay nghiệp vụ nội bộ
+                  </Link>
+                  .
+                </span>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Fixed 360px Right Rail (Headings outside cards per Framed Sheet spec) */}
+        <aside className="space-y-4">
+          <div>
+            <h2 className="text-base font-semibold text-[#131416] dark:text-white mb-2">
+              Phân hệ tác nghiệp trọng tâm
+            </h2>
+            <div className="rounded-lg border border-[#e6e8eb] dark:border-[#22262b] bg-white dark:bg-[#121518] divide-y divide-[#eef0f2] dark:divide-[#1b1f24]">
+              {links.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="group flex items-center justify-between gap-3 px-4 py-3 hover:bg-[#f8f9fb] dark:hover:bg-[#171b1f] transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-medium text-[#131416] dark:text-white group-hover:text-[#1b6c80] dark:group-hover:text-[#2ba3be] transition-colors">
+                      {item.title}
+                    </div>
+                    <div className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] truncate mt-0.5">
+                      {item.scope}
+                    </div>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[#878c92] group-hover:text-[#1b6c80] dark:group-hover:text-[#2ba3be] transition-colors" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {!isUser && (
+            <div className="pt-2">
+              <h2 className="text-base font-semibold text-[#131416] dark:text-white mb-2">
+                Đối soát quân số ca hiện hành
+              </h2>
+              <div className="rounded-lg border border-[#e6e8eb] dark:border-[#22262b] bg-white dark:bg-[#121518] p-4 space-y-3">
+                <div className="divide-y divide-[#eef0f2] dark:divide-[#1b1f24] text-[13px] tabular-nums">
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-[#5d5f60] dark:text-[#9ba3b0]">Đúng giờ qui định</span>
+                    <span className="font-medium text-[#1e7b4f] dark:text-emerald-400">{onTimeCount} người</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-[#5d5f60] dark:text-[#9ba3b0]">Đi muộn sau 08:00</span>
+                    <span className="font-medium text-[#92400e] dark:text-amber-400">{lateCount} người</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-[#5d5f60] dark:text-[#9ba3b0]">Nghỉ phép có đơn duyệt</span>
+                    <span className="font-medium text-[#131416] dark:text-white">{leaveCount} người</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-[#5d5f60] dark:text-[#9ba3b0]">Vắng mặt chưa rõ lý do</span>
+                    <span className="font-medium text-[#c4242a] dark:text-rose-400">{absentCount} người</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2.5 font-semibold text-[#131416] dark:text-white">
+                    <span>Tổng bản ghi chấm công</span>
+                    <span>{recorded} bản ghi</span>
+                  </div>
+                </div>
+
+                <Link
+                  href="/dashboard/attendance"
+                  className="flex h-8 w-full items-center justify-center rounded-md border border-[#cfd3d8] dark:border-[#2c3138] text-xs font-medium text-[#131416] dark:text-white hover:bg-[#f4f6f8] dark:hover:bg-[#1e2328] transition-colors"
+                >
+                  Xem toàn bộ sổ chấm công
+                </Link>
+              </div>
+            </div>
+          )}
+        </aside>
       </div>
-
-      {!isUser && <div className="grid gap-5 xl:grid-cols-12">
-        <section className="folio-panel p-6 sm:p-8 xl:col-span-5">
-          <div className="mb-6 flex items-end justify-between gap-4"><div><span className="folio-kicker">Chuyên cần / hôm nay</span><h2 className="mt-2 folio-display text-2xl">Nhịp làm việc</h2></div><Clock3 className="h-5 w-5 text-[#ba7146]" /></div>
-          <div className="grid grid-cols-2 border-y border-zinc-200 py-5 dark:border-zinc-700"><div className="border-r border-zinc-200 pr-4 dark:border-zinc-700"><div className="folio-number text-5xl">{loading ? "—" : present}</div><p className="mt-2 text-xs text-zinc-500">Đã chấm công</p></div><div className="pl-5"><div className="folio-number text-5xl">{loading ? "—" : (punctuality === null ? "—" : `${punctuality}%`)}</div><p className="mt-2 text-xs text-zinc-500">Đúng giờ trong số đã chấm</p></div></div>
-          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400"><span>Đúng giờ <b className="font-mono text-zinc-900 dark:text-zinc-100">{attendance?.PRESENT ?? 0}</b></span><span>Đi muộn <b className="font-mono text-zinc-900 dark:text-zinc-100">{attendance?.LATE ?? 0}</b></span><span>Ghi nhận <b className="font-mono text-zinc-900 dark:text-zinc-100">{recorded}</b></span></div>
-          <Link href="/dashboard/attendance" className="mt-7 flex items-center justify-between border-t border-zinc-200 pt-4 text-xs font-semibold text-blue-600 dark:border-zinc-700">Xem sổ công <ArrowRight className="h-4 w-4" /></Link>
-        </section>
-
-        <section className="folio-panel p-6 sm:p-8 xl:col-span-7">
-          <div className="mb-6 flex items-end justify-between gap-4"><div><span className="folio-kicker">Cơ cấu / phòng ban</span><h2 className="mt-2 folio-display text-2xl">Phân bố nhân sự</h2></div><UsersRound className="h-5 w-5 text-[#ba7146]" /></div>
-          {departments.length === 0 ? <p className="py-12 text-sm text-zinc-500">Chưa có dữ liệu phòng ban.</p> : <div className="space-y-5">{departments.slice(0, 6).map((item, index) => <div key={item.name} className="grid grid-cols-[1.5rem_minmax(0,1fr)_2rem] items-center gap-3"><span className="folio-index">{String(index + 1).padStart(2, "0")}</span><div className="min-w-0"><div className="mb-1.5 truncate text-xs font-medium text-zinc-800 dark:text-zinc-200">{item.name}</div><div className="folio-progress"><span style={{ width: `${Math.max(4, (item.value / maxDepartment) * 100)}%` }} /></div></div><span className="text-right font-mono text-sm font-semibold">{item.value}</span></div>)}</div>}
-          <Link href="/dashboard/departments" className="mt-7 flex items-center justify-between border-t border-zinc-200 pt-4 text-xs font-semibold text-blue-600 dark:border-zinc-700">Xem cơ cấu tổ chức <ArrowRight className="h-4 w-4" /></Link>
-        </section>
-      </div>}
-
-      {!isUser && canSeeRecruitment && <section className="folio-panel overflow-hidden"><div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8"><div><span className="folio-kicker">Tuyển dụng / cập nhật</span><h2 className="mt-2 folio-display text-2xl">Hồ sơ mới tiếp nhận</h2><p className="mt-1 text-xs text-zinc-500">{data?.activeJobs ?? 0} vị trí đang mở</p></div><Link href="/dashboard/recruitment" className="inline-flex items-center gap-2 text-xs font-semibold text-blue-600">Đến phân hệ tuyển dụng <ArrowUpRight className="h-4 w-4" /></Link></div>{!data?.recentApplications?.length ? <div className="border-t border-zinc-200 p-8 text-sm text-zinc-500 dark:border-zinc-700">Chưa có hồ sơ ứng tuyển mới.</div> : <div className="divide-y divide-zinc-200 border-t border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">{data.recentApplications.map((item, index) => <div key={item.id} className="grid gap-2 px-6 py-4 sm:grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_8rem] sm:items-center sm:gap-4 sm:px-8"><span className="folio-index">{String(index + 1).padStart(2, "0")}</span><strong className="truncate text-sm">{item.candidateName}</strong><span className="truncate text-xs text-zinc-600 dark:text-zinc-400">{item.jobTitle}</span><span className="text-xs font-medium text-blue-700 dark:text-blue-300">{statusNames[item.status] || item.status}</span></div>)}</div>}</section>}
-
-      {isUser && <div className="flex flex-wrap gap-3 border-t border-zinc-200 pt-5 text-xs text-zinc-500 dark:border-zinc-700"><FileText className="h-4 w-4" /><span>Cần hỗ trợ? Xem <Link href="/dashboard/guide" className="font-semibold text-blue-600 underline underline-offset-2">sổ tay nghiệp vụ</Link>.</span></div>}
     </div>
   );
 }

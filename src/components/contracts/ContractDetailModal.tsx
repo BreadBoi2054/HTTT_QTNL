@@ -56,7 +56,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
             </button>
             <button 
               onClick={onClose} 
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-md text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition-colors"
               title="Thoát (Esc)"
             >
               <X className="w-3.5 h-3.5" />
@@ -70,7 +70,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
           
           {/* National Motto & Form Letterhead */}
           <div className="text-center space-y-1 pb-4 border-b border-zinc-200 dark:border-zinc-800">
-            <div className="font-bold text-xs uppercase tracking-wider">
+            <div className="font-bold text-xs tracking-tight">
               CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
             </div>
             <div className="text-xs font-semibold">
@@ -188,7 +188,7 @@ export default function ContractDetailModal({ isOpen, onClose, contract }: Contr
             </button>
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-md text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition-colors"
             >
               <X className="w-3.5 h-3.5" />
               Thoát

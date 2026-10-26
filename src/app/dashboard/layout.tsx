@@ -15,11 +15,11 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="hr-workbench flex h-dvh print:h-auto overflow-hidden print:overflow-visible bg-zinc-50 dark:bg-zinc-950 print:bg-white text-zinc-900 dark:text-zinc-100 print:text-black transition-colors duration-200">
+    <div className="hr-workbench flex h-dvh print:h-auto overflow-hidden print:overflow-visible bg-[#f4f6f8] dark:bg-[#0c0e10] print:bg-white text-foreground print:text-black">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible min-w-0">
         <Header session={session} />
-        <main className="flex-1 overflow-y-auto print:overflow-visible p-4 sm:p-6 lg:p-8 print:p-0">
+        <main className="flex-1 overflow-y-auto print:overflow-visible p-5 sm:p-6 lg:p-7 print:p-0">
           {children}
         </main>
       </div>

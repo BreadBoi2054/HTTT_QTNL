@@ -25,20 +25,26 @@ import {
   Fingerprint
 } from "lucide-react";
 import { TableSkeleton } from "@/components/providers/ToastProvider";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 
 function LiveTerminalClock() {
-  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   useEffect(() => {
+    setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
   return (
     <div className="space-y-1 text-center py-2">
       <div className="text-4xl sm:text-5xl font-mono font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-        {currentTime.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        {currentTime
+          ? currentTime.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+          : "--:--:--"}
       </div>
       <div className="text-xs text-zinc-500 dark:text-zinc-400 pt-1">
-        {currentTime.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        {currentTime
+          ? currentTime.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+          : " "}
       </div>
     </div>
   );
@@ -375,7 +381,7 @@ export default function AttendancePage() {
         <div className="flex bg-zinc-100/80 dark:bg-zinc-800/80 p-1 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl">
           <button
             onClick={() => setActiveTab("terminal")}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
               activeTab === "terminal"
                 ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                 : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -388,7 +394,7 @@ export default function AttendancePage() {
           {canViewCompanyRoster && (
             <button
               onClick={() => setActiveTab("roster")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                 activeTab === "roster"
                   ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -413,7 +419,7 @@ export default function AttendancePage() {
                     <Laptop className="w-4 h-4" /> Trạm điểm danh trực tuyến
                   </span>
                   <span className="flex items-center gap-1.5 text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" /> Sẵn sàng
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400" /> Sẵn sàng
                   </span>
                 </div>
 
@@ -474,7 +480,7 @@ export default function AttendancePage() {
                   <button
                     type="button"
                     onClick={() => handleMethodChange("manual")}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                       checkInMethod === "manual"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -486,7 +492,7 @@ export default function AttendancePage() {
                   <button
                     type="button"
                     onClick={() => handleMethodChange("faceid")}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                       checkInMethod === "faceid"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -503,7 +509,7 @@ export default function AttendancePage() {
                       <button 
                         onClick={() => executeCheckIn("manual")}
                         disabled={actionLoading || hasCheckedIn}
-                        className={`flex items-center justify-center gap-2 py-3 px-4 text-xs font-bold rounded-xl transition-all ${
+                        className={`flex items-center justify-center gap-2 py-3 px-4 text-xs font-bold rounded-xl transition-colors ${
                           hasCheckedIn 
                             ? "bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-60" 
                             : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm cursor-pointer ring-2 ring-emerald-500/20 active:scale-[0.98]"
@@ -521,10 +527,10 @@ export default function AttendancePage() {
                       <button 
                         onClick={() => executeCheckOut("manual")}
                         disabled={actionLoading || !hasCheckedIn || hasCheckedOut}
-                        className={`flex items-center justify-center gap-2 py-3 px-4 text-xs font-bold rounded-xl transition-all ${
+                        className={`flex items-center justify-center gap-2 py-3 px-4 text-xs font-bold rounded-xl transition-colors ${
                           !hasCheckedIn || hasCheckedOut
                             ? "bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-50"
-                            : "bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 shadow-sm cursor-pointer active:scale-[0.98]"
+                            : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm cursor-pointer active:scale-[0.98]"
                         }`}
                         title={!hasCheckedIn ? "Phải Check-in trước khi Check-out" : hasCheckedOut ? "Đã Check-out xong" : "Bấm để Chấm công Ra ca thủ công"}
                       >
@@ -547,7 +553,7 @@ export default function AttendancePage() {
                     <button 
                       onClick={() => openFaceId("checkIn")}
                       disabled={actionLoading || hasCheckedIn}
-                      className={`flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl transition-all ${
+                      className={`flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl transition-colors ${
                         hasCheckedIn 
                           ? "bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-60" 
                           : "bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer ring-2 ring-blue-500/20 active:scale-[0.98]"
@@ -561,10 +567,10 @@ export default function AttendancePage() {
                     <button 
                       onClick={() => openFaceId("checkOut")}
                       disabled={actionLoading || !hasCheckedIn || hasCheckedOut}
-                      className={`flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl transition-all ${
+                      className={`flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl transition-colors ${
                         !hasCheckedIn || hasCheckedOut
                           ? "bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-50"
-                          : "bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 shadow-xs cursor-pointer active:scale-[0.98]"
+                          : "bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer active:scale-[0.98]"
                       }`}
                       title={!hasCheckedIn ? "Phải Check-in trước khi Check-out" : hasCheckedOut ? "Đã Check-out xong" : "Bật Camera quét FaceID ra ca"}
                     >
@@ -758,14 +764,12 @@ export default function AttendancePage() {
 
             <div className="flex items-center gap-2">
               <div className="relative flex items-center">
-                <input 
-                  type="date"
+                <VietnameseDatePicker
                   value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="pl-8 pr-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-mono text-zinc-800 dark:text-zinc-200 outline-none focus:border-blue-600 transition-colors"
-                  title="Lọc theo ngày"
+                  onChange={(iso) => setFilterDate(iso)}
+                  placeholder="Lọc theo ngày (DD/MM/YYYY)..."
+                  ariaLabel="Lọc theo ngày chấm công"
                 />
-                <CalendarIcon className="w-3.5 h-3.5 absolute left-2.5 text-zinc-400 pointer-events-none" />
                 {filterDate && (
                   <button 
                     onClick={() => setFilterDate("")} 
@@ -779,7 +783,7 @@ export default function AttendancePage() {
 
               <button 
                 onClick={handleExportExcel}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-medium transition-colors shadow-xs"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium transition-colors shadow-xs"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Xuất báo cáo</span>
@@ -922,16 +926,16 @@ export default function AttendancePage() {
               {faceScanStep !== "error" && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
                   {/* Oval target boundary */}
-                  <div className={`w-52 h-64 rounded-[48%] border-2 transition-all duration-500 relative flex items-center justify-center ${
+                  <div className={`w-52 h-64 rounded-[48%] border-2 transition-colors duration-300 relative flex items-center justify-center ${
                     faceScanStep === "success" 
-                      ? "border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.5)]" 
+                      ? "border-emerald-400" 
                       : faceScanStep === "matched"
-                      ? "border-blue-400 shadow-[0_0_25px_rgba(96,165,250,0.4)]"
-                      : "border-cyan-400/80 border-dashed animate-pulse shadow-[0_0_20px_rgba(34,211,238,0.3)]"
+                      ? "border-blue-400"
+                      : "border-cyan-400/80 border-dashed"
                   }`}>
                     {/* Laser scanning bar */}
                     {faceScanStep === "scanning" && (
-                      <div className="absolute inset-x-2 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_#22d3ee] animate-bounce" />
+                      <div className="absolute inset-x-2 h-0.5 bg-cyan-400/90 animate-swiss-in" />
                     )}
 
                     {/* Corner Reticles */}
@@ -970,11 +974,11 @@ export default function AttendancePage() {
             <div className="p-3.5 bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-zinc-600 dark:text-zinc-400 font-medium">Trạng thái nhận diện:</span>
-                <span className="font-semibold font-mono">
+                <span className="font-semibold tabular-nums">
                   {faceScanStep === "connecting" && <span className="text-amber-500 dark:text-amber-400">Đang khởi động ống kính...</span>}
-                  {faceScanStep === "scanning" && <span className="text-cyan-600 dark:text-cyan-400 animate-pulse">Đang quét sinh trắc học...</span>}
+                  {faceScanStep === "scanning" && <span className="text-cyan-600 dark:text-cyan-400">Đang quét sinh trắc học...</span>}
                   {faceScanStep === "matched" && <span className="text-blue-600 dark:text-blue-400">Khớp dữ liệu: 99.4%</span>}
-                  {faceScanStep === "success" && <span className="text-emerald-600 dark:text-emerald-400">✓ Xác thực thành công!</span>}
+                  {faceScanStep === "success" && <span className="text-emerald-600 dark:text-emerald-400">Đã xác thực thành công</span>}
                   {faceScanStep === "error" && <span className="text-rose-500 dark:text-rose-400">Lỗi kết nối</span>}
                 </span>
               </div>

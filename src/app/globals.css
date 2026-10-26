@@ -2,123 +2,191 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --color-zinc-50: #f8f5ee;
-  --color-zinc-100: #f0ebe1;
-  --color-zinc-200: #dfd6c8;
-  --color-zinc-300: #c8baa7;
-  --color-zinc-400: #938675;
-  --color-zinc-500: #6e655a;
-  --color-zinc-600: #564f47;
-  --color-zinc-700: #423e37;
-  --color-zinc-800: #302e2a;
-  --color-zinc-900: #201f1b;
-  --color-zinc-950: #151713;
-  --color-blue-50: #eaf3ed;
-  --color-blue-100: #d3e6d8;
-  --color-blue-200: #accdb8;
-  --color-blue-300: #81ad95;
-  --color-blue-400: #598d73;
-  --color-blue-500: #326e53;
-  --color-blue-600: #1c5b42;
-  --color-blue-700: #174b39;
-  --color-blue-800: #153e32;
-  --color-blue-900: #13362c;
-  --color-blue-950: #0e2a23;
+  --font-sans: var(--font-sans), "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--font-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-editorial: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+
+  /* Framed Sheet · Slate & Neutral Ink Ramp */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-zinc-50: #f8f7f4;
+  --color-zinc-100: #f1efe9;
+  --color-zinc-200: #e4e1da;
+  --color-zinc-300: #d0ccc2;
+  --color-zinc-400: #94a3b8;
+  --color-zinc-500: #64748b;
+  --color-zinc-600: #475569;
+  --color-zinc-700: #334155;
+  --color-zinc-800: #1e293b;
+  --color-zinc-900: #151e2e;
+  --color-zinc-950: #0b0f17;
+
+  /* Deep Petrol Teal Brand Scale */
+  --color-blue-50: #eef7f9;
+  --color-blue-100: #d5ecf1;
+  --color-blue-200: #addae4;
+  --color-blue-300: #76bfd0;
+  --color-blue-400: #38bdf8;
+  --color-blue-500: #1b6c80;
+  --color-blue-600: #1b6c80;
+  --color-blue-700: #155666;
+  --color-blue-800: #124653;
+  --color-blue-900: #113b46;
+  --color-blue-950: #09242c;
 }
 
 @layer base {
   :root {
-    --background: #f8f5ee;
-    --foreground: #201f1b;
-    --card: #fffdf8;
-    --card-foreground: #201f1b;
-    --border: #dfd6c8;
-    --muted: #6e655a;
-    --accent: #1c5b42;
+    color-scheme: light;
+    --ground: #efede8;
+    --sheet-bg: #f8f7f4;
+    --background: #efede8;
+    --foreground: #141311;
+    --surface: #ffffff;
+    --surface-2: #f3f1ec;
+    --raised: #ebe8e0;
+    --active: #e2dfd7;
+    --card: #ffffff;
+    --card-foreground: #141311;
+    --popover: #ffffff;
+    --popover-foreground: #141311;
+    --primary: #141311;
+    --primary-foreground: #ffffff;
+    --secondary: #f1efe9;
+    --secondary-foreground: #141311;
+    --muted: #57534e;
+    --muted-foreground: #57534e;
+    --accent: #1b6c80;
+    --accent-foreground: #ffffff;
+    --border: #e0ddd5;
+    --rule: #eae7df;
+    --input: #cfc9be;
+    --ring: rgba(27, 108, 128, 0.28);
+    --radius: 8px;
+    --radius-sheet: 16px;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   }
 
+  /* High-Contrast 4-Tier Slate Dark Theme (WCAG AAA Legibility) */
   .dark {
-    --background: #151713;
-    --foreground: #f2eee4;
-    --card: #232720;
-    --card-foreground: #f2eee4;
-    --border: #40493b;
-    --muted: #b2b7a9;
-    --accent: #83b89a;
+    color-scheme: dark;
+    --ground: #0b0f17;          /* Tier 0: Deep Midnight Frame & Sidebar */
+    --sheet-bg: #111827;        /* Tier 1: Main Workbench Sheet */
+    --background: #0b0f17;
+    --foreground: #f8fafc;      /* Crisp Ice White primary text */
+    --surface: #182234;         /* Tier 2: Elevated Card & Table Surface */
+    --surface-2: #1f2d44;       /* Tier 3: Interactive Row / Header / Sub-panel */
+    --raised: #24344d;
+    --active: #2b3e5c;
+    --card: #182234;
+    --card-foreground: #f8fafc;
+    --popover: #1e293b;
+    --popover-foreground: #f8fafc;
+    --primary: #f8fafc;
+    --primary-foreground: #0b0f17;
+    --secondary: #1e293b;
+    --secondary-foreground: #f1f5f9;
+    --muted: #cbd5e1;
+    --muted-foreground: #b6c2d2;
+    --accent: #38bdf8;
+    --accent-foreground: #0b0f17;
+    --border: #2e3d52;          /* Crisp visible slate border */
+    --rule: #253346;            /* Visible table row divider */
+    --input: #384a63;
+    --ring: rgba(56, 189, 248, 0.4);
+    --radius: 8px;
+    --radius-sheet: 16px;
   }
 
   * {
     border-color: var(--border);
   }
 
+  ::selection {
+    background-color: rgba(56, 189, 248, 0.22);
+    color: var(--foreground);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    caret-color: var(--accent);
+    font-size: 14px;
+    line-height: 1.5;
   }
 
   button:not(:disabled) {
     cursor: pointer;
+    transition: transform 140ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), color 160ms var(--ease-out), opacity 160ms var(--ease-out);
   }
 
   button:active:not(:disabled) {
-    transform: scale(0.98);
+    transform: scale(0.97);
   }
 }
 
-/* Enterprise SaaS Utility Classes - High Density & Clean Focus */
+/* Framed Sheet Surface & Container Utilities */
 @layer utilities {
-  /* Enterprise Clean Container */
   .bento-card {
-    background-color: var(--card);
+    background-color: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    box-shadow: 0 2px 0 0 rgba(32, 31, 27, 0.04);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    border-radius: var(--radius);
+    transition: border-color 180ms var(--ease-out), background-color 180ms var(--ease-out);
     position: relative;
-    overflow: hidden;
+    box-shadow: none !important;
   }
 
   .bento-card:hover {
-    border-color: #bdad98;
-    box-shadow: 0 2px 4px 0 rgba(32, 31, 27, 0.06);
+    border-color: #c8c3b8;
   }
+
   .dark .bento-card {
-    background-color: var(--card);
-    border-color: var(--border);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    background-color: #182234 !important;
+    border-color: #2e3d52 !important;
   }
+
   .dark .bento-card:hover {
-    border-color: #667660;
+    border-color: #435978 !important;
   }
 
-  /* Clean Panel Container */
-  .glass-card {
-    background: var(--card);
+  .kpi-strip {
+    background-color: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
+    display: grid;
+    overflow: hidden;
   }
 
-  /* Structural Swiss Micro-labels */
+  .glass-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
   .swiss-label {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
   }
 
-  /* Precision tabular monospace */
   .swiss-data {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
   }
 
-  /* Icon Containers */
   .squircle {
     border-radius: 0.5rem;
     display: inline-flex;
@@ -126,18 +194,150 @@
     justify-content: center;
   }
 
-  /* Subtle UI Transition */
   .animate-swiss-in,
   .animate-fade-in,
   .animate-fade-in-up {
-    animation: swissFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: sheetFadeIn 180ms var(--ease-out) forwards;
+  }
+
+  .skeleton-shimmer {
+    animation: sheetSkeletonFade 1.6s var(--ease-in-out) infinite alternate;
   }
 }
 
-@keyframes swissFadeIn {
+/* ============================================================================
+   DARK MODE LEGIBILITY & CONTRAST ENHANCEMENTS (SYSTEM-WIDE)
+   Ensures all inputs, tables, badges, borders, and text have crisp contrast
+   ============================================================================ */
+.dark .hr-workbench main {
+  background-color: var(--sheet-bg) !important;
+  border-color: #263447 !important;
+}
+
+/* Upgrade form controls (inputs, selects, textareas) inside Dark Mode */
+.dark :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  background-color: #1e2b40 !important;
+  border-color: #384b66 !important;
+  color: #f8fafc !important;
+}
+
+.dark :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea)::placeholder {
+  color: #8fa0b5 !important;
+}
+
+.dark :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: #38bdf8 !important;
+  background-color: #23324a !important;
+}
+
+/* Upgrade low-contrast unprefixed & dark-prefixed text utilities in Dark Mode */
+.dark .text-zinc-900,
+.dark .dark\:text-zinc-100 {
+  color: #f8fafc !important;
+}
+
+.dark .text-zinc-800,
+.dark .dark\:text-zinc-200 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-zinc-700,
+.dark .dark\:text-zinc-300 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-zinc-600,
+.dark .text-zinc-500,
+.dark .dark\:text-zinc-400 {
+  color: #b0bfd1 !important;
+}
+
+.dark .text-zinc-400 {
+  color: #94a3b8 !important;
+}
+
+/* Brighten Deep Petrol Teal (#0f4c5c / #1b6c80) text & borders when rendered on Dark surfaces */
+.dark .text-\[\#0f4c5c\],
+.dark .text-\[\#1b6c80\],
+.dark .text-blue-600,
+.dark .dark\:text-blue-400,
+.dark .dark\:text-teal-400 {
+  color: #38bdf8 !important;
+}
+
+.dark .border-\[\#0f4c5c\] {
+  border-color: #38bdf8 !important;
+}
+
+.dark .bg-\[\#0f4c5c\] {
+  background-color: #0ea5e9 !important;
+  color: #081018 !important;
+}
+
+/* Crisp table headers, rows, and borders in Dark Mode */
+.dark .hr-workbench main thead,
+.dark .hr-workbench main thead tr {
+  background-color: #1e2b40 !important;
+  border-bottom: 1px solid #33455e !important;
+}
+
+.dark .hr-workbench main th {
+  color: #cbd5e1 !important;
+  font-weight: 600;
+}
+
+.dark .hr-workbench main tbody tr {
+  border-bottom: 1px solid #253449 !important;
+}
+
+.dark .hr-workbench main tbody tr:hover {
+  background-color: #213047 !important;
+}
+
+/* Ensure inner cards/boxes using bg-zinc-900 / bg-zinc-800 stand out from bento-cards */
+.dark .dark\:bg-zinc-950 {
+  background-color: #131c2b !important;
+}
+
+.dark .dark\:bg-zinc-900 {
+  background-color: #1c283c !important;
+}
+
+.dark .dark\:bg-zinc-900\/60,
+.dark .dark\:bg-zinc-900\/50,
+.dark .dark\:bg-zinc-900\/40 {
+  background-color: rgba(30, 43, 64, 0.78) !important;
+}
+
+.dark .dark\:bg-zinc-800,
+.dark .dark\:bg-zinc-800\/80,
+.dark .dark\:bg-zinc-800\/70,
+.dark .dark\:bg-zinc-800\/60,
+.dark .dark\:bg-zinc-800\/50,
+.dark .dark\:bg-zinc-800\/40 {
+  background-color: #24334c !important;
+}
+
+.dark .dark\:border-zinc-800,
+.dark .dark\:border-zinc-800\/80,
+.dark .dark\:border-zinc-800\/90,
+.dark .dark\:border-zinc-700,
+.dark .dark\:border-zinc-700\/80 {
+  border-color: #31435c !important;
+}
+
+.dark .divide-zinc-100 > :not(:last-child),
+.dark .divide-zinc-200 > :not(:last-child),
+.dark .dark\:divide-zinc-800 > :not(:last-child),
+.dark .dark\:divide-zinc-800\/80 > :not(:last-child),
+.dark .dark\:divide-zinc-800\/60 > :not(:last-child) {
+  border-color: #28384f !important;
+}
+
+@keyframes sheetFadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -145,11 +345,37 @@
   }
 }
 
-/* Folio: a quieter, document-led visual language for the entire HR workspace. */
+@keyframes sheetSkeletonFade {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 0.88;
+  }
+}
+
+/* Framed Sheet Workbench Architecture (L-shaped Slate Frame + Inset Sheet) */
+.hr-workbench {
+  background-color: var(--ground);
+}
+
 .hr-workbench main {
-  background-color: var(--background);
-  background-image: linear-gradient(to bottom, rgba(110, 101, 90, 0.035) 1px, transparent 1px);
-  background-size: 100% 36px;
+  background-color: var(--sheet-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sheet);
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 1023px) {
+  .hr-workbench main {
+    margin-right: 0;
+    margin-bottom: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
 }
 
 .hr-workbench main h1,
@@ -158,82 +384,146 @@
 .folio-login h2,
 .career-page h1,
 .folio-display {
-  font-family: var(--font-editorial), Georgia, serif;
+  font-family: var(--font-sans);
   font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.13;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
-.hr-workbench main h1 { font-size: clamp(1.75rem, 2.5vw, 2.65rem); }
-.hr-workbench main :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea, button) {
-  border-radius: 0.25rem;
+.hr-workbench main h1 {
+  font-size: 1.375rem;
 }
+
+.hr-workbench main :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea, button) {
+  border-radius: 6px;
+}
+
 .hr-workbench main :is(input, select, textarea):focus-visible,
 .folio-login :is(input, button):focus-visible,
 .folio-sidebar a:focus-visible {
-  outline: 2px solid #bd794d;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.hr-workbench main table { border-collapse: collapse; }
-.hr-workbench main thead { background: #eee8dc; }
-.dark .hr-workbench main thead { background: #30392e; }
-.hr-workbench main tbody tr:hover { background: rgba(189, 121, 77, 0.055); }
-.hr-workbench main th { font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase; }
+
+.hr-workbench main table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.hr-workbench main thead {
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+.hr-workbench main tbody tr {
+  border-bottom: 1px solid var(--rule);
+}
+
+.hr-workbench main tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.hr-workbench main th {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 .folio-sidebar {
-  background: #173b31 !important;
-  border-right-color: #355647 !important;
-  color: #e8e6da;
+  background: var(--ground) !important;
+  border-right: none !important;
 }
-.folio-sidebar > div:first-child,
-.folio-sidebar > div:last-child { border-color: #355647 !important; }
-.folio-sidebar > div:last-child { background: #123328 !important; }
-.folio-sidebar [class*="text-zinc"] { color: #bacbbd !important; }
-.folio-sidebar a:not([data-active="true"]) { color: #dce5d8 !important; }
-.folio-sidebar a:not([data-active="true"]):hover,
-.folio-sidebar button:hover { background: #28513f !important; }
-.folio-sidebar [data-active="true"] {
-  color: #153b30 !important;
-  background: #f2eee2 !important;
-  border-left-color: #bf7848 !important;
-  box-shadow: none !important;
+
+.dark .folio-sidebar {
+  background: var(--ground) !important;
+  border-right: none !important;
 }
-.folio-sidebar [data-active="true"] svg,
-.folio-sidebar [data-active="true"] [class*="text-zinc"] { color: #1c5b42 !important; }
-.folio-sidebar [class*="border-zinc"] { border-color: #355647 !important; }
-.folio-sidebar [class*="bg-zinc"] { background-color: transparent; }
-.folio-sidebar [class*="bg-blue-600"] { background-color: #bf7848; }
 
 .folio-header {
-  background: #fffdf8 !important;
-  border-bottom: 1px solid #d9cbbb !important;
-  box-shadow: 0 3px 0 rgba(189, 121, 77, 0.08);
+  background: var(--ground) !important;
+  border-bottom: none !important;
 }
-.dark .folio-header { background: #232720 !important; border-color: #405242 !important; }
 
-.folio-page { max-width: 1480px; margin-inline: auto; padding-bottom: 3rem; }
-.folio-kicker { color: #a86239; font: 700 0.68rem var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; }
-.folio-rule { border-bottom: 1px solid var(--border); }
-.folio-panel { background: var(--card); border: 1px solid var(--border); border-radius: 0.25rem; }
-.folio-panel-dark { background: #173b31; color: #f8f5ee; border: 1px solid #173b31; border-radius: 0.25rem; }
-.folio-number { font-family: var(--font-editorial), Georgia, serif; font-variant-numeric: tabular-nums; letter-spacing: -0.055em; line-height: 1; }
-.folio-index { color: #ba7146; font: 700 0.65rem var(--font-mono); letter-spacing: 0.1em; }
-.folio-link-row { border-top: 1px solid var(--border); transition: background 0.15s ease; }
-.folio-link-row:hover { background: #f4eee3; }
-.dark .folio-link-row:hover { background: #30392e; }
-.folio-progress { height: 7px; background: #e9e0d3; overflow: hidden; }
-.folio-progress > span { display: block; height: 100%; background: #1c5b42; }
-.dark .folio-progress { background: #405242; }
-.dark .folio-progress > span { background: #83b89a; }
-.folio-login { background: #e9e3d6; }
-.dark .folio-login { background: #151713; }
-.folio-login input,
-.folio-login button { border-radius: 0.25rem !important; }
-.career-page { background: var(--background); }
+.folio-page {
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-bottom: 2.5rem;
+}
+
+.folio-meta {
+  color: var(--muted-foreground);
+  font: 500 0.75rem var(--font-sans);
+}
+
+.folio-rule {
+  border-bottom: 1px solid var(--border);
+}
+
+.folio-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 180ms var(--ease-out);
+}
+
+.folio-panel-dark {
+  background-color: var(--surface-2);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.folio-number {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.folio-index {
+  color: var(--muted-foreground);
+  font: 500 0.75rem var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.folio-link-row {
+  border-top: 1px solid var(--rule);
+  transition: background-color 160ms var(--ease-out);
+}
+
+.folio-link-row:hover {
+  background: var(--surface-2);
+}
+
+.folio-progress {
+  height: 6px;
+  background: var(--active);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.folio-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 9999px;
+}
+
+.folio-login {
+  background: var(--ground);
+}
+
+.career-page {
+  background: var(--ground);
+}
 
 @media (max-width: 640px) {
   .folio-page { padding-bottom: 2rem; }
-  .folio-login h1 { font-size: 2.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -253,17 +543,17 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D4D4D8;
+  background: #d4d4d8;
   border-radius: 9999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #3F3F46;
+  background: #3b4d66;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #A1A1AA;
+  background: #52525b;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #52525B;
+  background: #526a8a;
 }
 
 /* A4 Print Stylesheet for Contracts, Payslips, and Administrative Decisions */
@@ -283,6 +573,8 @@
     overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
   }
 
   aside,

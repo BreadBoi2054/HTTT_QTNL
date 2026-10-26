@@ -201,7 +201,7 @@ export default function AuditWorkflowPage() {
             <div className="flex bg-zinc-100/80 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
               <button
                 onClick={() => setActiveTab("workflow")}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   activeTab === "workflow"
                     ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                     : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -212,7 +212,7 @@ export default function AuditWorkflowPage() {
               </button>
               <button
                 onClick={() => setActiveTab("audit")}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   activeTab === "audit"
                     ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                     : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -226,7 +226,7 @@ export default function AuditWorkflowPage() {
             {activeTab === "audit" ? (
               <button 
                 onClick={handleExportAuditCSV}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs transition-colors active:scale-95"
                 title="Xuất nhật ký kiểm toán ra file CSV"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -235,7 +235,7 @@ export default function AuditWorkflowPage() {
             ) : (
               <button 
                 onClick={() => setIsCreateWfOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Tạo luồng mới</span>
@@ -269,7 +269,7 @@ export default function AuditWorkflowPage() {
               <Clock className="w-4 h-4 text-zinc-400" />
             </div>
             <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
-              —
+              -
             </div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Chưa có xử lý phê duyệt tự động</div>
           </div>
@@ -280,7 +280,7 @@ export default function AuditWorkflowPage() {
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
-              {logs.length > 0 ? `${Math.round((logs.filter((l) => l.status === "SUCCESS").length / logs.length) * 100)}%` : "—"}
+              {logs.length > 0 ? `${Math.round((logs.filter((l) => l.status === "SUCCESS").length / logs.length) * 100)}%` : "-"}
             </div>
             <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
               {logs.length > 0 ? `${logs.filter((l) => l.status === "SUCCESS").length}/${logs.length} bản ghi mới nhất` : "Chưa có bản ghi"}
@@ -303,7 +303,7 @@ export default function AuditWorkflowPage() {
             {workflows.map((wf) => (
               <div
                 key={wf.id}
-                className="bento-card rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-all group"
+                className="bento-card rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-colors group"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -338,7 +338,7 @@ export default function AuditWorkflowPage() {
               <span className="font-medium">Mẫu tham khảo</span>
                   <button 
                     onClick={() => setSelectedWfForConfig(wf)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl font-semibold transition-all shadow-2xs border border-blue-200/60 dark:border-blue-800/60"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl font-semibold transition-colors shadow-2xs border border-blue-200/60 dark:border-blue-800/60"
                   >
                     <Settings className="w-3.5 h-3.5" />
                     <span>Cấu hình</span>
@@ -373,7 +373,7 @@ export default function AuditWorkflowPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-b border-zinc-100 dark:border-zinc-800 uppercase tracking-wider">
+                  <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-b border-zinc-100 dark:border-zinc-800 tracking-tight">
                     <th className="px-5 py-3.5">Thời gian</th>
                     <th className="px-5 py-3.5">Người thực hiện</th>
                     <th className="px-5 py-3.5">Hành động ghi nhận</th>
@@ -424,7 +424,7 @@ export default function AuditWorkflowPage() {
                               e.stopPropagation();
                               setSelectedLogForDetail(log);
                             }}
-                            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 font-semibold transition-all shadow-2xs"
+                            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 font-semibold transition-colors shadow-2xs"
                           >
                             <Eye className="w-3.5 h-3.5" /> <span>Chi tiết</span>
                           </button>

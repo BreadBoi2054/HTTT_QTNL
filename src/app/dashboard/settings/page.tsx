@@ -88,7 +88,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setTheme("light")}
-                className={`flex flex-col items-center justify-center p-5 border rounded-2xl text-center transition-all ${
+                className={`flex flex-col items-center justify-center p-5 border rounded-2xl text-center transition-colors ${
                   theme === "light" 
                     ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-2 ring-blue-600/30 shadow-xs" 
                     : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50/50"
@@ -104,7 +104,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setTheme("dark")}
-                className={`flex flex-col items-center justify-center p-5 border rounded-2xl text-center transition-all ${
+                className={`flex flex-col items-center justify-center p-5 border rounded-2xl text-center transition-colors ${
                   theme === "dark" 
                     ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-2 ring-blue-600/30 shadow-xs" 
                     : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-800/40"
@@ -120,7 +120,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setTheme("system")}
-                className={`flex flex-col items-center justify-center p-5 border rounded-2xl text-center transition-all ${
+                className={`flex flex-col items-center justify-center p-5 border rounded-2xl text-center transition-colors ${
                   theme === "system" 
                     ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-2 ring-blue-600/30 shadow-xs" 
                     : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50/50"
@@ -196,7 +196,7 @@ export default function SettingsPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-[0.98] disabled:opacity-70"
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-[0.98] disabled:opacity-70"
           >
             {saving ? (
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

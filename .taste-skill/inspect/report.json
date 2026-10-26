@@ -1,0 +1,1376 @@
+{
+ "url": "http://localhost:3005/login",
+ "at": "2026-10-20T14:27:49.066Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.55
+   ],
+   "motion": {
+    "elements": 1,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 900,
+     "screens": 1,
+     "words": 134,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 9,
+     "sections": 2,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "words": 6,
+     "chars": 29,
+     "lines": 1,
+     "size": 28,
+     "vw": 1.9,
+     "font": "Plus Jakarta Sans",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.15,
+     "top": 299,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "words": 6,
+     "lines": 1,
+     "size": 28,
+     "font": "Plus Jakarta Sans"
+    },
+    "headings": [
+     {
+      "text": "Trung tâm điều hành nhân lực.",
+      "words": 6,
+      "chars": 29,
+      "lines": 1,
+      "size": 28,
+      "vw": 1.9,
+      "font": "Plus Jakarta Sans",
+      "weight": 600,
+      "tracking": -0.03,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.31,
+      "top": 299,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Plus Jakarta Sans",
+       "share": 0.89,
+       "mono": false
+      },
+      {
+       "family": "JetBrains Mono",
+       "share": 0.11,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      12,
+      13,
+      14,
+      24,
+      28
+     ],
+     "sizeCount": 5,
+     "notLoaded": [],
+     "body": {
+      "font": "Plus Jakarta Sans",
+      "size": 14,
+      "leading": 1.63,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 7.7
+     },
+     "measureChars": 64,
+     "max": {
+      "size": 28,
+      "vw": 1.9,
+      "font": "Plus Jakarta Sans",
+      "text": "Trung tâm điều hành nhân lực."
+     },
+     "monoShare": 0.11,
+     "monoProseShare": 0,
+     "monoFamilies": [
+      "JetBrains Mono"
+     ],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0.05,
+     "centerShare": 0.04,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Môi trường điều hành nhân sự hợp nhất",
+      "above": "Trung tâm điều hành nhân lực.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": true,
+      "size": 13,
+      "top": 259
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#08090a",
+     "bodyBgHsl": {
+      "h": 210,
+      "s": 0.11,
+      "l": 0.04
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#08090a",
+       "top": 0,
+       "hsl": {
+        "h": 210,
+        "s": 0.11,
+        "l": 0.04
+       }
+      },
+      {
+       "color": "#0e0f11",
+       "top": 133,
+       "hsl": {
+        "h": 220,
+        "s": 0.1,
+        "l": 0.06
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#9ba3b0",
+       "share": 0.52
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.31
+      },
+      {
+       "color": "#00d492",
+       "share": 0.06
+      },
+      {
+       "color": "#54a2ff",
+       "share": 0.06
+      },
+      {
+       "color": "#08090a",
+       "share": 0.04
+      }
+     ],
+     "button": {
+      "bg": "#141517",
+      "hsl": {
+       "h": 220,
+       "s": 0.07,
+       "l": 0.08
+      },
+      "fg": "#f2f4f8"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 7,
+     "inHero": 7,
+     "radius": 8,
+     "height": 65,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Vào trung tâm điều hành",
+      "BOD Điều hành",
+      "HR Nhân sự",
+      "ACC Kế toán",
+      "MGR Trưởng phòng"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 4,
+     "hairlineSamples": [
+      "section.order-2.flex 552px",
+      "div.flex.items-center 421px",
+      "div.mt-10.border-t 455px",
+      "div.mt-8.border-t 374px"
+     ],
+     "outlinedBoxes": 2,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": null,
+    "fontsLoaded": [
+     "plus jakarta sans",
+     "plus jakarta sans fallback",
+     "jetbrains mono",
+     "jetbrains mono fallback"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 900,
+    "margins": {
+     "left": 257,
+     "right": 257
+    },
+    "sections": [],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Trung tâm điều hành nhân lực.",
+      "size": 28,
+      "top": 299,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 257,
+      "n": 2
+     },
+     {
+      "x": 809,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 3,
+    "bodySize": 14,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.2,
+    "voidBox": {
+     "x": 0,
+     "y": 720,
+     "w": 1440,
+     "h": 180
+    }
+   },
+   "app": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "dark": true,
+    "ground": "#08090a",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 257,
+     "right": 257
+    },
+    "hero": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "words": 6,
+     "chars": 29,
+     "lines": 1,
+     "size": 28,
+     "vw": 1.9,
+     "font": "Plus Jakarta Sans",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.15,
+     "top": 299,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 3,
+     "radii": [
+      [
+       16,
+       1
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       0,
+       1
+      ]
+     ],
+     "heavyBorders": 0,
+     "borderSamples": [],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.01,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      12,
+      13,
+      14,
+      24,
+      28
+     ]
+    },
+    "title": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "size": 28,
+     "top": 299
+    },
+    "colourShare": 0.003
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 2,
+   "filled": [
+    0.91,
+    0.91
+   ],
+   "motion": {
+    "elements": 1,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 1231,
+     "screens": 1.2,
+     "words": 134,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 9,
+     "sections": 2,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "words": 6,
+     "chars": 29,
+     "lines": 1,
+     "size": 28,
+     "vw": 3.6,
+     "font": "Plus Jakarta Sans",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.15,
+     "top": 809,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "words": 6,
+     "lines": 1,
+     "size": 28,
+     "font": "Plus Jakarta Sans"
+    },
+    "headings": [
+     {
+      "text": "Trung tâm điều hành nhân lực.",
+      "words": 6,
+      "chars": 29,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Plus Jakarta Sans",
+      "weight": 600,
+      "tracking": -0.03,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.58,
+      "top": 809,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Plus Jakarta Sans",
+       "share": 0.89,
+       "mono": false
+      },
+      {
+       "family": "JetBrains Mono",
+       "share": 0.11,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      12,
+      13,
+      14,
+      24,
+      28
+     ],
+     "sizeCount": 5,
+     "notLoaded": [],
+     "body": {
+      "font": "Plus Jakarta Sans",
+      "size": 14,
+      "leading": 1.63,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 7.7
+     },
+     "measureChars": 64,
+     "max": {
+      "size": 28,
+      "vw": 3.6,
+      "font": "Plus Jakarta Sans",
+      "text": "Trung tâm điều hành nhân lực."
+     },
+     "monoShare": 0.11,
+     "monoProseShare": 0,
+     "monoFamilies": [
+      "JetBrains Mono"
+     ],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0.05,
+     "centerShare": 0.04,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Môi trường điều hành nhân sự hợp nhất",
+      "above": "Trung tâm điều hành nhân lực.",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": true,
+      "size": 13,
+      "top": 768
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#08090a",
+     "bodyBgHsl": {
+      "h": 210,
+      "s": 0.11,
+      "l": 0.04
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#08090a",
+       "top": 0,
+       "hsl": {
+        "h": 210,
+        "s": 0.11,
+        "l": 0.04
+       }
+      },
+      {
+       "color": "#0e0f11",
+       "top": 32,
+       "hsl": {
+        "h": 220,
+        "s": 0.1,
+        "l": 0.06
+       }
+      },
+      {
+       "color": "#0a0b0d",
+       "top": 650,
+       "hsl": {
+        "h": 220,
+        "s": 0.13,
+        "l": 0.05
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#9ba3b0",
+       "share": 0.52
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.31
+      },
+      {
+       "color": "#00d492",
+       "share": 0.06
+      },
+      {
+       "color": "#54a2ff",
+       "share": 0.06
+      },
+      {
+       "color": "#08090a",
+       "share": 0.04
+      }
+     ],
+     "button": {
+      "bg": "#141517",
+      "hsl": {
+       "h": 220,
+       "s": 0.07,
+       "l": 0.08
+      },
+      "fg": "#f2f4f8"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 7,
+     "inHero": 7,
+     "radius": 8,
+     "height": 65,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Vào trung tâm điều hành",
+      "BOD Điều hành",
+      "HR Nhân sự",
+      "ACC Kế toán",
+      "MGR Trưởng phòng"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 4,
+     "hairlineSamples": [
+      "section.order-2.flex 702px",
+      "div.flex.items-center 588px",
+      "div.mt-10.border-t 622px",
+      "div.mt-8.border-t 384px"
+     ],
+     "outlinedBoxes": 2,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": null,
+    "fontsLoaded": [
+     "plus jakarta sans",
+     "jetbrains mono"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 1231,
+    "margins": {
+     "left": 73,
+     "right": 90
+    },
+    "sections": [
+     {
+      "sel": "section.order-2.flex",
+      "tag": "section",
+      "top": 650,
+      "height": 548,
+      "words": 78,
+      "media": 0,
+      "middle": 31,
+      "heading": {
+       "text": "Trung tâm điều hành nhân lực.",
+       "size": 28,
+       "tag": "h1"
+      },
+      "left": 73,
+      "right": 90,
+      "textLeft": 73,
+      "textRight": 90,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "section.order-1.flex",
+      "tag": "section",
+      "top": 33,
+      "height": 617,
+      "words": 52,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Đăng nhập hệ thống",
+       "size": 24,
+       "tag": "h2"
+      },
+      "left": 192,
+      "right": 192,
+      "textLeft": 192,
+      "textRight": 192,
+      "fullBleed": false,
+      "footer": true,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Trung tâm điều hành nhân lực.",
+      "size": 28,
+      "top": 809,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 73,
+      "n": 2
+     },
+     {
+      "x": 192,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 3,
+    "bodySize": 14,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "dark": true,
+    "ground": "#08090a",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 73,
+     "right": 73
+    },
+    "hero": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "words": 6,
+     "chars": 29,
+     "lines": 1,
+     "size": 28,
+     "vw": 3.6,
+     "font": "Plus Jakarta Sans",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.15,
+     "top": 809,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 4,
+     "radii": [
+      [
+       0,
+       2
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       12,
+       1
+      ]
+     ],
+     "heavyBorders": 0,
+     "borderSamples": [],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.01,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      12,
+      13,
+      14,
+      24,
+      28
+     ]
+    },
+    "title": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "size": 28,
+     "top": 809
+    },
+    "colourShare": 0.004
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 2,
+   "filled": [
+    0.91,
+    0.91
+   ],
+   "motion": {
+    "elements": 1,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 1341,
+     "screens": 1.6,
+     "words": 134,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 9,
+     "sections": 2,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Đăng nhập hệ thống",
+     "words": 4,
+     "chars": 18,
+     "lines": 1,
+     "size": 20,
+     "vw": 5.1,
+     "font": "Plus Jakarta Sans",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.15,
+     "top": 45,
+     "tag": "h2",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "words": 6,
+     "lines": 2,
+     "size": 24,
+     "font": "Plus Jakarta Sans"
+    },
+    "headings": [
+     {
+      "text": "Trung tâm điều hành nhân lực.",
+      "words": 6,
+      "chars": 29,
+      "lines": 2,
+      "size": 24,
+      "vw": 6.2,
+      "font": "Plus Jakarta Sans",
+      "weight": 600,
+      "tracking": -0.03,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.77,
+      "top": 823,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": 6,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Plus Jakarta Sans",
+       "share": 0.89,
+       "mono": false
+      },
+      {
+       "family": "JetBrains Mono",
+       "share": 0.11,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      12,
+      13,
+      14,
+      20,
+      24
+     ],
+     "sizeCount": 5,
+     "notLoaded": [],
+     "body": {
+      "font": "Plus Jakarta Sans",
+      "size": 14,
+      "leading": 1.63,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 7.7
+     },
+     "measureChars": 43,
+     "max": {
+      "size": 24,
+      "vw": 6.2,
+      "font": "Plus Jakarta Sans",
+      "text": "Trung tâm điều hành nhân lực."
+     },
+     "monoShare": 0.11,
+     "monoProseShare": 0,
+     "monoFamilies": [
+      "JetBrains Mono"
+     ],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0.05,
+     "centerShare": 0.04,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#08090a",
+     "bodyBgHsl": {
+      "h": 210,
+      "s": 0.11,
+      "l": 0.04
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#08090a",
+       "top": 0,
+       "hsl": {
+        "h": 210,
+        "s": 0.11,
+        "l": 0.04
+       }
+      },
+      {
+       "color": "#0e0f11",
+       "top": 16,
+       "hsl": {
+        "h": 220,
+        "s": 0.1,
+        "l": 0.06
+       }
+      },
+      {
+       "color": "#0a0b0d",
+       "top": 676,
+       "hsl": {
+        "h": 220,
+        "s": 0.13,
+        "l": 0.05
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#9ba3b0",
+       "share": 0.52
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.31
+      },
+      {
+       "color": "#00d492",
+       "share": 0.06
+      },
+      {
+       "color": "#54a2ff",
+       "share": 0.06
+      },
+      {
+       "color": "#08090a",
+       "share": 0.04
+      }
+     ],
+     "button": {
+      "bg": "#141517",
+      "hsl": {
+       "h": 220,
+       "s": 0.07,
+       "l": 0.08
+      },
+      "fg": "#f2f4f8"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 7,
+     "inHero": 7,
+     "radius": 8,
+     "height": 65,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Vào trung tâm điều hành",
+      "BOD Điều hành",
+      "HR Nhân sự",
+      "ACC Kế toán",
+      "MGR Trưởng phòng"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 4,
+     "hairlineSamples": [
+      "section.order-2.flex 356px",
+      "div.flex.items-center 266px",
+      "div.mt-10.border-t 300px",
+      "div.mt-8.border-t 300px"
+     ],
+     "outlinedBoxes": 2,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": null,
+    "fontsLoaded": [
+     "plus jakarta sans",
+     "jetbrains mono"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 1341,
+    "margins": {
+     "left": 45,
+     "right": 45
+    },
+    "sections": [
+     {
+      "sel": "section.order-2.flex",
+      "tag": "section",
+      "top": 676,
+      "height": 648,
+      "words": 78,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Trung tâm điều hành nhân lực.",
+       "size": 24,
+       "tag": "h1"
+      },
+      "left": 45,
+      "right": 50,
+      "textLeft": 45,
+      "textRight": 50,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "section.order-1.flex",
+      "tag": "section",
+      "top": 17,
+      "height": 659,
+      "words": 52,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Đăng nhập hệ thống",
+       "size": 20,
+       "tag": "h2"
+      },
+      "left": 45,
+      "right": 45,
+      "textLeft": 45,
+      "textRight": 45,
+      "fullBleed": false,
+      "footer": true,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Trung tâm điều hành nhân lực.",
+      "size": 24,
+      "top": 823,
+      "firstScreen": false
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 45,
+      "n": 3
+     }
+    ],
+    "leftBlocks": 3,
+    "bodySize": 14,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "dark": true,
+    "ground": "#08090a",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 45,
+     "right": 45
+    },
+    "hero": {
+     "text": "Đăng nhập hệ thống",
+     "words": 4,
+     "chars": 18,
+     "lines": 1,
+     "size": 20,
+     "vw": 5.1,
+     "font": "Plus Jakarta Sans",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.15,
+     "top": 45,
+     "tag": "h2",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 4,
+     "radii": [
+      [
+       0,
+       2
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       12,
+       1
+      ]
+     ],
+     "heavyBorders": 0,
+     "borderSamples": [],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.01,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      12,
+      13,
+      14,
+      20,
+      24
+     ]
+    },
+    "title": {
+     "text": "Trung tâm điều hành nhân lực.",
+     "size": 24,
+     "top": 823
+    },
+    "colourShare": 0.003
+   },
+   "consoleErrors": []
+  }
+ ],
+ "findings": [],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "C:\\Users\\bread\\OneDrive\\Documents\\GitHub\\HTTT_QTNL\\.taste-skill\\inspect\\desktop-fold.jpg",
+   "pages": [
+    "C:\\Users\\bread\\OneDrive\\Documents\\GitHub\\HTTT_QTNL\\.taste-skill\\inspect\\desktop-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "C:\\Users\\bread\\OneDrive\\Documents\\GitHub\\HTTT_QTNL\\.taste-skill\\inspect\\tablet-fold.jpg",
+   "pages": [
+    "C:\\Users\\bread\\OneDrive\\Documents\\GitHub\\HTTT_QTNL\\.taste-skill\\inspect\\tablet-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "C:\\Users\\bread\\OneDrive\\Documents\\GitHub\\HTTT_QTNL\\.taste-skill\\inspect\\mobile-fold.jpg",
+   "pages": [
+    "C:\\Users\\bread\\OneDrive\\Documents\\GitHub\\HTTT_QTNL\\.taste-skill\\inspect\\mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

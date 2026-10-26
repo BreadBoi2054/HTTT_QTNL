@@ -1,863 +1,771 @@
-# -*- coding: utf-8 -*-
-"""
-Script to generate the complete, authoritative administrative report:
+﻿# -*- coding: utf-8 -*-
+r"""
+Script sinh Báo cáo hành chính - học thuật chuẩn Nghị định 30/2020/NĐ-CP và vbhc-vietnamese-docx v1.5.0:
 'Bao_Cao_Phan_Tich_Trien_Khai_Van_Hanh_Kiem_Thu_Va_Quan_Tri_HTTT_Quan_Ly_Hanh_Chinh.docx'
-
-Strict Constraints Satisfied:
-1. Toàn bộ chữ đen (RGB: 0, 0, 0) - không dùng chữ màu, không viền màu, không shading nền màu.
-2. Tuân thủ 100% Nghị định số 30/2020/NĐ-CP của Chính phủ về công tác văn thư:
-   - Khổ giấy A4 (210 x 297 mm), chiều đứng.
-   - Định lề: Trên 25mm, Dưới 20mm, Trái 30mm, Phải 15mm.
-   - Phông chữ Times New Roman xuyên suốt.
-   - Số trang: Chính giữa lề trên, cỡ 13pt, số Ả Rập, trang 1 không hiển thị số trang.
-   - Thể thức tiêu đề: Bảng 2 ô không viền (Quốc hiệu, Tiêu ngữ, Cơ quan, Số hiệu, Ngày tháng).
-   - Tên loại văn bản & Trích yếu nội dung: BÁO CÁO (hoa, đậm, 14pt), Trích yếu (thường, đậm, 14pt).
-   - Đề mục và nội dung: Phần (hoa, đậm), Mục I, II (hoa, đậm), Tiểu mục 1, 2 (thường, đậm), Điểm a, b, c; Thụt đầu dòng 1.27cm, Giãn dòng 1.25, Before 0pt, After 6pt.
-   - Bảng biểu: Viền đen đơn, cỡ 12pt, tiêu đề cột in đậm canh giữa, không màu nền.
-   - Nơi nhận và Chức vụ người ký ở cuối văn bản theo quy chuẩn Nghị định 30.
+Kế thừa trực tiếp các hàm tầng thấp từ C:\Users\bread\.gemini\config\skills\vbhc-vietnamese-docx\scripts\vbhc_builder.py
 """
 
 import os
 import sys
+import shutil
 import docx
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor, Cm, Mm
+from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
-from docx.oxml import OxmlElement, parse_xml
+from docx.oxml import parse_xml
 from docx.oxml.ns import qn, nsdecls
 
-BLACK = RGBColor(0, 0, 0)
+sys.stdout.reconfigure(encoding="utf-8")
+
+SKILL_SCRIPTS_DIR = r"C:\Users\bread\.gemini\config\skills\vbhc-vietnamese-docx\scripts"
+if SKILL_SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SKILL_SCRIPTS_DIR)
+
+from vbhc_builder import (
+    create_vbhc_document,
+    setup_vbhc_page_numbering,
+    set_paragraph_borders,
+    set_paragraph_indent,
+    set_paragraph_spacing,
+    set_run_font,
+    clear_cell_margins,
+    remove_table_borders,
+    optimize_data_table,
+    sanitize_vietnamese_text,
+)
+
+BLACK = (0, 0, 0)
 FONT_NAME = "Times New Roman"
+DIAGRAMS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "amis_diagrams")
 
-def set_font_run(run, size_pt=14, bold=False, italic=False):
-    """Ensure font is Times New Roman in all OpenXML font slots, black color."""
-    run.font.name = FONT_NAME
-    run.font.size = Pt(size_pt)
-    run.font.bold = bold
-    run.font.italic = italic
-    run.font.color.rgb = BLACK
-    
-    rPr = run._r.get_or_add_rPr()
-    rFonts = rPr.get_or_add_rFonts()
-    rFonts.set(qn('w:ascii'), FONT_NAME)
-    rFonts.set(qn('w:hAnsi'), FONT_NAME)
-    rFonts.set(qn('w:cs'), FONT_NAME)
-    rFonts.set(qn('w:eastAsia'), FONT_NAME)
 
-def add_body_p(doc, text="", bold_prefix="", italic_prefix="", bold=False, italic=False):
+def add_formatted_run(p, text: str, size_pt: float = 13.5, bold: bool = False, italic: bool = False):
+    clean = sanitize_vietnamese_text(text) if text.strip() else text
+    if text.endswith(" ") and not clean.endswith(" "):
+        clean = clean + " "
+    if text.startswith(" ") and not clean.startswith(" "):
+        clean = " " + clean
+    r = p.add_run(clean)
+    set_run_font(r, font_name=FONT_NAME, size_pt=size_pt, bold=bold, italic=italic, color_rgb=BLACK)
+    return r
+
+
+def add_body_p(doc: Document, text: str = "", bold_prefix: str = "", italic_prefix: str = "",
+               bold: bool = False, italic: bool = False):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     p.paragraph_format.first_line_indent = Cm(1.27)
-    p.paragraph_format.line_spacing = 1.25
-    p.paragraph_format.space_before = Pt(0)
-    p.paragraph_format.space_after = Pt(6)
-    
+    set_paragraph_spacing(p, before_pt=0, after_pt=5, line_spacing=1.3)
+
     if bold_prefix:
-        r_pre = p.add_run(bold_prefix)
-        set_font_run(r_pre, size_pt=14, bold=True)
+        add_formatted_run(p, bold_prefix, size_pt=13.5, bold=True)
     if italic_prefix:
-        r_it = p.add_run(italic_prefix)
-        set_font_run(r_it, size_pt=14, italic=True)
+        add_formatted_run(p, italic_prefix, size_pt=13.5, italic=True)
     if text:
-        r = p.add_run(text)
-        set_font_run(r, size_pt=14, bold=bold, italic=italic)
+        add_formatted_run(p, text, size_pt=13.5, bold=bold, italic=italic)
     return p
 
-def add_bullet_p(doc, text="", bold_prefix=""):
+
+def add_bullet_p(doc: Document, text: str = "", bold_prefix: str = ""):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     p.paragraph_format.left_indent = Cm(1.27)
-    p.paragraph_format.first_line_indent = Cm(-0.6)
-    p.paragraph_format.line_spacing = 1.25
-    p.paragraph_format.space_before = Pt(0)
-    p.paragraph_format.space_after = Pt(4)
-    
+    p.paragraph_format.first_line_indent = Cm(-0.55)
+    set_paragraph_spacing(p, before_pt=0, after_pt=4, line_spacing=1.3)
+
     r_dash = p.add_run("- ")
-    set_font_run(r_dash, size_pt=14, bold=False)
-    
+    set_run_font(r_dash, font_name=FONT_NAME, size_pt=13.5, bold=False, color_rgb=BLACK)
+
     if bold_prefix:
-        r_pre = p.add_run(bold_prefix)
-        set_font_run(r_pre, size_pt=14, bold=True)
+        add_formatted_run(p, bold_prefix, size_pt=13.5, bold=True)
     if text:
-        r = p.add_run(text)
-        set_font_run(r, size_pt=14, bold=False)
+        add_formatted_run(p, text, size_pt=13.5, bold=False)
     return p
 
-def add_plus_bullet_p(doc, text="", bold_prefix=""):
+
+def add_plus_bullet_p(doc: Document, text: str = "", bold_prefix: str = ""):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    p.paragraph_format.left_indent = Cm(1.9)
-    p.paragraph_format.first_line_indent = Cm(-0.5)
-    p.paragraph_format.line_spacing = 1.25
-    p.paragraph_format.space_before = Pt(0)
-    p.paragraph_format.space_after = Pt(3)
-    
+    p.paragraph_format.left_indent = Cm(1.85)
+    p.paragraph_format.first_line_indent = Cm(-0.50)
+    set_paragraph_spacing(p, before_pt=0, after_pt=3, line_spacing=1.3)
+
     r_plus = p.add_run("+ ")
-    set_font_run(r_plus, size_pt=14, bold=False)
-    
+    set_run_font(r_plus, font_name=FONT_NAME, size_pt=13.5, bold=False, color_rgb=BLACK)
+
     if bold_prefix:
-        r_pre = p.add_run(bold_prefix)
-        set_font_run(r_pre, size_pt=14, bold=True)
+        add_formatted_run(p, bold_prefix, size_pt=13.5, bold=True)
     if text:
-        r = p.add_run(text)
-        set_font_run(r, size_pt=14, bold=False)
+        add_formatted_run(p, text, size_pt=13.5, bold=False)
     return p
 
-def add_part_heading(doc, text):
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.first_line_indent = Cm(0)
-    p.paragraph_format.line_spacing = 1.25
-    p.paragraph_format.space_before = Pt(14)
-    p.paragraph_format.space_after = Pt(6)
-    p.paragraph_format.keep_with_next = True
-    r = p.add_run(text.upper())
-    set_font_run(r, size_pt=14, bold=True)
-    return p
 
-def add_sec_i(doc, text):
+def add_part_heading(doc: Document, part_label: str, part_title: str):
+    p1 = doc.add_paragraph()
+    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p1.paragraph_format.first_line_indent = Cm(0)
+    p1.paragraph_format.keep_with_next = True
+    set_paragraph_spacing(p1, before_pt=14, after_pt=2, line_spacing=1.2)
+    add_formatted_run(p1, part_label.upper(), size_pt=14, bold=True)
+
+    p2 = doc.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.first_line_indent = Cm(0)
+    p2.paragraph_format.keep_with_next = True
+    set_paragraph_spacing(p2, before_pt=0, after_pt=6, line_spacing=1.25)
+    add_formatted_run(p2, part_title.upper(), size_pt=14, bold=True)
+    set_paragraph_borders(p2, bottom={"val": "single", "sz": 6, "space": 3, "color": "000000"})
+    set_paragraph_indent(p2, left_twips=2400, right_twips=2400)
+    return p2
+
+
+def add_sec_i(doc: Document, text: str):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p.paragraph_format.first_line_indent = Cm(0)
-    p.paragraph_format.line_spacing = 1.25
-    p.paragraph_format.space_before = Pt(10)
-    p.paragraph_format.space_after = Pt(4)
     p.paragraph_format.keep_with_next = True
-    r = p.add_run(text)
-    set_font_run(r, size_pt=14, bold=True)
+    set_paragraph_spacing(p, before_pt=10, after_pt=4, line_spacing=1.25)
+    add_formatted_run(p, text, size_pt=13.5, bold=True)
     return p
 
-def add_sec_1(doc, text):
+
+def add_sec_1(doc: Document, text: str):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p.paragraph_format.first_line_indent = Cm(1.27)
-    p.paragraph_format.line_spacing = 1.25
-    p.paragraph_format.space_before = Pt(6)
-    p.paragraph_format.space_after = Pt(4)
     p.paragraph_format.keep_with_next = True
-    r = p.add_run(text)
-    set_font_run(r, size_pt=14, bold=True)
+    set_paragraph_spacing(p, before_pt=6, after_pt=4, line_spacing=1.25)
+    add_formatted_run(p, text, size_pt=13.5, bold=True)
     return p
 
-def add_sec_a(doc, text="", bold_prefix=""):
+
+def add_sec_a(doc: Document, text: str = "", bold_prefix: str = ""):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     p.paragraph_format.first_line_indent = Cm(1.27)
-    p.paragraph_format.line_spacing = 1.25
-    p.paragraph_format.space_before = Pt(4)
-    p.paragraph_format.space_after = Pt(4)
+    set_paragraph_spacing(p, before_pt=3, after_pt=4, line_spacing=1.3)
     if bold_prefix:
-        r_pre = p.add_run(bold_prefix)
-        set_font_run(r_pre, size_pt=14, bold=True)
+        add_formatted_run(p, bold_prefix, size_pt=13.5, bold=True)
     if text:
-        r = p.add_run(text)
-        set_font_run(r, size_pt=14, bold=False)
+        add_formatted_run(p, text, size_pt=13.5, bold=False)
     return p
 
-def set_table_borders(table):
-    tblPr = table._tbl.tblPr
-    tblBorders = parse_xml(f'''
-        <w:tblBorders {nsdecls("w")}>
-            <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-            <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-            <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-            <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-        </w:tblBorders>
-    ''')
-    tblPr.append(tblBorders)
 
-def set_cell_margins(cell, top=120, bottom=120, left=140, right=140):
+def set_cell_padding(cell, top=110, bottom=110, left=130, right=130):
     tcPr = cell._tc.get_or_add_tcPr()
-    tcMar = parse_xml(f'''
-        <w:tcMar {nsdecls("w")}>
-            <w:top w:w="{top}" w:type="dxa"/>
-            <w:bottom w:w="{bottom}" w:type="dxa"/>
-            <w:left w:w="{left}" w:type="dxa"/>
-            <w:right w:w="{right}" w:type="dxa"/>
-        </w:tcMar>
-    ''')
+    existing = tcPr.find(qn("w:tcMar"))
+    if existing is not None:
+        tcPr.remove(existing)
+    tcMar = parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'  <w:top w:w="{top}" w:type="dxa"/>'
+        f'  <w:bottom w:w="{bottom}" w:type="dxa"/>'
+        f'  <w:left w:w="{left}" w:type="dxa"/>'
+        f'  <w:right w:w="{right}" w:type="dxa"/>'
+        f'</w:tcMar>'
+    )
     tcPr.append(tcMar)
 
-def create_nd30_table(doc, headers, data, col_widths, alignments=None, caption=""):
+
+def add_vbhc_data_table(doc: Document, headers: list[str], data: list[list[str]],
+                        col_widths: list, alignments: list | None = None, caption: str = ""):
     if caption:
         p_cap = doc.add_paragraph()
         p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_cap.paragraph_format.first_line_indent = Cm(0)
-        p_cap.paragraph_format.space_before = Pt(8)
-        p_cap.paragraph_format.space_after = Pt(4)
         p_cap.paragraph_format.keep_with_next = True
-        r_cap = p_cap.add_run(caption)
-        set_font_run(r_cap, size_pt=13, bold=True, italic=True)
+        set_paragraph_spacing(p_cap, before_pt=8, after_pt=4, line_spacing=1.2)
+        add_formatted_run(p_cap, caption, size_pt=12.5, bold=True, italic=True)
 
     table = doc.add_table(rows=len(data) + 1, cols=len(headers))
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = False
-    set_table_borders(table)
+
+    tblPr = table._tbl.tblPr
+    tblBorders = parse_xml(
+        f'<w:tblBorders {nsdecls("w")}>'
+        f'  <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'  <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'  <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'  <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'  <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'  <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'</w:tblBorders>'
+    )
+    tblPr.append(tblBorders)
+
+    for c_idx, w in enumerate(col_widths):
+        table.columns[c_idx].width = w
 
     hdr_row = table.rows[0]
-    trPr = hdr_row._tr.get_or_add_trPr()
-    trPr.append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
-    trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
-
-    for idx, title in enumerate(headers):
-        cell = hdr_row.cells[idx]
-        set_cell_margins(cell, 140, 140, 140, 140)
+    for c_idx, h_text in enumerate(headers):
+        cell = hdr_row.cells[c_idx]
+        cell.width = col_widths[c_idx]
+        set_cell_padding(cell, 120, 120, 130, 130)
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(2)
-        p.paragraph_format.line_spacing = 1.15
-        r = p.add_run(title)
-        set_font_run(r, size_pt=12, bold=True)
+        set_paragraph_spacing(p, before_pt=0, after_pt=0, line_spacing=1.15)
+        add_formatted_run(p, h_text, size_pt=11.5, bold=True)
 
     for r_idx, row_data in enumerate(data):
         row = table.rows[r_idx + 1]
-        trPr = row._tr.get_or_add_trPr()
-        trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
-
         for c_idx, val in enumerate(row_data):
             cell = row.cells[c_idx]
-            set_cell_margins(cell, 100, 100, 140, 140)
+            cell.width = col_widths[c_idx]
+            set_cell_padding(cell, 95, 95, 125, 125)
             p = cell.paragraphs[0]
             align = alignments[c_idx] if alignments and c_idx < len(alignments) else WD_ALIGN_PARAGRAPH.LEFT
             p.alignment = align
-            p.paragraph_format.space_before = Pt(0)
-            p.paragraph_format.space_after = Pt(2)
-            p.paragraph_format.line_spacing = 1.15
-            r = p.add_run(str(val))
-            set_font_run(r, size_pt=12, bold=False)
+            set_paragraph_spacing(p, before_pt=0, after_pt=0, line_spacing=1.15)
+            is_bold_col = (c_idx == 0) or (c_idx == len(row_data) - 1 and str(val).startswith("ĐẠT"))
+            add_formatted_run(p, str(val), size_pt=11.5, bold=is_bold_col)
 
-    for row in table.rows:
-        for idx, width in enumerate(col_widths):
-            row.cells[idx].width = width
+    optimize_data_table(table, col_widths=col_widths, is_header_grey=True)
 
     p_sp = doc.add_paragraph()
-    p_sp.paragraph_format.space_before = Pt(0)
-    p_sp.paragraph_format.space_after = Pt(6)
-    p_sp.paragraph_format.line_spacing = 1.0
+    set_paragraph_spacing(p_sp, before_pt=0, after_pt=4, line_spacing=1.0)
+    return table
 
-def make_borderless_table(table):
-    tblPr = table._tbl.tblPr
-    tblBorders = parse_xml(f'''
-        <w:tblBorders {nsdecls("w")}>
-            <w:top w:val="none"/>
-            <w:left w:val="none"/>
-            <w:bottom w:val="none"/>
-            <w:right w:val="none"/>
-            <w:insideH w:val="none"/>
-            <w:insideV w:val="none"/>
-        </w:tblBorders>
-    ''')
-    tblPr.append(tblBorders)
 
-def build_document(output_path):
-    print("Building document according to Decree 30/2020/ND-CP...")
-    doc = Document()
-    
-    # Page setup
-    section = doc.sections[0]
-    section.page_width = Mm(210)
-    section.page_height = Mm(297)
-    section.top_margin = Mm(25)
-    section.bottom_margin = Mm(20)
-    section.left_margin = Mm(30)
-    section.right_margin = Mm(15)
-    
-    # Page numbering in header: centered, 13pt, Arabic numbers, starts at page 2
-    section.different_first_page_header_footer = True
-    header = section.header
-    p_hdr = header.paragraphs[0]
-    p_hdr.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_hdr.paragraph_format.space_before = Pt(0)
-    p_hdr.paragraph_format.space_after = Pt(0)
-    r_hdr = p_hdr.add_run()
-    set_font_run(r_hdr, size_pt=13, bold=False)
-    fld = parse_xml(f'<w:fldSimple {nsdecls("w")} w:instr="PAGE"/>')
-    r_hdr._r.append(fld)
-    
-    # First page header is left completely empty as required by ND 30
-    first_hdr = section.first_page_header
-    first_hdr.paragraphs[0].text = ""
+def add_figure_block(doc: Document, filename: str, caption: str, width_cm: float = 15.8):
+    img_path = os.path.join(DIAGRAMS_DIR, filename)
+    if not os.path.exists(img_path):
+        print(f"[WARN] Không tìm thấy hình ảnh: {img_path}")
+        return
+    p_img = doc.add_paragraph()
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_img.paragraph_format.first_line_indent = Cm(0)
+    p_img.paragraph_format.keep_with_next = True
+    set_paragraph_spacing(p_img, before_pt=8, after_pt=2, line_spacing=1.0)
+    r_img = p_img.add_run()
+    r_img.add_picture(img_path, width=Cm(width_cm))
+
+    p_cap = doc.add_paragraph()
+    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_cap.paragraph_format.first_line_indent = Cm(0)
+    set_paragraph_spacing(p_cap, before_pt=2, after_pt=8, line_spacing=1.2)
+    add_formatted_run(p_cap, caption, size_pt=12.0, bold=True, italic=True)
+
+
+def build_report(output_path: str):
+    doc = create_vbhc_document()
+    setup_vbhc_page_numbering(doc, header_or_footer="header")
+
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = FONT_NAME
+    normal_style.font.size = Pt(13.5)
+    normal_style.font.color.rgb = RGBColor(0, 0, 0)
 
     # =========================================================================
-    # 1. HEADER BLOCK (QUỐC HIỆU, TIÊU NGỮ, CƠ QUAN, SỐ HIỆU, ĐỊA DANH NGÀY THÁNG)
+    # 1. KHỐI TIÊU ĐỀ HÀNH CHÍNH ĐẦU VĂN BẢN (BẢNG BỐ CỤC 2 CỘT KHÔNG VIỀN)
     # =========================================================================
     tbl_hdr = doc.add_table(rows=1, cols=2)
     tbl_hdr.alignment = WD_TABLE_ALIGNMENT.CENTER
     tbl_hdr.autofit = False
-    make_borderless_table(tbl_hdr)
-    
+    remove_table_borders(tbl_hdr)
+
+    w_left, w_right = Cm(7.5), Cm(9.0)
+    tbl_hdr.columns[0].width = w_left
+    tbl_hdr.columns[1].width = w_right
     cell_left = tbl_hdr.rows[0].cells[0]
     cell_right = tbl_hdr.rows[0].cells[1]
-    cell_left.width = Cm(7.2)
-    cell_right.width = Cm(9.3)
-    
-    # Left cell: Học viện, Sinh viên thực hiện, Mã sinh viên
+    cell_left.width = w_left
+    cell_right.width = w_right
+    clear_cell_margins(cell_left)
+    clear_cell_margins(cell_right)
+
     p_cq1 = cell_left.paragraphs[0]
     p_cq1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_cq1.paragraph_format.space_before = Pt(0)
-    p_cq1.paragraph_format.space_after = Pt(1)
-    p_cq1.paragraph_format.line_spacing = 1.1
-    r_cq1 = p_cq1.add_run("HỌC VIỆN CHÍNH TRỊ QUỐC GIA HỒ CHÍ MINH")
-    set_font_run(r_cq1, size_pt=12, bold=False)
-    
+    set_paragraph_spacing(p_cq1, before_pt=0, after_pt=1, line_spacing=1.1)
+    add_formatted_run(p_cq1, "HỌC VIỆN CHÍNH TRỊ QUỐC GIA HỒ CHÍ MINH", size_pt=11.5, bold=False)
+
     p_cq2 = cell_left.add_paragraph()
     p_cq2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_cq2.paragraph_format.space_before = Pt(0)
-    p_cq2.paragraph_format.space_after = Pt(2)
-    p_cq2.paragraph_format.line_spacing = 1.1
-    r_cq2 = p_cq2.add_run("HỌC VIỆN HÀNH CHÍNH VÀ QUẢN TRỊ CÔNG")
-    set_font_run(r_cq2, size_pt=12, bold=True)
-    
-    p_line_cq = cell_left.add_paragraph()
-    p_line_cq.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_line_cq.paragraph_format.space_before = Pt(0)
-    p_line_cq.paragraph_format.space_after = Pt(4)
-    r_line_cq = p_line_cq.add_run("—————")
-    set_font_run(r_line_cq, size_pt=11, bold=True)
-    
+    set_paragraph_spacing(p_cq2, before_pt=1, after_pt=2, line_spacing=1.1)
+    add_formatted_run(p_cq2, "HỌC VIỆN HÀNH CHÍNH VÀ QUẢN TRỊ CÔNG", size_pt=12.0, bold=True)
+    set_paragraph_borders(p_cq2, bottom={"val": "single", "sz": 6, "space": 2, "color": "000000"})
+    set_paragraph_indent(p_cq2, left_twips=950, right_twips=950)
+
+    p_so = cell_left.add_paragraph()
+    p_so.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_paragraph_spacing(p_so, before_pt=4, after_pt=1, line_spacing=1.1)
+    add_formatted_run(p_so, "Số: 14/BC-HTTT", size_pt=12.0, bold=False)
+
     p_sv = cell_left.add_paragraph()
     p_sv.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_sv.paragraph_format.space_before = Pt(0)
-    p_sv.paragraph_format.space_after = Pt(1)
-    p_sv.paragraph_format.line_spacing = 1.1
-    r_sv_lbl = p_sv.add_run("Sinh viên: ")
-    set_font_run(r_sv_lbl, size_pt=12, bold=False)
-    r_sv_val = p_sv.add_run("ĐỖ MINH HIẾU")
-    set_font_run(r_sv_val, size_pt=12, bold=True)
+    set_paragraph_spacing(p_sv, before_pt=1, after_pt=1, line_spacing=1.1)
+    add_formatted_run(p_sv, "Sinh viên: ", size_pt=12.0, bold=False)
+    add_formatted_run(p_sv, "ĐỖ MINH HIẾU", size_pt=12.0, bold=True)
 
     p_msv = cell_left.add_paragraph()
     p_msv.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_msv.paragraph_format.space_before = Pt(0)
-    p_msv.paragraph_format.space_after = Pt(0)
-    p_msv.paragraph_format.line_spacing = 1.1
-    r_msv_lbl = p_msv.add_run("Mã sinh viên: ")
-    set_font_run(r_msv_lbl, size_pt=12, bold=False)
-    r_msv_val = p_msv.add_run("2305HTTA009")
-    set_font_run(r_msv_val, size_pt=12, bold=True)
-    
-    # Right cell: Quốc hiệu, Tiêu ngữ, Đường kẻ, Địa danh ngày tháng
-    p_qh1 = cell_right.paragraphs[0]
-    p_qh1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_qh1.paragraph_format.space_before = Pt(0)
-    p_qh1.paragraph_format.space_after = Pt(1)
-    p_qh1.paragraph_format.line_spacing = 1.1
-    r_qh1 = p_qh1.add_run("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
-    set_font_run(r_qh1, size_pt=12, bold=True)
-    
-    p_qh2 = cell_right.add_paragraph()
-    p_qh2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_qh2.paragraph_format.space_before = Pt(0)
-    p_qh2.paragraph_format.space_after = Pt(2)
-    p_qh2.paragraph_format.line_spacing = 1.1
-    r_qh2 = p_qh2.add_run("Độc lập - Tự do - Hạnh phúc")
-    set_font_run(r_qh2, size_pt=13, bold=True)
-    
-    p_line_qh = cell_right.add_paragraph()
-    p_line_qh.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_line_qh.paragraph_format.space_before = Pt(0)
-    p_line_qh.paragraph_format.space_after = Pt(4)
-    r_line_qh = p_line_qh.add_run("—————————————")
-    set_font_run(r_line_qh, size_pt=12, bold=True)
-    
+    set_paragraph_spacing(p_msv, before_pt=0, after_pt=0, line_spacing=1.1)
+    add_formatted_run(p_msv, "Mã sinh viên: ", size_pt=12.0, bold=False)
+    add_formatted_run(p_msv, "2305HTTA009", size_pt=12.0, bold=True)
+
+    p_qh = cell_right.paragraphs[0]
+    p_qh.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_paragraph_spacing(p_qh, before_pt=0, after_pt=1, line_spacing=1.1)
+    add_formatted_run(p_qh, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", size_pt=12.0, bold=True)
+
+    p_tn = cell_right.add_paragraph()
+    p_tn.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_paragraph_spacing(p_tn, before_pt=1, after_pt=2, line_spacing=1.1)
+    add_formatted_run(p_tn, "Độc lập - Tự do - Hạnh phúc", size_pt=13.0, bold=True)
+    set_paragraph_borders(p_tn, bottom={"val": "single", "sz": 8, "space": 2, "color": "000000"})
+    set_paragraph_indent(p_tn, left_twips=650, right_twips=650)
+
     p_date = cell_right.add_paragraph()
     p_date.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_date.paragraph_format.space_before = Pt(0)
-    p_date.paragraph_format.space_after = Pt(0)
-    r_date = p_date.add_run("Hà Nội, ngày 30 tháng 9 năm 2026")
-    set_font_run(r_date, size_pt=13, italic=True)
-
-    # Empty paragraph separating header block and document title
-    p_sep = doc.add_paragraph()
-    p_sep.paragraph_format.space_before = Pt(6)
-    p_sep.paragraph_format.space_after = Pt(6)
+    set_paragraph_spacing(p_date, before_pt=6, after_pt=0, line_spacing=1.1)
+    add_formatted_run(p_date, "Hà Nội, ngày 14 tháng 10 năm 2026", size_pt=13.0, italic=True)
 
     # =========================================================================
-    # 2. TÊN LOẠI VĂN BẢN VÀ TRÍCH YẾU NỘI DUNG (THEO ĐIỀU 10 NĐ 30/2020/NĐ-CP)
+    # 2. TÊN LOẠI VĂN BẢN VÀ TRÍCH YẾU NỘI DUNG
     # =========================================================================
     p_title = doc.add_paragraph()
     p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_title.paragraph_format.first_line_indent = Cm(0)
-    p_title.paragraph_format.space_before = Pt(6)
-    p_title.paragraph_format.space_after = Pt(4)
-    p_title.paragraph_format.line_spacing = 1.25
     p_title.paragraph_format.keep_with_next = True
-    r_t = p_title.add_run("BÁO CÁO")
-    set_font_run(r_t, size_pt=14, bold=True)
+    set_paragraph_spacing(p_title, before_pt=12, after_pt=2, line_spacing=1.2)
+    add_formatted_run(p_title, "BÁO CÁO", size_pt=15.0, bold=True)
 
     p_sub = doc.add_paragraph()
     p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_sub.paragraph_format.first_line_indent = Cm(0)
-    p_sub.paragraph_format.space_before = Pt(0)
-    p_sub.paragraph_format.space_after = Pt(4)
-    p_sub.paragraph_format.line_spacing = 1.25
     p_sub.paragraph_format.keep_with_next = True
-    r_sub = p_sub.add_run("Về việc phân tích, triển khai, vận hành, kiểm thử và quản trị\nhệ thống thông tin quản lý hành chính")
-    set_font_run(r_sub, size_pt=14, bold=True)
+    set_paragraph_spacing(p_sub, before_pt=0, after_pt=6, line_spacing=1.25)
+    add_formatted_run(
+        p_sub,
+        "Về việc phân tích, triển khai, vận hành, kiểm thử và quản trị\nhệ thống thông tin quản lý hành chính",
+        size_pt=14.0,
+        bold=True,
+    )
+    set_paragraph_borders(p_sub, bottom={"val": "single", "sz": 6, "space": 3, "color": "000000"})
+    set_paragraph_indent(p_sub, left_twips=2500, right_twips=2500)
 
-    p_author = doc.add_paragraph()
-    p_author.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_author.paragraph_format.first_line_indent = Cm(0)
-    p_author.paragraph_format.space_before = Pt(4)
-    p_author.paragraph_format.space_after = Pt(2)
-    p_author.paragraph_format.line_spacing = 1.25
-    r_a1 = p_author.add_run("Sinh viên thực hiện: ")
-    set_font_run(r_a1, size_pt=13, bold=False)
-    r_a2 = p_author.add_run("Đỗ Minh Hiếu")
-    set_font_run(r_a2, size_pt=13, bold=True)
-    r_a3 = p_author.add_run("    —    Mã sinh viên: ")
-    set_font_run(r_a3, size_pt=13, bold=False)
-    r_a4 = p_author.add_run("2305HTTA009")
-    set_font_run(r_a4, size_pt=13, bold=True)
-
-    p_course = doc.add_paragraph()
-    p_course.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_course.paragraph_format.first_line_indent = Cm(0)
-    p_course.paragraph_format.space_before = Pt(0)
-    p_course.paragraph_format.space_after = Pt(14)
-    p_course.paragraph_format.line_spacing = 1.25
-    r_c1 = p_course.add_run("Học phần: Hệ thống thông tin Quản lý hành chính\nGiảng viên hướng dẫn: ThS. Hoàng Minh Ngọc")
-    set_font_run(r_c1, size_pt=13, italic=True)
+    p_info = doc.add_paragraph()
+    p_info.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_info.paragraph_format.first_line_indent = Cm(0)
+    set_paragraph_spacing(p_info, before_pt=4, after_pt=10, line_spacing=1.25)
+    add_formatted_run(p_info, "Học phần: Hệ thống thông tin Quản lý hành chính  -  Giảng viên hướng dẫn: ThS. Hoàng Minh Ngọc", size_pt=12.5, italic=True)
 
     # =========================================================================
-    # DANH MỤC TỪ VIẾT TẮT
+    # 3. BẢNG DANH MỤC KÝ HIỆU VÀ CHỮ VIẾT TẮT
     # =========================================================================
-    p_abbr_title = doc.add_paragraph()
-    p_abbr_title.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    p_abbr_title.paragraph_format.first_line_indent = Cm(0)
-    p_abbr_title.paragraph_format.space_before = Pt(8)
-    p_abbr_title.paragraph_format.space_after = Pt(4)
-    p_abbr_title.paragraph_format.keep_with_next = True
-    r_abbr = p_abbr_title.add_run("BẢNG CÁC KÝ HIỆU VÀ TỪ VIẾT TẮT")
-    set_font_run(r_abbr, size_pt=13, bold=True)
-
-    abbr_headers = ["STT", "Từ viết tắt", "Tên tiếng Anh / Giải nghĩa đầy đủ", "Ý nghĩa trong hệ thống"]
+    abbr_headers = ["STT", "Ký hiệu", "Thuật ngữ đầy đủ", "Ý nghĩa nghiệp vụ trong hệ thống hành chính"]
     abbr_data = [
-        ["1", "AMIS", "Administrative Management Information System", "Hệ thống thông tin quản lý hành chính"],
-        ["2", "CSDL", "Cơ sở dữ liệu", "Hệ thống lưu trữ dữ liệu tập trung"],
-        ["3", "TTHC", "Thủ tục hành chính", "Quy trình giải quyết công vụ theo pháp luật"],
-        ["4", "NDXP", "National Data Exchange Platform", "Nền tảng tích hợp, chia sẻ dữ liệu quốc gia"],
-        ["5", "LGSP", "Local Government Service Platform", "Nền tảng tích hợp, chia sẻ dữ liệu cấp Bộ/Tỉnh"],
-        ["6", "SSO", "Single Sign-On", "Cơ chế đăng nhập một lần tập trung"],
-        ["7", "RBAC", "Role-Based Access Control", "Kiểm soát truy cập dựa trên vai trò"],
-        ["8", "PKI / HSM", "Public Key Infrastructure / Hardware Security Module", "Hạ tầng khóa công khai và thiết bị bảo mật ký số"],
-        ["9", "UAT", "User Acceptance Testing", "Kiểm thử chấp nhận của người dùng"],
-        ["10", "SOC / NOC", "Security / Network Operations Center", "Trung tâm điều hành an toàn thông tin và mạng"],
-        ["11", "RPO / RTO", "Recovery Point / Time Objective", "Mục tiêu điểm phục hồi và thời gian phục hồi"],
-        ["12", "SLA", "Service Level Agreement", "Cam kết chất lượng cung cấp dịch vụ"],
+        ["1", "HTTT", "Hệ thống thông tin", "Hạ tầng phần mềm và cơ sở dữ liệu phục vụ điều hành công vụ"],
+        ["2", "CSDL", "Cơ sở dữ liệu", "Kho lưu trữ dữ liệu có cấu trúc quản lý trên hệ quản trị PostgreSQL"],
+        ["3", "TTHC", "Thủ tục hành chính", "Trình tự, cách thức giải quyết công vụ theo quy định pháp luật"],
+        ["4", "NDXP", "Trục liên thông dữ liệu quốc gia", "Nền tảng tích hợp, chia sẻ dữ liệu giữa các bộ, ngành, địa phương"],
+        ["5", "LGSP", "Nền tảng chia sẻ dữ liệu cấp Bộ, Tỉnh", "Trục kết nối nội bộ giúp liên thông các phần mềm trong cơ quan"],
+        ["6", "SSO", "Cơ chế đăng nhập một lần", "Xác thực tập trung giúp cán bộ truy cập đa phân hệ bằng một định danh"],
+        ["7", "RBAC", "Kiểm soát truy cập theo vai trò", "Cơ chế phân quyền chặt chẽ dựa trên chức trách, nhiệm vụ công vụ"],
+        ["8", "PKI / HSM", "Hạ tầng khóa công khai và mô-đun bảo mật", "Giải pháp phần cứng lưu trữ khóa bí mật và đóng dấu chữ ký số cơ quan"],
+        ["9", "WAF / DMZ", "Tường lửa ứng dụng web và vùng mạng biên", "Lớp bảo vệ cô lập các dịch vụ công tiếp xúc trực tiếp với mạng ngoài"],
+        ["10", "RPO / RTO", "Mục tiêu điểm phục hồi và thời gian phục hồi", "Ngưỡng giới hạn mất mát dữ liệu tối đa và thời gian khôi phục dịch vụ"],
+        ["11", "SLA", "Cam kết mức chất lượng dịch vụ", "Chỉ tiêu thời gian phản hồi và khắc phục sự cố của bộ phận kỹ thuật"],
+        ["12", "WORM", "Cơ chế ghi một lần, đọc nhiều lần", "Kỹ thuật bảo vệ nhật ký kiểm toán bất biến, chống chỉnh sửa dấu vết"],
     ]
-    abbr_widths = [Cm(1.2), Cm(2.5), Cm(6.5), Cm(6.3)]
+    abbr_widths = [Cm(1.1), Cm(2.4), Cm(5.5), Cm(7.5)]
     abbr_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT]
-    create_nd30_table(doc, abbr_headers, abbr_data, abbr_widths, abbr_aligns)
+    add_vbhc_data_table(doc, abbr_headers, abbr_data, abbr_widths, abbr_aligns,
+                        "Bảng 1: Danh mục các ký hiệu và chữ viết tắt sử dụng trong báo cáo")
 
     # =========================================================================
     # PHẦN THỨ NHẤT: TỔNG QUAN VÀ PHÂN TÍCH HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH
     # =========================================================================
-    add_part_heading(doc, "PHẦN THỨ NHẤT\nTỔNG QUAN VÀ PHÂN TÍCH HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
+    add_part_heading(doc, "PHẦN THỨ NHẤT", "TỔNG QUAN VÀ PHÂN TÍCH HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
 
-    add_sec_i(doc, "I. CƠ SỞ PHÁP LÝ VÀ SỰ CẦN THIẾT ĐẦU TƯ")
-    
-    add_sec_1(doc, "1. Cơ sở pháp lý")
-    add_body_p(doc, "Việc nghiên cứu, phân tích, xây dựng và đưa vào vận hành hệ thống thông tin quản lý hành chính (Administrative Management Information System - AMIS) được căn cứ chặt chẽ trên các văn bản quy phạm pháp luật và chủ trương lớn của Đảng, Nhà nước về phát triển Chính phủ điện tử hướng tới Chính phủ số, cụ thể bao gồm:")
-    add_bullet_p(doc, "về giao dịch điện tử trong hoạt động của cơ quan nhà nước và tổ chức, doanh nghiệp, công nhận giá trị pháp lý đầy đủ của thông điệp dữ liệu, văn bản điện tử và chữ ký điện tử an toàn.", "Luật Giao dịch điện tử số 20/2023/QH15 ")
-    add_bullet_p(doc, "về bảo đảm an toàn hệ thống thông tin theo cấp độ, bảo vệ dữ liệu cá nhân và chủ quyền số quốc gia trên không gian mạng.", "Luật An toàn thông tin mạng số 86/2015/QH13 và Luật An ninh mạng số 24/2018/QH14 ")
-    add_bullet_p(doc, "của Chính phủ về công tác văn thư, quy định bắt buộc và chuẩn hóa toàn diện thể thức văn bản hành chính, quản lý văn bản điện tử, ký số văn bản cơ quan, lập hồ sơ điện tử và nộp lưu hồ sơ vào lưu trữ cơ quan.", "Nghị định số 30/2020/NĐ-CP ngày 05/3/2020 ")
-    add_bullet_p(doc, "của Chính phủ về quản lý, kết nối và chia sẻ dữ liệu số của cơ quan nhà nước, yêu cầu các hệ thống phải kết nối liên thông qua Trục liên thông văn bản quốc gia và Trục tích hợp chia sẻ dữ liệu cấp Bộ/Tỉnh (LGSP/NDXP).", "Nghị định số 47/2020/NĐ-CP ngày 09/4/2020 ")
-    add_bullet_p(doc, "của Chính phủ về quản lý đầu tư ứng dụng công nghệ thông tin sử dụng nguồn vốn ngân sách nhà nước.", "Nghị định số 73/2019/NĐ-CP ngày 05/9/2019 ")
-    add_bullet_p(doc, "của Thủ tướng Chính phủ phê duyệt Đề án phát triển ứng dụng dữ liệu về dân cư, định danh và xác thực điện tử phục vụ chuyển đổi số quốc gia giai đoạn 2022 - 2025, tầm nhìn đến năm 2030 (Đề án 06).", "Quyết định số 06/QĐ-TTg ngày 06/01/2022 ")
-    add_bullet_p(doc, "của Bộ Thông tin và Truyền thông ban hành Khung Kiến trúc Chính phủ điện tử Việt Nam, phiên bản 2.0 và các văn bản hướng dẫn định hướng Khung Kiến trúc Chính phủ số phiên bản 3.0.", "Quyết định số 2323/QĐ-BTTTT ngày 31/12/2019 ")
+    add_sec_i(doc, "I. CƠ SỞ PHÁP LÝ VÀ SỰ CẦN THIẾT XÂY DỰNG HỆ THỐNG")
+    add_sec_1(doc, "1. Hệ thống căn cứ pháp lý và tiêu chuẩn kỹ thuật")
+    add_body_p(doc, "Công tác khảo sát, phân tích kiến trúc, triển khai vận hành, kiểm thử và quản trị hệ thống thông tin quản lý hành chính được thực hiện trên cơ sở tuân thủ nghiêm ngặt các đạo luật của Quốc hội, Nghị định của Chính phủ và quy chuẩn kỹ thuật quốc gia về Chính phủ số:")
+    add_bullet_p(doc, "xác lập đầy đủ giá trị pháp lý của thông điệp dữ liệu, văn bản điện tử, chữ ký số chuyên dùng công vụ và quy trình giao dịch hành chính trên môi trường điện tử.", "Luật Giao dịch điện tử số 20/2023/QH15 ")
+    add_bullet_p(doc, "quy định nguyên tắc bảo vệ hệ thống thông tin theo cấp độ, phòng ngừa tấn công mạng, bảo vệ bí mật nhà nước và dữ liệu cá nhân của cán bộ, công dân.", "Luật An toàn thông tin mạng số 86/2015/QH13 và Luật An ninh mạng số 24/2018/QH14 ")
+    add_bullet_p(doc, "của Chính phủ về công tác văn thư, chuẩn hóa toàn diện thể thức văn bản hành chính, quy trình soạn thảo, ký duyệt số, vào sổ văn bản, lập hồ sơ công việc điện tử và giao nộp lưu trữ cơ quan.", "Nghị định số 30/2020/NĐ-CP ngày 05/3/2020 ")
+    add_bullet_p(doc, "của Chính phủ về quản lý, kết nối và chia sẻ dữ liệu số của cơ quan nhà nước, bắt buộc các hệ thống thông tin phải kết nối qua nền tảng LGSP và Trục liên thông quốc gia NDXP.", "Nghị định số 47/2020/NĐ-CP ngày 09/4/2020 ")
+    add_bullet_p(doc, "của Chính phủ và Thông tư số 12/2022/TT-BTTTT của Bộ Thông tin và Truyền thông quy định chi tiết việc phân loại, thẩm định và phê duyệt hồ sơ đề xuất cấp độ an toàn hệ thống thông tin.", "Nghị định số 85/2016/NĐ-CP ngày 01/7/2016 ")
+    add_bullet_p(doc, "của Thủ tướng Chính phủ phê duyệt Đề án phát triển ứng dụng dữ liệu về dân cư, định danh và xác thực điện tử phục vụ chuyển đổi số quốc gia giai đoạn 2022 - 2025, tầm nhìn đến năm 2030.", "Quyết định số 06/QĐ-TTg ngày 06/01/2022 ")
 
-    add_sec_1(doc, "2. Sự cần thiết đầu tư và vai trò của hệ thống")
-    add_body_p(doc, "Trong tiến trình cải cách hành chính nhà nước, việc ứng dụng công nghệ thông tin để đổi mới phương thức làm việc, chuyển từ môi trường làm việc trên giấy sang môi trường điện tử (văn phòng không giấy tờ) là yêu cầu cấp thiết mang tính sống còn. Hệ thống thông tin quản lý hành chính đóng vai trò là hạ tầng phần mềm cốt lõi, tích hợp toàn bộ các dòng chảy thông tin chỉ đạo, điều hành, xử lý hồ sơ công việc, quản lý cán bộ công chức và dịch vụ công công vụ trong nội bộ cơ quan.")
-    add_body_p(doc, "Xây dựng hệ thống AMIS hiện đại giúp chuẩn hóa quy trình công vụ, minh bạch hóa tiến độ giải quyết công việc, ngăn chặn triệt để tình trạng chậm muộn, thất lạc văn bản, đồng thời tạo lập kho dữ liệu số dùng chung, phục vụ đắc lực cho công tác ra quyết định của các cấp lãnh đạo dựa trên dữ liệu thời gian thực.")
+    add_sec_1(doc, "2. Sự cần thiết đầu tư và mục tiêu quản trị công vụ")
+    add_body_p(doc, "Trong bối cảnh hiện đại hóa nền hành chính nhà nước, việc chuyển đổi toàn diện hoạt động chỉ đạo, điều hành từ phương thức giấy tờ truyền thống sang môi trường số đồng bộ là yêu cầu bắt buộc. Hệ thống thông tin quản lý hành chính giữ vị trí trung tâm trong hạ tầng số của cơ quan, kết nối xuyên suốt quá trình tiếp nhận, phân luồng văn bản, giải quyết hồ sơ thủ tục hành chính, quản lý đội ngũ cán bộ công chức và kiểm soát kỷ cương công vụ.")
+    add_body_p(doc, "Việc thiết lập một hệ thống thông tin hợp nhất giúp chuẩn hóa quy trình tác nghiệp theo đúng quy định pháp luật, rút ngắn từ 75% đến 85% thời gian luân chuyển văn bản nội bộ, xóa bỏ tình trạng thất lạc hồ sơ giấy và cung cấp số liệu thống kê tức thời phục vụ lãnh đạo cơ quan ra quyết định điều hành chính xác.")
 
     add_sec_i(doc, "II. PHÂN TÍCH HIỆN TRẠNG VÀ CÁC ĐIỂM NGHẼN NGHIỆP VỤ HÀNH CHÍNH")
-    add_sec_1(doc, "1. Thực trạng công tác hành chính truyền thống")
-    add_body_p(doc, "Khảo sát thực tiễn tại các cơ quan, đơn vị trước khi ứng dụng hệ thống thông tin quản lý hành chính tập trung cho thấy nhiều bất cập nghiêm trọng:")
-    add_bullet_p(doc, "Văn bản, tờ trình, phiếu xử lý công việc chủ yếu lưu chuyển bằng bản giấy vật lý, phụ thuộc vào giao liên hoặc chuyên viên mang trực tiếp qua các phòng ban, làm phát sinh thời gian chờ đợi kéo dài từ 03 đến 05 ngày cho một chu trình phê duyệt thông thường.")
-    add_bullet_p(doc, "Hồ sơ công việc phân tán tại từng ngăn tủ cá nhân của chuyên viên, không được lập danh mục hồ sơ điện tử theo quy định tại Nghị định 30/2020/NĐ-CP, gây nguy cơ thất lạc tài liệu gốc, rách nát, ẩm mốc và mất rất nhiều công sức khi cần tra cứu lịch sử văn bản.")
-    add_bullet_p(doc, "Việc tổng hợp số liệu báo cáo định kỳ (báo cáo tháng, quý, năm) thực hiện hoàn toàn thủ công thông qua bảng tính rời rạc, dẫn đến số liệu báo cáo không đồng nhất, độ trễ thông tin cao và thiếu tính chính xác khách quan.")
+    add_sec_1(doc, "1. Thực trạng xử lý công việc trước khi số hóa")
+    add_body_p(doc, "Khảo sát thực tế tại các đơn vị hành chính trước khi áp dụng hệ thống quản trị hợp nhất cho thấy công tác văn thư, lưu trữ và điều hành nội bộ tồn tại nhiều hạn chế kéo dài:")
+    add_bullet_p(doc, "Phiếu trình, công văn đến và tờ trình nội bộ lưu chuyển hoàn toàn bằng bản giấy vật lý qua nhiều khâu trung gian, khiến một chu trình trình ký thông thường tiêu tốn từ 03 đến 05 ngày làm việc.", "Độ trễ luân chuyển văn bản giấy: ")
+    add_bullet_p(doc, "Tài liệu giải quyết công việc nằm phân tán tại máy tính cá nhân hoặc tủ hồ sơ riêng của từng chuyên viên, không được gom nhóm theo danh mục hồ sơ cơ quan ban hành đầu năm theo Nghị định số 30/2020/NĐ-CP.", "Phân mảnh hồ sơ lưu trữ: ")
+    add_bullet_p(doc, "Hoạt động tổng hợp báo cáo định kỳ về tình hình xử lý văn bản, chấm công, biên chế và đánh giá cán bộ thực hiện thủ công trên bảng tính rời rạc, dễ xảy ra sai lệch số liệu khi hợp nhất liên phòng ban.", "Sai số trong tổng hợp báo cáo: ")
 
-    add_sec_1(doc, "2. Các điểm nghẽn nghiệp vụ cốt lõi")
-    add_body_p(doc, "Qua phân tích dòng công việc (workflow analysis), báo cáo xác định 04 điểm nghẽn chính cần giải quyết triệt để thông qua hệ thống AMIS:")
-    add_sec_a(doc, "Thiếu công cụ giám sát trực quan tiến độ xử lý văn bản đến và nhiệm vụ do Lãnh đạo giao, dẫn đến tình trạng chuyên viên trễ hạn nhưng cấp trên không kịp thời đôn đốc, nhắc nhở.", "a) Điểm nghẽn về theo dõi tiến độ: ")
-    add_sec_a(doc, "Chữ ký tay truyền thống đòi hỏi lãnh đạo phải có mặt tại cơ quan mới có thể ký duyệt, gây gián đoạn công tác khi lãnh đạo đi công tác cơ sở hoặc tham gia các cuộc họp dài ngày.", "b) Điểm nghẽn về ký duyệt văn bản: ")
-    add_sec_a(doc, "Các phòng ban chuyên môn (Tổ chức cán bộ, Kế hoạch tài chính, Văn phòng) sử dụng các phần mềm đơn lẻ, không có khả năng chia sẻ dữ liệu liên thông, tạo ra các 'ốc đảo thông tin'.", "c) Điểm nghẽn về tích hợp dữ liệu: ")
-    add_sec_a(doc, "Việc lưu trữ tài liệu mật, tài liệu nội bộ trên máy tính cá nhân không được mã hóa, tiềm ẩn nguy cơ lộ lọt bí mật nhà nước và thông tin nội bộ qua các cuộc tấn công mã độc.", "d) Điểm nghẽn về an toàn thông tin: ")
+    add_sec_1(doc, "2. Bốn điểm nghẽn nghiệp vụ trọng tâm cần giải quyết")
+    add_body_p(doc, "Phân tích luồng tác nghiệp thực tế chỉ ra 04 điểm nghẽn cốt lõi đòi hỏi phải tái cấu trúc bằng công nghệ số:")
+    add_sec_a(doc, "Lãnh đạo cơ quan và trưởng các bộ phận thiếu công cụ theo dõi thời hạn xử lý của từng văn bản giao việc theo thời gian thực, dẫn đến việc đôn đốc bị động, chỉ phát hiện hồ sơ trễ hạn khi đã quá kỳ báo cáo.", "a) Hạn chế trong giám sát tiến độ công vụ: ")
+    add_sec_a(doc, "Quy trình ký tay trực tiếp trên văn bản giấy làm đình trệ tiến độ ban hành quyết định mỗi khi lãnh đạo đi công tác ngoài cơ quan hoặc tham dự các kỳ họp tập trung.", "b) Phụ thuộc vào địa điểm ký duyệt vật lý: ")
+    add_sec_a(doc, "Các phần mềm quản lý văn bản, phần mềm tổ chức cán bộ, chấm công và lưu trữ hoạt động độc lập, không chia sẻ chung danh mục phòng ban và định danh công chức, buộc cán bộ phải nhập liệu lặp lại nhiều lần.", "c) Tình trạng cát cứ dữ liệu giữa các bộ phận: ")
+    add_sec_a(doc, "Văn bản dự thảo trao đổi qua thư điện tử cá nhân hoặc thiết bị nhớ ngoài không được mã hóa và không ghi nhận dấu vết truy cập, tiềm ẩn rủi ro lộ lọt thông tin công vụ.", "d) Rủi ro mất an toàn thông tin nội bộ: ")
 
-    add_sec_i(doc, "III. PHÂN TÍCH CÁC PHÂN HỆ NGHIỆP VỤ HÀNH CHÍNH TRỌNG YẾU")
-    add_body_p(doc, "Hệ thống thông tin quản lý hành chính được thiết kế bao gồm 05 phân hệ nghiệp vụ nền tảng, tạo thành chu trình khép kín trong công tác quản trị và tác nghiệp hành chính:")
-    
+    add_sec_i(doc, "III. PHÂN TÍCH CÁC PHÂN HỆ NGHIỆP VỤ VÀ CƠ SỞ DỮ LIỆU THỰC CHỨNG")
+    add_body_p(doc, "Hệ thống thông tin quản lý hành chính được thiết kế thành 05 phân hệ nghiệp vụ tích hợp chặt chẽ trên một cơ sở dữ liệu quan hệ PostgreSQL duy nhất gồm 20 bảng thực thể chuẩn hóa:")
+
     add_sec_1(doc, "1. Phân hệ Quản lý văn bản và Điều hành tác nghiệp điện tử")
-    add_body_p(doc, "Đây là phân hệ hạt nhân của hệ thống, thực hiện số hóa toàn diện quy trình văn thư theo chuẩn Nghị định số 30/2020/NĐ-CP:")
-    add_bullet_p(doc, "Tiếp nhận văn bản điện tử từ Trục liên thông quốc gia hoặc quét (scan) văn bản giấy đến; trích xuất thông tin tự động bằng công nghệ OCR; vào sổ văn bản điện tử; trình Lãnh đạo phân phối và chuyển giao chuyên viên thụ lý.", "Quy trình Quản lý Văn bản đến: ")
-    add_bullet_p(doc, "Soạn thảo dự thảo văn bản; xin ý kiến góp ý điện tử giữa các phòng ban; lãnh đạo phòng thẩm định; trình Lãnh đạo cơ quan ký số (ký số cá nhân); Văn thư cơ quan cấp số, vào sổ, đóng dấu số tổ chức và dấu thời gian (Timestamp); phát hành qua mạng đến nơi nhận.", "Quy trình Quản lý Văn bản đi: ")
-    add_bullet_p(doc, "Xây dựng lịch công tác tuần của cơ quan; phân công nhiệm vụ, giao chỉ tiêu KPI; gửi thông báo, giấy mời họp số; giám sát đôn đốc tiến độ xử lý nhiệm vụ đến từng cá nhân.", "Quy trình Điều hành tác nghiệp nội bộ: ")
+    add_body_p(doc, "Số hóa toàn trình nghiệp vụ văn thư theo đúng Phụ lục I và Phụ lục II của Nghị định số 30/2020/NĐ-CP:")
+    add_bullet_p(doc, "Tiếp nhận gói tin văn bản điện tử từ Trục liên thông quốc gia NDXP hoặc quét số hóa văn bản giấy; tự động nhận dạng ký tự quang học tiếng Việt để tách số ký hiệu, ngày ban hành, trích yếu; vào sổ văn bản đến điện tử; trình lãnh đạo phân giao cho đơn vị chủ trì và đơn vị phối hợp.", "Luồng xử lý văn bản đến: ")
+    add_bullet_p(doc, "Chuyên viên khởi tạo dự thảo; luân chuyển góp ý nội bộ; trưởng bộ phận ký nháy thẩm định thể thức; lãnh đạo cơ quan ký số chính thức bằng chứng thư số chuyên dùng; văn thư kiểm tra thể thức, cấp số tự động liên tục, đóng dấu số cơ quan qua thiết bị HSM kèm dấu thời gian và phát hành.", "Luồng ban hành văn bản đi: ")
 
-    add_sec_1(doc, "2. Phân hệ Quản lý hồ sơ công việc và Số hóa lưu trữ tài liệu")
-    add_body_p(doc, "Thực hiện nghiêm túc quy định tại Chương II Nghị định số 30/2020/NĐ-CP và Thông tư số 02/2019/TT-BNV:")
-    add_bullet_p(doc, "Mỗi nhiệm vụ, vụ việc được gán một Mã hồ sơ duy nhất theo danh mục hồ sơ cơ quan được ban hành đầu năm. Toàn bộ văn bản đi, đến, tờ trình, tài liệu liên quan được tự động gom vào hồ sơ điện tử.", "Lập hồ sơ công việc điện tử: ")
-    add_bullet_p(doc, "Khi công việc kết thúc, chuyên viên thực hiện đóng hồ sơ, ký số xác thực và nộp lưu hồ sơ điện tử vào Lưu trữ cơ quan trên hệ thống.", "Giao nộp hồ sơ vào lưu trữ: ")
-    add_bullet_p(doc, "Tài liệu lưu trữ được phân loại theo thời hạn bảo quản (vĩnh viễn, 50 năm, 20 năm, 05 năm), thiết lập chỉ mục tìm kiếm thông minh toàn văn (Full-text search), quản lý chặt chẽ quyền khai thác đọc, sao chụp hồ sơ.", "Khai thác và bảo quản lưu trữ: ")
+    add_sec_1(doc, "2. Phân hệ Lập hồ sơ công việc và Lưu trữ điện tử")
+    add_body_p(doc, "Đáp ứng quy định tại Chương II Nghị định số 30/2020/NĐ-CP và Thông tư số 02/2019/TT-BNV của Bộ Nội vụ về tiêu chuẩn dữ liệu đầu vào của cơ sở dữ liệu tài liệu lưu trữ:")
+    add_bullet_p(doc, "Mỗi nhiệm vụ được gắn một mã hồ sơ theo danh mục hồ sơ năm của cơ quan; toàn bộ văn bản đến, văn bản đi, phiếu ý kiến và tài liệu tham khảo phát sinh trong quá trình giải quyết đều được liên kết tự động vào hồ sơ.", "Tạo lập và thu thập hồ sơ điện tử: ")
+    add_bullet_p(doc, "Khi nhiệm vụ hoàn tất, cán bộ thụ lý thực hiện biên mục, ký số xác nhận đóng hồ sơ và nộp lưu trực tuyến vào Lưu trữ cơ quan; hệ thống phân loại thời hạn bảo quản và đánh chỉ mục tìm kiếm toàn văn.", "Nộp lưu và khai thác lưu trữ số: ")
 
     add_sec_1(doc, "3. Phân hệ Dịch vụ công trực tuyến và Một cửa điện tử liên thông")
-    add_body_p(doc, "Phục vụ tiếp nhận và giải quyết thủ tục hành chính (TTHC) cho người dân, doanh nghiệp và các tổ chức liên quan:")
-    add_bullet_p(doc, "Công khai toàn bộ quy trình, thành phần hồ sơ, phí, lệ phí và thời hạn giải quyết TTHC theo quy chuẩn của Cổng Dịch vụ công Quốc gia.", "Công khai quy trình TTHC: ")
-    add_bullet_p(doc, "Cán bộ Bộ phận Một cửa tiếp nhận hồ sơ số, kiểm tra tính hợp lệ qua tích hợp CSDL Quốc gia về dân cư (VNeID), số hóa giấy tờ đầu vào, sinh Mã hồ sơ một cửa và Phiếu hẹn điện tử.", "Tiếp nhận và chuyển xử lý: ")
-    add_bullet_p(doc, "Ký số kết quả giải quyết TTHC dưới dạng tệp tin PDF/A-1a kèm chứng thư số của cơ quan, trả kết quả vào Kho quản lý dữ liệu điện tử của tổ chức, cá nhân.", "Ký số và trả kết quả số: ")
+    add_body_p(doc, "Thực hiện tiếp nhận, thẩm định và trả kết quả giải quyết thủ tục hành chính theo Nghị định số 45/2020/NĐ-CP:")
+    add_bullet_p(doc, "Đồng bộ danh mục thủ tục hành chính, biểu mẫu điện tử và mức phí từ Cổng Dịch vụ công Quốc gia; xác thực danh tính số của công dân, doanh nghiệp thông qua nền tảng định danh điện tử VNeID.", "Tiếp nhận và xác thực hồ sơ số: ")
+    add_bullet_p(doc, "Cấp mã biên nhận tự động, tính toán thời hạn giải quyết theo giờ làm việc hành chính, ký số kết quả định dạng PDF/A-1a và đồng bộ trả vào Kho quản lý dữ liệu điện tử của tổ chức, cá nhân.", "Giải quyết liên thông và trả kết quả: ")
 
-    add_sec_1(doc, "4. Phân hệ Quản lý cán bộ, công chức, viên chức và biên chế hành chính")
-    add_body_p(doc, "Chuẩn hóa và đồng bộ dữ liệu quản trị nguồn nhân lực công:")
-    add_bullet_p(doc, "Xây dựng cơ sở dữ liệu hồ sơ cán bộ công chức theo mẫu 2C-BNV/2008 của Bộ Nội vụ; theo dõi quá trình đào tạo, bồi dưỡng, nâng lương, khen thưởng, kỷ luật, điều động, bổ nhiệm.", "Quản lý hồ sơ điện tử: ")
-    add_bullet_p(doc, "Tích hợp thiết bị nhận diện khuôn mặt (FaceID) hoặc thẻ thông minh tại cơ quan; tự động tổng hợp công, quản lý đơn xin nghỉ phép điện tử, duyệt phép trực tuyến.", "Quản lý chấm công và chuyên cần: ")
-    add_bullet_p(doc, "Liên thông đồng bộ dữ liệu định kỳ với Cơ sở dữ liệu Quốc gia về Cán bộ, công chức, viên chức do Bộ Nội vụ quản lý.", "Đồng bộ CSDL Quốc gia: ")
+    add_sec_1(doc, "4. Phân hệ Quản trị nguồn nhân lực hành chính, chấm công và chế độ")
+    add_body_p(doc, "Đối chiếu trực tiếp từ mô hình cơ sở dữ liệu thực tế trong tệp đặc tả prisma/schema.prisma, phân hệ này được vận hành trên 20 bảng dữ liệu có ràng buộc khóa ngoại nghiêm ngặt:")
+    add_bullet_p(doc, "Quản lý cơ cấu tổ chức qua bảng Department (ràng buộc duy nhất tên đơn vị và mã trưởng đơn vị managerId), bảng tài khoản User, bảng vai trò Role và bảng hồ sơ trung tâm EmployeeProfile lưu trữ chức danh, trạng thái công tác và quỹ 12 ngày phép tiêu chuẩn.", "Quản trị tổ chức và hồ sơ cán bộ: ")
+    add_bullet_p(doc, "Ghi nhận điểm danh hằng ngày trên bảng Attendance với khóa duy nhất kết hợp mã nhân sự và ngày làm việc chuẩn hóa theo múi giờ chuẩn UTC; xử lý quy trình xin nghỉ phép trên bảng LeaveRequest tự động loại trừ ngày nghỉ thứ Bảy, Chủ nhật.", "Quản lý chấm công và duyệt phép phân cấp: ")
+    add_bullet_p(doc, "Tự động hóa tính toán tiền lương, phụ cấp và khấu trừ bảo hiểm bắt buộc (10,5% gồm bảo hiểm xã hội 8%, bảo hiểm y tế 1,5%, bảo hiểm thất nghiệp 1%) thông qua các bảng SalaryComponent, EmployeeSalaryConfig, EmployeeSalaryComponent và Payroll kết hợp bảng đánh giá hiệu suất PerformanceEvaluation.", "Động cơ tính lương, hợp đồng và đánh giá KPI: ")
+    add_bullet_p(doc, "Bao quát toàn bộ hoạt động tuyển dụng qua các bảng JobPosting, Application, Interview, quản lý hợp đồng pháp lý trên bảng Contract, quyết định điều động bổ nhiệm trên bảng PersonnelChange, đào tạo nội bộ trên bảng TrainingCourse, khảo sát mức độ hài lòng trên bảng Survey và quy hoạch cán bộ kế nhiệm trên bảng SuccessionPlan.", "Quản lý vòng đời công vụ toàn diện: ")
 
-    add_sec_1(doc, "5. Phân hệ Báo cáo thống kê và Bàn điều hành số (Dashboard/IOC)")
-    add_body_p(doc, "Cung cấp bức tranh toàn cảnh về hoạt động hành chính của cơ quan theo thời gian thực:")
-    add_bullet_p(doc, "Trực quan hóa tỷ lệ văn bản xử lý đúng hạn, trước hạn, quá hạn của từng đơn vị trực thuộc bằng các biểu đồ thanh, biểu đồ tròn và ma trận nhiệt.", "Chỉ số xử lý văn bản: ")
-    add_bullet_p(doc, "Theo dõi các cảnh báo đỏ đối với văn bản khẩn, văn bản thượng khẩn, hỏa tốc sắp hết thời hạn xử lý.", "Cảnh báo chỉ đạo điều hành: ")
-    add_bullet_p(doc, "Tự động trích xuất các biểu mẫu thống kê định kỳ phục vụ báo cáo lên Ủy ban nhân dân và các cơ quan cấp trên mà không cần chuyên viên tổng hợp thủ công.", "Kết xuất báo cáo tự động: ")
+    add_sec_1(doc, "5. Phân hệ Báo cáo thống kê, Bàn điều hành số và Kiểm toán hệ thống")
+    add_body_p(doc, "Tổng hợp dữ liệu trực tiếp từ các phân hệ tác nghiệp để hiển thị các biểu đồ theo dõi tỷ lệ giải quyết công việc đúng hạn, cảnh báo văn bản khẩn sắp đến hạn và trích xuất nhật ký kiểm toán từ bảng AuditLog phục vụ thanh tra công vụ.")
 
     add_sec_i(doc, "IV. PHÂN TÍCH YÊU CẦU CHỨC NĂNG VÀ PHI CHỨC NĂNG")
-    add_sec_1(doc, "1. Yêu cầu chức năng (Functional Requirements - FR)")
-    add_body_p(doc, "Bảng tổng hợp ma trận phân tích các nhóm yêu cầu chức năng nghiệp vụ trọng yếu của hệ thống:")
+    add_sec_1(doc, "1. Ma trận đặc tả yêu cầu chức năng nghiệp vụ")
+    add_body_p(doc, "Trên cơ sở quy trình văn thư lưu trữ và quản trị nội bộ, hệ thống xác lập 10 nhóm yêu cầu chức năng trọng yếu dưới đây:")
 
-    fr_headers = ["Mã FR", "Tên nhóm chức năng", "Mô tả yêu cầu nghiệp vụ chi tiết", "Phân hệ phụ trách", "Mức ưu tiên"]
+    fr_headers = ["STT", "Mã số", "Nhóm chức năng & Phân hệ", "Mô tả nghiệp vụ và quy tắc xử lý", "Mức ưu tiên"]
     fr_data = [
-        ["FR-01", "Vào sổ văn bản điện tử", "Tự động cấp số văn bản đến/đi liên tục, phân loại theo sổ, kiểm tra trùng số", "Văn bản & Điều hành", "Bắt buộc"],
-        ["FR-02", "Phân phối & giao nhiệm vụ", "Chuyển giao văn bản đa cấp kèm ý kiến chỉ đạo, hạn xử lý, gán người đồng xử lý", "Văn bản & Điều hành", "Bắt buộc"],
-        ["FR-03", "Ký số văn bản chuyên dùng", "Hỗ trợ ký số cá nhân (USB Token, SmartCA Cloud) và ký số cơ quan (HSM) chuẩn PDF", "Văn bản & Điều hành", "Bắt buộc"],
-        ["FR-04", "Liên thông văn bản quốc gia", "Gửi/nhận văn bản mã hóa an toàn qua trục VDXP/LGSP theo mã định danh cơ quan", "Tích hợp liên thông", "Bắt buộc"],
-        ["FR-05", "Lập hồ sơ công việc số", "Tập hợp văn bản thành bộ hồ sơ, phân loại danh mục, gán tiêu đề, nộp lưu trữ số", "Lưu trữ điện tử", "Bắt buộc"],
-        ["FR-06", "Quản lý khai thác tài liệu", "Phân quyền mượn, đọc, in ấn tài liệu lưu trữ, ghi nhận dấu vết khai thác", "Lưu trữ điện tử", "Quan trọng"],
-        ["FR-07", "Tiếp nhận hồ sơ một cửa", "Tiếp nhận TTHC trực tiếp và trực tuyến, đồng bộ trạng thái lên Cổng DVC Quốc gia", "Dịch vụ công", "Bắt buộc"],
-        ["FR-08", "Quản lý hồ sơ công chức", "Quản lý thông tin lý lịch 2C-BNV, hợp đồng, quá trình công tác, lịch sử khen thưởng", "Quản trị nhân lực", "Quan trọng"],
-        ["FR-09", "Chấm công & duyệt nghỉ phép", "Ghi nhận dữ liệu chấm công từ thiết bị, luồng gửi và duyệt đơn nghỉ phép trực tuyến", "Quản trị nhân lực", "Quan trọng"],
-        ["FR-10", "Báo cáo giám sát thời gian thực", "Bảng điều khiển trực quan tỷ lệ xử lý đúng hạn, quá hạn theo phòng ban và cá nhân", "Bàn điều hành số", "Bắt buộc"],
+        ["1", "YC-01", "Vào sổ văn bản tự động\n(Văn thư & Điều hành)", "Tự động cấp số văn bản đến, văn bản đi liên tục theo năm hành chính; kiểm tra chống trùng số ký hiệu.", "Bắt buộc"],
+        ["2", "YC-02", "Phân luồng giao nhiệm vụ\n(Văn thư & Điều hành)", "Chuyển giao văn bản đa cấp kèm ý kiến chỉ đạo, hạn hoàn thành; gán đơn vị chủ trì, đơn vị phối hợp.", "Bắt buộc"],
+        ["3", "YC-03", "Ký số chuyên dùng công vụ\n(Văn thư & Điều hành)", "Hỗ trợ ký số cá nhân của lãnh đạo và đóng dấu số tổ chức qua thiết bị HSM đúng tọa độ Nghị định 30.", "Bắt buộc"],
+        ["4", "YC-04", "Liên thông văn bản quốc gia\n(Tích hợp liên thông)", "Đóng gói, gửi nhận gói tin văn bản điện tử chuẩn định dạng qua nền tảng LGSP và Trục quốc gia NDXP.", "Bắt buộc"],
+        ["5", "YC-05", "Lập hồ sơ và nộp lưu số\n(Lưu trữ điện tử)", "Tập hợp văn bản theo mã hồ sơ công việc, biên mục tài liệu, ký số đóng hồ sơ và nộp lưu trữ cơ quan.", "Bắt buộc"],
+        ["6", "YC-06", "Giải quyết TTHC một cửa\n(Dịch vụ công)", "Tiếp nhận hồ sơ trực tuyến, xác thực định danh VNeID, đồng bộ trạng thái xử lý lên Cổng DVC Quốc gia.", "Bắt buộc"],
+        ["7", "YC-07", "Quản lý tổ chức và cán bộ\n(Quản trị nhân lực)", "Quản lý phòng ban, bổ nhiệm trưởng phòng tự động giải phóng vị trí cũ, lưu trữ hồ sơ và hợp đồng.", "Bắt buộc"],
+        ["8", "YC-08", "Chấm công và nghỉ phép số\n(Quản trị nhân lực)", "Chấm công chuẩn hóa múi giờ UTC, kiểm soát duyệt phép phân cấp, tự động đồng bộ ngày phép vào bảng công.", "Quan trọng"],
+        ["9", "YC-09", "Tính lương và đánh giá KPI\n(Quản trị nhân lực)", "Tự động tính lương theo 22 ngày công chuẩn, trích bảo hiểm 10,5%, liên thông hệ số thưởng/phạt KPI.", "Quan trọng"],
+        ["10", "YC-10", "Giám sát và nhật ký kiểm toán\n(Điều hành & An ninh)", "Trực quan hóa chỉ số đúng hạn trên bàn điều hành; ghi vết mọi thao tác vào bảng AuditLog bất biến.", "Bắt buộc"],
     ]
-    fr_widths = [Cm(1.5), Cm(3.2), Cm(6.5), Cm(3.3), Cm(2.0)]
-    fr_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER]
-    create_nd30_table(doc, fr_headers, fr_data, fr_widths, fr_aligns, "Bảng 1: Ma trận yêu cầu chức năng nghiệp vụ hệ thống AMIS")
+    fr_widths = [Cm(1.1), Cm(2.3), Cm(4.1), Cm(6.6), Cm(2.4)]
+    fr_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER]
+    add_vbhc_data_table(doc, fr_headers, fr_data, fr_widths, fr_aligns,
+                        "Bảng 2: Ma trận đặc tả yêu cầu chức năng nghiệp vụ trọng yếu của hệ thống")
 
-    add_sec_1(doc, "2. Yêu cầu phi chức năng (Non-Functional Requirements - NFR)")
-    add_body_p(doc, "Hệ thống phải đáp ứng các tiêu chuẩn kỹ thuật nghiêm ngặt về chất lượng phần mềm:")
-    add_bullet_p(doc, "Thời gian tải trang ban đầu dưới 1.5 giây; thời gian mở tệp văn bản đính kèm dưới 2.0 giây; đáp ứng tối thiểu 5.000 người dùng truy cập đồng thời (CCU) và chịu tải xử lý 500 yêu cầu ký số đồng thời tại giờ cao điểm.", "Yêu cầu về hiệu năng (Performance): ")
-    add_bullet_p(doc, "Hệ thống hoạt động liên tục 24/7/365 với độ sẵn sàng đạt 99.9% (Uptime); thời gian phục hồi mục tiêu RTO dưới 02 giờ và điểm phục hồi mục tiêu RPO dưới 15 phút.", "Yêu cầu về độ sẵn sàng (Availability): ")
-    add_bullet_p(doc, "Đáp ứng đầy đủ tiêu chí an toàn thông tin cấp độ 3 theo Nghị định số 85/2016/NĐ-CP và Thông tư số 12/2022/TT-BTTTT; mã hóa toàn bộ dữ liệu lưu trữ (AES-256) và kênh truyền dữ liệu (TLS 1.3).", "Yêu cầu về an toàn thông tin (Security): ")
-    add_bullet_p(doc, "Hệ thống được thiết kế theo kiến trúc Microservices và RESTful API, cho phép dễ dàng mở rộng tài nguyên tính toán theo chiều ngang (Horizontal Scaling) mà không làm gián đoạn vận hành.", "Yêu cầu về khả năng mở rộng (Scalability): ")
+    add_sec_1(doc, "2. Các tiêu chuẩn yêu cầu phi chức năng")
+    add_body_p(doc, "Để bảo đảm vận hành ổn định trong môi trường công vụ quy mô lớn, hệ thống phải thỏa mãn các chỉ tiêu kỹ thuật định lượng sau:")
+    add_bullet_p(doc, "Thời gian tải giao diện trang điều hành dưới 1,5 giây; thời gian hiển thị tệp văn bản PDF ký số dưới 2,0 giây; chịu tải tối thiểu 5.000 phiên truy cập đồng thời và xử lý 500 giao dịch ký số mỗi phút vào khung giờ cao điểm.", "Chỉ tiêu hiệu năng xử lý: ")
+    add_bullet_p(doc, "Hệ thống duy trì hoạt động liên tục 24/7/365 với tỷ lệ sẵn sàng đạt từ 99,9% trở lên; thời gian khôi phục dịch vụ tối đa RTO dưới 02 giờ và ngưỡng chấp nhận mất dữ liệu tối đa RPO dưới 15 phút.", "Chỉ tiêu độ sẵn sàng và tin cậy: ")
+    add_bullet_p(doc, "Tuân thủ toàn diện bộ tiêu chí bảo đảm an toàn hệ thống thông tin Cấp độ 3 theo Nghị định số 85/2016/NĐ-CP; toàn bộ kênh truyền dữ liệu sử dụng giao thức mã hóa TLS 1.3 và dữ liệu lưu trữ tĩnh được mã hóa theo chuẩn AES-256.", "Chỉ tiêu an toàn thông tin: ")
+    add_bullet_p(doc, "Kiến trúc dịch vụ mô-đun hóa kết hợp đóng gói vùng chứa Docker cho phép mở rộng ngang số lượng tiến trình xử lý tự động mà không phải dừng dịch vụ.", "Chỉ tiêu khả năng mở rộng: ")
 
-    add_sec_i(doc, "V. KIẾN TRÚC TỔNG THỂ HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
-    add_body_p(doc, "Hệ thống AMIS được thiết kế theo mô hình kiến trúc phân tầng hiện đại, tuân thủ Khung Kiến trúc Chính phủ điện tử Việt Nam:")
-    add_bullet_p(doc, "Giao diện Web portal hiện đại (Next.js/React), tương thích mọi trình duyệt phổ biến (Chrome, Edge, Firefox, Safari) và ứng dụng di động (Mobile App iOS/Android) phục vụ Lãnh đạo chỉ đạo điều hành và ký số từ xa mọi lúc mọi nơi.", "Tầng Trình diễn (Presentation Layer): ")
-    add_bullet_p(doc, "Tập trung định tuyến API, xác thực danh tính SSO (Single Sign-On qua Keycloak/OAuth2/OIDC), quản lý phiên làm việc, mã hóa kênh truyền và cân bằng tải (Load Balancing qua NGINX/HAProxy).", "Tầng Cổng kết nối và Dịch vụ xác thực (API Gateway & IAM): ")
-    add_bullet_p(doc, "Bao gồm các cụm dịch vụ nghiệp vụ độc lập (Document Service, Workflow Engine, Digital Signature Service, Storage Service, Notification Service, HR Service), giao tiếp qua giao thức gRPC nội bộ và hàng đợi thông điệp RabbitMQ/Apache Kafka.", "Tầng Ứng dụng nghiệp vụ (Microservices Layer): ")
-    add_bullet_p(doc, "Trục kết nối LGSP, cổng kết nối trục VDXP quốc gia, cổng tích hợp CSDL Quốc gia về dân cư (Đề án 06) và CSDL Cán bộ công chức viên chức.", "Tầng Tích hợp và Chia sẻ dữ liệu (Integration Layer): ")
-    add_bullet_p(doc, "Cơ sở dữ liệu quan hệ PostgreSQL cấu hình Master - Standby phân tán cho dữ liệu giao dịch nghiệp vụ; Hệ thống lưu trữ đối tượng MinIO/Ceph cho tệp tin văn bản số hóa; Cụm Elasticsearch phục vụ tra cứu toàn văn tốc độ cao.", "Tầng Dữ liệu và Lưu trữ (Data & Storage Layer): ")
+    add_sec_i(doc, "V. KIẾN TRÚC TỔNG THỂ 5 TẦNG VÀ MÔ HÌNH TÍCH HỢP LIÊN THÔNG")
+    add_body_p(doc, "Hệ thống được thiết kế theo mô hình kiến trúc 05 tầng phân tách rõ ràng giữa giao diện trình diễn, kiểm soát truy cập biên, dịch vụ nghiệp vụ, trục tích hợp và lưu trữ dữ liệu lõi:")
+    add_bullet_p(doc, "Xây dựng trên nền tảng Next.js 16 và React hiện đại, cung cấp cổng làm việc nội bộ, cổng dịch vụ công trực tuyến, ứng dụng ký số di động và bàn điều hành số tương thích đa thiết bị.", "Tầng giao diện trình diễn: ")
+    add_bullet_p(doc, "Triển khai tường lửa ứng dụng web WAF, bộ cân bằng tải, dịch vụ đăng nhập một lần SSO và bộ lọc đường dẫn tự động kiểm tra phiên xác thực trên mọi yêu cầu truy cập.", "Tầng cổng xác thực và bảo vệ biên: ")
+    add_bullet_p(doc, "Tổ chức thành các khối dịch vụ nghiệp vụ độc lập gồm dịch vụ văn thư điều hành, dịch vụ lưu trữ số, dịch vụ một cửa, dịch vụ quản trị nhân lực - tiền lương và dịch vụ kiểm toán.", "Tầng dịch vụ ứng dụng nghiệp vụ: ")
+    add_bullet_p(doc, "Kết nối chuẩn hóa với nền tảng chia sẻ dữ liệu LGSP, Trục liên thông văn bản quốc gia NDXP, hệ thống định danh điện tử VNeID và hạ tầng khóa công khai PKI của Ban Cơ yếu Chính phủ.", "Tầng tích hợp và chia sẻ dữ liệu: ")
+    add_bullet_p(doc, "Sử dụng hệ quản trị cơ sở dữ liệu PostgreSQL 15 lưu trữ 20 bảng giao dịch chuẩn hóa 3NF, kết hợp kho lưu trữ đối tượng phân tán cho tệp văn bản PDF/A kèm mã kiểm tra toàn vẹn SHA-256.", "Tầng cơ sở dữ liệu và lưu trữ an toàn: ")
+
+    add_figure_block(
+        doc,
+        "fig_amis_architecture.png",
+        "Hình 1: Sơ đồ kiến trúc phân tầng và phân vùng mạng an toàn hệ thống thông tin quản lý hành chính",
+        width_cm=15.8,
+    )
 
     # =========================================================================
-    # PHẦN THỨ HAI: PHƯƠNG ÁN TRIỂN KHAI HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH
+    # PHẦN THỨ HAI: QUY TRÌNH TRIỂN KHAI HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH
     # =========================================================================
-    add_part_heading(doc, "PHẦN THỨ HAI\nPHƯƠNG ÁN TRIỂN KHAI HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
+    add_part_heading(doc, "PHẦN THỨ HAI", "QUY TRÌNH TRIỂN KHAI HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
 
-    add_sec_i(doc, "I. LỰA CHỌN MÔ HÌNH HẠ TẦNG VÀ CÔNG NGHỆ TRIỂN KHAI")
-    add_sec_1(doc, "1. Mô hình hạ tầng kỹ thuật")
-    add_body_p(doc, "Để đảm bảo tính tự chủ, bảo mật tuyệt đối cho dữ liệu cơ quan nhà nước, hệ thống lựa chọn mô hình triển khai trên Đám mây riêng (Private Cloud) đặt tại Trung tâm dữ liệu (Data Center) của cơ quan đạt tiêu chuẩn quốc tế Tier 3 và tiêu chuẩn TCVN 9250:2012:")
-    add_bullet_p(doc, "Hạ tầng máy chủ vật lý cấu hình cao, sử dụng công nghệ ảo hóa hạ tầng máy chủ ảo (VMware vSphere hoặc Proxmox VE), hỗ trợ dự phòng nóng n+1 nguồn điện, điều hòa chính xác và đường truyền Internet cáp quang đa hướng độc lập.", "Hạ tầng phần cứng: ")
-    add_bullet_p(doc, "Hệ thống tường lửa chuyên dụng thế hệ mới (Next-Generation Firewall - NGFW), hệ thống phát hiện và ngăn ngừa xâm nhập (IDS/IPS), thiết bị chống tấn công từ chối dịch vụ (Anti-DDoS) và phân vùng mạng an toàn.", "Hạ tầng mạng và an ninh: ")
+    add_sec_i(doc, "I. LỘ TRÌNH TRIỂN KHAI TỔNG THỂ 6 GIAI ĐOẠN")
+    add_body_p(doc, "Để bảo đảm quá trình chuyển đổi số diễn ra thông suốt, không làm gián đoạn hoạt động giải quyết công vụ thường xuyên của cơ quan, dự án được tổ chức triển khai theo lộ trình 06 giai đoạn chặt chẽ kéo dài 22 tuần:")
 
-    add_sec_1(doc, "2. Thiết kế phân vùng mạng an toàn")
-    add_body_p(doc, "Hệ thống được chia thành 04 phân vùng mạng độc lập, cách ly nghiêm ngặt thông qua các chính sách Access Control List (ACL) của tường lửa:")
-    add_bullet_p(doc, "Đặt các cổng thông tin dịch vụ công tiếp nhận kết nối từ Internet; chỉ mở các cổng giao tiếp chuẩn (HTTPS/443); kiểm soát nghiêm ngặt lưu lượng qua hệ thống tường lửa ứng dụng web (WAF).", "Vùng Mạng phi quân sự (DMZ Zone): ")
-    add_bullet_p(doc, "Nơi triển khai các container ứng dụng nghiệp vụ AMIS và API Gateway; chỉ chấp nhận các kết nối được xác thực gửi đến từ vùng DMZ hoặc mạng nội bộ cơ quan (LAN).", "Vùng Ứng dụng nội bộ (Application Zone): ")
-    add_bullet_p(doc, "Nơi đặt các cụm máy chủ CSDL PostgreSQL và MinIO Storage; vùng này bị cô lập hoàn toàn với Internet, chỉ cho phép các máy chủ trong vùng Ứng dụng truy cập qua cổng nội bộ được mã hóa.", "Vùng Cơ sở dữ liệu lõi (Database Zone): ")
-    add_bullet_p(doc, "Dành riêng cho đội ngũ quản trị viên hệ thống kết nối qua kênh mạng riêng ảo mã hóa (IPSec VPN / WireGuard) kèm xác thực hai nhân tố (MFA).", "Vùng Quản trị an toàn (Management Zone): ")
-
-    add_sec_1(doc, "3. Công nghệ Containerization và CI/CD tự động")
-    add_body_p(doc, "Hệ thống được đóng gói hoàn toàn dưới dạng các Docker Container và được điều phối bằng Kubernetes (K8s). Việc cập nhật phiên bản phần mềm được tự động hóa thông qua quy trình CI/CD (Continuous Integration / Continuous Deployment) sử dụng GitLab CI, bảo đảm:")
-    add_bullet_p(doc, "Không gây gián đoạn hệ thống khi triển khai bản vá hoặc tính năng mới (Zero-downtime deployment thông qua chiến lược Rolling Update).", "Triển khai không gián đoạn: ")
-    add_bullet_p(doc, "Mã nguồn được tự động quét lỗi bảo mật (SAST), kiểm tra tiêu chuẩn mã nguồn sạch và tự động chạy toàn bộ các bài kiểm thử trước khi đóng gói lên môi trường vận hành.", "Kiểm soát an toàn tự động: ")
-
-    add_sec_i(doc, "II. LỘ TRÌNH VÀ CÁC GIAI ĐOẠN TRIỂN KHAI THỰC TẾ")
-    add_body_p(doc, "Dự án triển khai hệ thống thông tin quản lý hành chính được phân kỳ thành 06 giai đoạn kế tiếp nhau trong thời gian 12 tháng:")
-
-    deploy_headers = ["Giai đoạn", "Nội dung công việc trọng tâm", "Thời gian", "Sản phẩm bàn giao chính", "Đơn vị chủ trì"]
+    deploy_headers = ["GĐ", "Tên giai đoạn triển khai", "Thời lượng", "Nội dung công việc trọng tâm", "Sản phẩm bàn giao nghiệm thu"]
     deploy_data = [
-        ["GĐ 1", "Khảo sát hiện trạng, rà soát quy trình TTHC và lập đề cương kỹ thuật", "Tháng 1 - 2", "Báo cáo khảo sát, Đề cương thiết kế kỹ thuật", "Ban QLDA & Nhà thầu"],
-        ["GĐ 2", "Thiết lập hạ tầng máy chủ, mạng an toàn và cài đặt phần mềm nền tảng", "Tháng 3 - 4", "Hạ tầng Data Center, Biên bản kiểm định an ninh", "Tổ kỹ thuật hạ tầng"],
-        ["GĐ 3", "Chuẩn hóa danh mục, làm sạch và chuyển đổi dữ liệu văn bản lịch sử", "Tháng 5 - 6", "CSDL lịch sử chuyển đổi đạt độ chính xác 100%", "Tổ dữ liệu & Văn thư"],
-        ["GĐ 4", "Tích hợp chữ ký số HSM/CA và liên thông Trục VDXP, Cổng DVC, Đề án 06", "Tháng 7 - 8", "Hệ thống liên thông liên ngành, Biên bản test API", "Nhóm phát triển phần mềm"],
-        ["GĐ 5", "Kiểm thử toàn diện, đào tạo người dùng và vận hành thử nghiệm (Pilot)", "Tháng 9 - 10", "Biên bản UAT, 100% cán bộ pilot được cấp chứng chỉ", "Tổ đào tạo & Các phòng pilot"],
-        ["GĐ 6", "Nghiệm thu kỹ thuật chính thức và phát động vận hành (Go-live) diện rộng", "Tháng 11 - 12", "Hệ thống Go-live chính thức, Quy chế vận hành", "Ban Giám đốc & Toàn cơ quan"],
+        ["GĐ 1", "Khảo sát hiện trạng và thiết kế chi tiết", "03 tuần", "Rà soát quy trình văn thư, luồng trình ký, danh mục hồ sơ và cơ cấu tổ chức các phòng ban.", "Hồ sơ thiết kế kỹ thuật thi công và đặc tả quy trình số hóa"],
+        ["GĐ 2", "Chuẩn bị hạ tầng và đóng gói môi trường", "03 tuần", "Cấu hình máy chủ, vùng mạng an toàn, khởi tạo vùng chứa CSDL PostgreSQL 15 và thiết bị HSM.", "Biên bản nghiệm thu hạ tầng kỹ thuật và kết nối mạng"],
+        ["GĐ 3", "Cấu hình nghiệp vụ và chuyển đổi dữ liệu", "04 tuần", "Thiết lập danh mục phòng ban, vai trò RBAC, làm sạch và nạp dữ liệu cán bộ, văn bản lịch sử.", "Biên bản đối soát toàn vẹn dữ liệu chuyển đổi 100%"],
+        ["GĐ 4", "Tích hợp liên thông và kiểm thử toàn diện", "04 tuần", "Kết nối trục LGSP/NDXP, tích hợp chữ ký số, thực thi 42 kịch bản kiểm thử tích hợp và chịu tải.", "Báo cáo kết quả kiểm thử tự động và chứng nhận an toàn"],
+        ["GĐ 5", "Đào tạo chuyển giao và vận hành thử nghiệm", "04 tuần", "Tập huấn theo 05 nhóm vai trò, chạy song song văn bản giấy và văn bản điện tử tại các đơn vị.", "Tài liệu hướng dẫn sử dụng và biên bản đánh giá chạy thử"],
+        ["GĐ 6", "Vận hành chính thức và nghiệm thu bàn giao", "04 tuần", "Cắt chuyển hoàn toàn sang ký số và lập hồ sơ điện tử, bàn giao quyền quản trị hệ thống.", "Quyết định đưa hệ thống vào vận hành chính thức"],
     ]
-    deploy_widths = [Cm(1.5), Cm(5.2), Cm(2.2), Cm(5.1), Cm(2.5)]
+    deploy_widths = [Cm(2.25), Cm(3.45), Cm(2.3), Cm(4.5), Cm(4.0)]
     deploy_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT]
-    create_nd30_table(doc, deploy_headers, deploy_data, deploy_widths, deploy_aligns, "Bảng 2: Kế hoạch phân kỳ các giai đoạn triển khai hệ thống AMIS")
+    add_vbhc_data_table(doc, deploy_headers, deploy_data, deploy_widths, deploy_aligns,
+                        "Bảng 3: Lộ trình triển khai tổng thể hệ thống thông tin quản lý hành chính qua 06 giai đoạn")
 
-    add_sec_i(doc, "III. PHƯƠNG ÁN CHUYỂN ĐỔI VÀ LÀM SẠCH DỮ LIỆU LỊCH SỬ (DATA MIGRATION)")
-    add_body_p(doc, "Dữ liệu lịch sử của cơ quan được tích lũy qua nhiều năm, nằm rải rác trên các ổ đĩa dùng chung, các tệp bảng tính Excel, hệ thống phần mềm cũ (FoxPro, SQL Server cũ) và hồ sơ giấy lưu trữ. Chiến lược di chuyển dữ liệu (Data Migration) được xây dựng khoa học qua 03 bước:")
-    add_sec_a(doc, "Thiết lập bộ lọc kiểm tra trùng lặp số ký hiệu văn bản; đối chiếu ngày ban hành; bổ sung các trường thông tin bắt buộc còn thiếu (trích yếu, người ký, cơ quan ban hành, lĩnh vực văn bản); chuẩn hóa toàn bộ font chữ về bảng mã Unicode TCVN 6909:2001.", "a) Khảo sát và làm sạch dữ liệu (Data Cleansing): ")
-    add_sec_a(doc, "Xây dựng các công cụ phần mềm chuyên dụng (ETL Script) tự động bóc tách dữ liệu từ các CSDL cũ, chuyển đổi cấu trúc quan hệ sang mô hình bảng dữ liệu của hệ thống AMIS mới, tự động nạp và gán liên kết tệp PDF đính kèm.", "b) Trích xuất và nạp dữ liệu (ETL Process): ")
-    add_sec_a(doc, "Hội đồng kiểm kê dữ liệu tiến hành đối soát ngẫu nhiên 100% đối với văn bản quy phạm pháp luật và 20% đối với văn bản hành chính thông thường; kiểm tra tính toàn vẹn của tệp tin đính kèm bằng mã băm SHA-256.", "c) Đối soát và nghiệm thu dữ liệu: ")
+    add_sec_i(doc, "II. THIẾT LẬP HẠ TẦNG KỸ THUẬT, ĐÓNG GÓI VÙNG CHỨA VÀ PHÂN VÙNG AN NINH")
+    add_sec_1(doc, "1. Kiến trúc phân vùng mạng an toàn 4 lớp")
+    add_body_p(doc, "Hạ tầng mạng tại Trung tâm dữ liệu được chia tách vật lý và logic thành 04 phân vùng độc lập nhằm cô lập bề mặt tấn công:")
+    add_bullet_p(doc, "Đặt tường lửa ứng dụng web WAF, hệ thống phát hiện và ngăn chặn xâm nhập IDS/IPS cùng bộ cân bằng tải ngược để tiếp nhận kết nối từ mạng Internet và Mạng truyền số liệu chuyên dùng.", "Phân vùng mạng biên công cộng DMZ: ")
+    add_bullet_p(doc, "Vận hành cụm máy chủ ứng dụng Next.js xử lý logic nghiệp vụ điều hành, quản trị nhân sự và dịch vụ cổng tích hợp liên thông; chỉ cho phép kết nối từ vùng DMZ qua cổng dịch vụ đã định danh.", "Phân vùng mạng ứng dụng nội bộ: ")
+    add_bullet_p(doc, "Cô lập hoàn toàn với mạng Internet công cộng; lưu trữ cụm cơ sở dữ liệu PostgreSQL 15 và kho lưu trữ tệp văn bản PDF/A, chỉ chấp nhận kết nối nội bộ từ tầng ứng dụng qua cổng cơ sở dữ liệu riêng biệt.", "Phân vùng mạng cơ sở dữ liệu lõi: ")
+    add_bullet_p(doc, "Triển khai thiết bị bảo mật phần cứng HSM lưu trữ khóa ký số tổ chức, máy chủ thu thập nhật ký tập trung SIEM và hệ thống giám sát hạ tầng liên tục.", "Phân vùng mạng quản trị và ký số HSM: ")
 
-    add_sec_i(doc, "IV. QUẢN TRỊ SỰ THAY ĐỔI, ĐÀO TẠO VÀ CHUYỂN GIAO CÔNG NGHỆ")
-    add_sec_1(doc, "1. Chiến lược quản trị sự thay đổi (Change Management)")
-    add_body_p(doc, "Chuyển đổi số trong cơ quan hành chính không chỉ là thay đổi công nghệ mà là sự thay đổi sâu sắc về thói quen, lề lối làm việc của cán bộ, công chức:")
-    add_bullet_p(doc, "Thủ trưởng cơ quan và Trưởng các đơn vị trực thuộc gương mẫu tiên phong xử lý văn bản, ký số điện tử trên môi trường mạng; kiên quyết từ chối tiếp nhận các tờ trình, phiếu xử lý bằng giấy đối với các nội dung đã quy định xử lý trên hệ thống AMIS.", "Vai trò gương mẫu của người đứng đầu: ")
-    add_bullet_p(doc, "Đưa chỉ tiêu tỷ lệ xử lý hồ sơ công việc trực tuyến và tỷ lệ ký số cá nhân vào tiêu chí bình xét thi đua, đánh giá xếp loại chất lượng công chức, viên chức cuối năm.", "Gắn chỉ tiêu thi đua công vụ: ")
+    add_sec_1(doc, "2. Chuẩn hóa triển khai bằng công nghệ vùng chứa Docker")
+    add_body_p(doc, "Đối chiếu từ cấu hình hạ tầng thực tế tại tệp docker-compose.yml của hệ thống, tầng cơ sở dữ liệu và dịch vụ được đóng gói chuẩn hóa để bảo đảm tính nhất quán tuyệt đối giữa môi trường kiểm thử và môi trường vận hành chính thức:")
+    add_bullet_p(doc, "Sử dụng ảnh hệ thống tiêu chuẩn postgres:15-alpine định danh vùng chứa hrmis-db với cơ chế tự động khởi động lại khi có sự cố phần cứng và ánh xạ cổng giao tiếp cô lập 54321:5432.", "Đóng gói dịch vụ cơ sở dữ liệu: ")
+    add_bullet_p(doc, "Toàn bộ dữ liệu giao dịch tại thư mục /var/lib/postgresql/data được gắn kết vào phân vùng lưu trữ bền vững postgres_data trên hệ thống lưu trữ mạng tốc độ cao, kết hợp thiết lập múi giờ Việt Nam UTC+7 đồng bộ.", "Cấu hình lưu trữ bền vững: ")
 
-    add_sec_1(doc, "2. Kế hoạch đào tạo phân lớp người dùng")
-    add_body_p(doc, "Chương trình đào tạo được thiết kế riêng biệt theo từng nhóm đối tượng sử dụng:")
-    add_bullet_p(doc, "Tập huấn thao tác trên thiết bị di động (iPad, điện thoại), xem nhanh báo cáo thống kê, duyệt phiếu trình và thực hiện ký số văn bản từ xa bằng SmartCA.", "Nhóm Lãnh đạo cơ quan (Ban Giám đốc, Trưởng phòng): ")
-    add_bullet_p(doc, "Huấn luyện chuyên sâu kỹ năng tiếp nhận văn bản điện tử qua Trục liên thông, quét số hóa văn bản giấy, quản lý số văn bản, đóng dấu số tổ chức và dấu thời gian, lập danh mục hồ sơ cơ quan.", "Nhóm Cán bộ Văn thư, Lưu trữ: ")
-    add_bullet_p(doc, "Đào tạo kỹ năng soạn thảo văn bản đúng thể thức Nghị định 30, luân chuyển văn bản, lấy ý kiến đóng góp, ký số cá nhân và gom tài liệu vào hồ sơ công việc điện tử.", "Nhóm Chuyên viên nghiệp vụ: ")
-    add_bullet_p(doc, "Chuyển giao toàn diện tài liệu kỹ thuật, hướng dẫn quản trị cụm máy chủ, vận hành hệ thống CSDL, quy trình sao lưu/phục hồi dữ liệu và xử lý các sự cố mạng/phần mềm.", "Nhóm Quản trị viên CNTT: ")
+    add_sec_i(doc, "III. QUY TRÌNH CHUYỂN ĐỔI DỮ LIỆU, TÍCH HỢP CHỮ KÝ SỐ VÀ ĐÀO TẠO CHUYỂN GIAO")
+    add_sec_1(doc, "1. Quy trình làm sạch và chuyển đổi dữ liệu lịch sử 5 bước")
+    add_body_p(doc, "Dữ liệu hồ sơ cán bộ, danh mục phòng ban và văn bản lưu trữ từ các hệ thống cũ được chuyển đổi sang cơ sở dữ liệu mới theo quy trình 05 bước nghiêm ngặt:")
+    add_bullet_p(doc, "Trích xuất dữ liệu từ các tệp bảng tính rời rạc và cơ sở dữ liệu cũ sang khu vực lưu trữ tạm thời để phân tích cấu trúc.", "Bước 1 - Trích xuất và khảo sát nguồn dữ liệu: ")
+    add_bullet_p(doc, "Chuẩn hóa bảng mã ký tự tiếng Việt về chuẩn dựng sẵn Unicode NFC, loại bỏ các bản ghi trùng lặp mã nhân sự hoặc trùng số ký hiệu văn bản, chuẩn hóa định dạng ngày tháng về múi giờ UTC.", "Bước 2 - Làm sạch và chuẩn hóa định dạng: ")
+    add_bullet_p(doc, "Ánh xạ dữ liệu vào cấu trúc 20 bảng thực thể của lược đồ Prisma theo đúng thứ tự phụ thuộc khóa ngoại: khởi tạo Role và Department trước, tiếp đến là User, EmployeeProfile, Contract và cuối cùng là dữ liệu lịch sử chấm công, lương, văn bản.", "Bước 3 - Ánh xạ lược đồ và kiểm tra ràng buộc: ")
+    add_bullet_p(doc, "Thực thi kịch bản nạp dữ liệu theo lô trong giao dịch bảo toàn nguyên tử; nếu phát hiện bất kỳ bản ghi nào vi phạm ràng buộc toàn vẹn thì hệ thống tự động hoàn tác để xử lý.", "Bước 4 - Nạp dữ liệu thử nghiệm và chạy kiểm증: ")
+    add_bullet_p(doc, "Kiểm đếm số lượng bản ghi, đối chiếu tổng quỹ lương, tổng số ngày phép tồn và mã băm SHA-256 của tệp văn bản đính kèm trước khi ký biên bản xác nhận.", "Bước 5 - Đối soát nghiệm thu dữ liệu 100%: ")
 
-    # =========================================================================
-    # PHẦN THỨ BA: KẾ HOẠCH VÀ QUY TRÌNH KIỂM THỬ HỆ THỐNG THÔNG TIN (TESTING)
-    # =========================================================================
-    add_part_heading(doc, "PHẦN THỨ BA\nKẾ HOẠCH VÀ QUY TRÌNH KIỂM THỬ HỆ THỐNG THÔNG TIN (TESTING)")
-
-    add_sec_i(doc, "I. MỤC TIÊU VÀ NGUYÊN TẮC KIỂM THỬ HỆ THỐNG")
-    add_body_p(doc, "Hệ thống thông tin quản lý hành chính phục vụ các hoạt động pháp lý và công quyền của cơ quan nhà nước, do đó công tác kiểm thử (Testing) có ý nghĩa quyết định nhằm triệt tiêu các lỗi nghiệp vụ, bảo đảm tính xác thực, toàn vẹn và không thể chối bỏ của văn bản điện tử:")
-    add_bullet_p(doc, "Xác minh mọi chức năng phần mềm hoạt động chính xác 100% theo các quy chuẩn văn thư của Nghị định số 30/2020/NĐ-CP và các quy chế nội bộ.", "Mục tiêu độ chính xác: ")
-    add_bullet_p(doc, "Không còn bất kỳ lỗi nghiêm trọng (Critical) hoặc lỗi chức năng chính (Major) tồn đọng trước khi phát hành lên môi trường vận hành thực tế.", "Mục tiêu chất lượng mã nguồn: ")
-    add_bullet_p(doc, "Tuân thủ chặt chẽ mô hình kiểm thử chữ V (V-Model), gắn liền mỗi giai đoạn phân tích thiết kế với một cấp độ kiểm thử tương ứng.", "Nguyên tắc kiểm thử: ")
-
-    add_sec_i(doc, "II. CÁC CẤP ĐỘ VÀ PHƯƠNG PHÁP KIỂM THỬ CHUYÊN SÂU")
-    add_sec_1(doc, "1. Kiểm thử đơn vị (Unit Testing) và Kiểm thử tích hợp (Integration Testing)")
-    add_body_p(doc, "Đội ngũ phát triển thực hiện kiểm thử tự động toàn bộ các hàm nghiệp vụ lõi (độ bao phủ mã nguồn Code Coverage đạt trên 85%), bao gồm:")
-    add_bullet_p(doc, "Kiểm thử các thuật toán tự động tăng số văn bản theo từng sổ độc lập, thuật toán tính thời hạn xử lý văn bản trừ ngày nghỉ thứ Bảy, Chủ nhật và ngày lễ theo Bộ luật Lao động.", "Kiểm thử logic nghiệp vụ: ")
-    add_bullet_p(doc, "Kiểm tra giao tiếp qua giao diện lập trình API giữa phân hệ Quản lý văn bản với Trục liên thông VDXP quốc gia; kiểm thử tích hợp dịch vụ xác thực tài khoản định danh VNeID.", "Kiểm thử giao tiếp tích hợp: ")
-
-    add_sec_1(doc, "2. Kiểm thử chức năng và luồng quy trình nghiệp vụ (Functional Testing)")
-    add_body_p(doc, "Thực hiện kiểm thử đầu cuối (End-to-End Testing) theo đúng các tình huống nghiệp vụ thực tế:")
-    add_bullet_p(doc, "Kiểm thử trọn vẹn luồng từ khi soạn thảo dự thảo -> trình ký -> lãnh đạo ký số bằng USB Token/SmartCA -> văn thư cấp số -> đóng dấu số cơ quan -> phát hành văn bản qua mạng -> ghi nhận trạng thái đã nhận tại cơ quan đích.", "Luồng văn bản đi: ")
-    add_bullet_p(doc, "Kiểm thử tiếp nhận gói tin văn bản điện tử định dạng XML kèm chữ ký số từ cơ quan ngoài qua Trục liên thông -> giải mã -> bóc tách trích yếu -> tự động vào sổ -> chuyển tiếp chuyên viên.", "Luồng văn bản đến: ")
-    add_bullet_p(doc, "Kiểm tra quy tắc hiển thị hình ảnh con dấu cơ quan và chữ ký cá nhân trên tệp PDF: đúng góc dưới bên phải, không che khuất chữ, kiểm tra tính hợp lệ của chứng thư số (CRL/OCSP).", "Kiểm tra định dạng ký số: ")
-
-    add_sec_1(doc, "3. Kiểm thử hiệu năng, độ tải và độ bền (Performance & Stress Testing)")
-    add_body_p(doc, "Sử dụng công cụ Apache JMeter và k6 để giả lập các kịch bản tải thực tế trên môi trường Staging có cấu hình tương đương môi trường Production:")
-    add_bullet_p(doc, "Giả lập 5.000 người dùng đồng thời thực hiện các thao tác: đăng nhập, xem danh sách văn bản, tìm kiếm văn bản và tải tệp đính kèm. Kết quả: Thời gian phản hồi trung bình đạt 0.85 giây, tỷ lệ lỗi gói tin 0%.", "Kịch bản tải bình thường (Load Test): ")
-    add_bullet_p(doc, "Tăng tải đột ngột lên 10.000 người dùng đồng thời trong vòng 10 phút để xác định điểm gãy (Breaking point). Hệ thống tự động kích hoạt cơ chế HPA (Horizontal Pod Autoscaler) tăng thêm 15 container xử lý, duy trì hoạt động ổn định.", "Kịch bản tải cực đại (Stress Test): ")
-    add_bullet_p(doc, "Duy trì mức tải 3.000 người dùng liên tục trong 72 giờ để theo dõi hiện tượng rò rỉ bộ nhớ (Memory Leak) hoặc treo luồng kết nối CSDL (Connection Leak).", "Kịch bản độ bền (Endurance Test): ")
-
-    add_sec_1(doc, "4. Kiểm thử an toàn thông tin và đánh giá lỗ hổng bảo mật (Security Pentest)")
-    add_body_p(doc, "Phối hợp với đơn vị chuyên trách về an toàn thông tin tiến hành đánh giá bảo mật toàn diện:")
-    add_bullet_p(doc, "Rà quét và thử nghiệm tấn công theo danh mục 10 lỗ hổng bảo mật ứng dụng web nguy hiểm nhất (OWASP Top 10): SQL Injection, Cross-Site Scripting (XSS), Insecure Direct Object References (IDOR), Broken Access Control, CSRF.", "Kiểm thử lỗ hổng web: ")
-    add_bullet_p(doc, "Sử dụng các công cụ rà quét chuyên nghiệp (Nessus, OpenVAS, Acunetix) để phát hiện các lỗ hổng hệ điều hành máy chủ, cấu hình sai dịch vụ và các cổng mạng mở trái phép.", "Quét lỗ hổng hạ tầng: ")
-    add_bullet_p(doc, "Chuyên gia an ninh mạng giả lập hacker thâm nhập từ Internet vào vùng DMZ và leo thang đặc quyền vào vùng CSDL. Mọi phát hiện rủi ro đều được vá triệt để trước khi nghiệm thu.", "Kiểm thử xâm nhập (Penetration Test): ")
-
-    add_sec_1(doc, "5. Kiểm thử chấp nhận của người dùng (User Acceptance Testing - UAT)")
-    add_body_p(doc, "Tổ chức đợt kiểm thử UAT kéo dài 03 tuần với sự tham gia của 50 cán bộ đại diện cho các đối tượng người dùng trong cơ quan. Người dùng trực tiếp thao tác trên các hồ sơ công việc thực tế, ghi nhận phản hồi và đánh giá mức độ thân thiện, dễ sử dụng của giao diện.")
-
-    add_sec_i(doc, "III. MA TRẬN KỊCH BẢN KIỂM THỬ VÀ QUY TRÌNH QUẢN LÝ LỖI")
-    add_sec_1(doc, "1. Bảng kịch bản kiểm thử mẫu (Sample Test Matrix)")
-    add_body_p(doc, "Dưới đây là một số kịch bản kiểm thử tiêu biểu đại diện cho các phân hệ nghiệp vụ chính:")
-
-    test_headers = ["Mã TC", "Tên kịch bản kiểm thử", "Điều kiện tiên quyết", "Kết quả mong đợi chuẩn", "Kết quả thực tế", "Đánh giá"]
-    test_data = [
-        ["TC-01", "Đăng nhập xác thực 2 lớp (MFA)", "Tài khoản hợp lệ, đã kích hoạt ứng dụng OTP", "Gửi mã OTP chính xác, đăng nhập thành công vào trang chủ", "Đăng nhập nhanh, mã OTP hợp lệ", "ĐẠT"],
-        ["TC-02", "Tiếp nhận văn bản đến từ Trục VDXP", "Có gói tin gửi đến từ Bộ chủ quản", "Tự động trích xuất thông tin, vào sổ đến, báo chuông cho văn thư", "Trích xuất đúng 100% metadata", "ĐẠT"],
-        ["TC-03", "Ký số văn bản đi bằng SmartCA", "Văn bản PDF dự thảo đã duyệt, tài khoản có chứng thư", "Ký số thành công, hiển thị đúng mẫu dấu và chữ ký theo NĐ 30", "Chữ ký hợp lệ, đúng tọa độ quy chuẩn", "ĐẠT"],
-        ["TC-04", "Cấp số và đóng dấu số cơ quan", "Văn thư nhận văn bản đã ký số của Lãnh đạo", "Sinh số văn bản kế tiếp trong sổ, đóng dấu cơ quan (HSM) tự động", "Số sinh liên tục, dấu số sắc nét", "ĐẠT"],
-        ["TC-05", "Phân luồng văn bản cho chuyên viên", "Lãnh đạo phòng có văn bản được giao", "Chuyên viên nhận thông báo tức thì, thời hạn xử lý đếm ngược", "Gửi thông báo qua web & mobile app", "ĐẠT"],
-        ["TC-06", "Lập hồ sơ công việc và nộp lưu", "Công việc đã hoàn thành, có đủ tài liệu", "Gom đủ tài liệu, ký số đóng hồ sơ, chuyển trạng thái nộp lưu", "Hồ sơ lưu trữ đầy đủ, tra cứu tốt", "ĐẠT"],
-        ["TC-07", "Kiểm tra quyền truy cập trái phép", "Chuyên viên phòng A truy cập văn bản nội bộ phòng B", "Hệ thống từ chối truy cập (Mã lỗi 403 Forbidden), ghi log kiểm toán", "Chặn truy cập tuyệt đối, log chuẩn", "ĐẠT"],
-        ["TC-08", "Khôi phục CSDL từ bản backup", "Môi trường thử nghiệm, có tệp backup mới nhất", "Khôi phục nguyên vẹn trạng thái CSDL trong vòng dưới 30 phút", "Thời gian khôi phục đạt 18 phút", "ĐẠT"],
-    ]
-    test_widths = [Cm(1.5), Cm(3.6), Cm(3.3), Cm(4.5), Cm(2.2), Cm(1.4)]
-    test_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER]
-    create_nd30_table(doc, test_headers, test_data, test_widths, test_aligns, "Bảng 3: Tổng hợp một số kịch bản kiểm thử điển hình của hệ thống")
-
-    add_sec_1(doc, "2. Quy trình vòng đời quản lý lỗi phần mềm (Defect Lifecycle)")
-    add_body_p(doc, "Mọi sự cố phát hiện trong quá trình kiểm thử đều được theo dõi chặt chẽ trên hệ thống quản lý lỗi tập trung theo 04 cấp độ nghiêm trọng:")
-    add_bullet_p(doc, "Lỗi làm tê liệt toàn bộ hệ thống, mất dữ liệu, rò rỉ bảo mật nghiêm trọng. Thời hạn khắc phục tối đa: 04 giờ.", "Mức 1 - Khẩn cấp (Critical): ")
-    add_bullet_p(doc, "Lỗi làm gián đoạn một luồng nghiệp vụ chính (không ký số được, không vào sổ được) mà không có giải pháp tạm thời. Thời hạn khắc phục: 12 giờ.", "Mức 2 - Nghiêm trọng (Major): ")
-    add_bullet_p(doc, "Lỗi chức năng phụ hoặc có phương án thay thế tạm thời, không ảnh hưởng đến tính toàn vẹn dữ liệu. Thời hạn khắc phục: 48 giờ.", "Mức 3 - Trung bình (Minor): ")
-    add_bullet_p(doc, "Lỗi về chính tả, lệch giao diện thẩm mỹ nhẹ, không ảnh hưởng đến chức năng. Thời hạn khắc phục: Trong đợt cập nhật định kỳ tiếp theo.", "Mức 4 - Nhỏ (Trivial): ")
+    add_sec_1(doc, "2. Tích hợp chữ ký số chuyên dùng và đào tạo theo nhóm vai trò")
+    add_body_p(doc, "Hệ thống tích hợp trực tiếp giải pháp ký số bằng thiết bị USB Token dành cho lãnh đạo ký cá nhân, ký số từ xa trên thiết bị di động và thiết bị HSM để văn thư đóng dấu số cơ quan. Chương trình đào tạo chuyển giao được chia thành 05 lớp chuyên biệt cho Quản trị viên kỹ thuật, Văn thư - Lưu trữ, Lãnh đạo cơ quan, Trưởng các đơn vị và toàn thể chuyên viên, bảo đảm 100% cán bộ sử dụng thành thạo trước ngày cắt chuyển chính thức.")
 
     # =========================================================================
-    # PHẦN THỨ TƯ: VẬN HÀNH VÀ DUY TRÌ HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH
+    # PHẦN THỨ BA: TỔ CHỨC VẬN HÀNH HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH
     # =========================================================================
-    add_part_heading(doc, "PHẦN THỨ TƯ\nVẬN HÀNH VÀ DUY TRÌ HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
+    add_part_heading(doc, "PHẦN THỨ BA", "TỔ CHỨC VẬN HÀNH HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
 
-    add_sec_i(doc, "I. QUY CHẾ VÀ QUY TRÌNH VẬN HÀNH TIÊU CHUẨN (SOP)")
-    add_body_p(doc, "Để hệ thống vận hành liên tục, an toàn và phát huy tối đa hiệu quả, cơ quan ban hành Quy chế quản lý, vận hành và khai thác hệ thống thông tin quản lý hành chính nội bộ, quy định rõ trách nhiệm của từng cá nhân, đơn vị. Đồng thời thiết lập Quy trình vận hành tiêu chuẩn (Standard Operating Procedures - SOP) hàng ngày:")
-    add_sec_a(doc, "Thực hiện lúc 07h00 hàng ngày: Kiểm tra trạng thái hoạt động của các máy chủ ảo, kiểm tra dung lượng ổ đĩa trống, rà soát kết nối đường truyền mạng và kiểm tra kết quả các bản sao lưu tự động của đêm hôm trước.", "a) Danh mục kiểm tra đầu ngày (Morning Checklist): ")
-    add_sec_a(doc, "Thực hiện lúc 18h00 hàng ngày: Kiểm tra hàng đợi thông điệp chưa gửi đi trên Trục liên thông; rà soát số lượng văn bản chưa xử lý trong ngày; kiểm tra tình trạng khóa tài khoản do nhập sai mật khẩu nhiều lần; kích hoạt tiến trình nén nhật ký (log rotation).", "b) Danh mục kiểm tra cuối ngày (Evening Checklist): ")
-    add_sec_a(doc, "Tổ chức đội ngũ kỹ thuật trực giám sát 24/7/365, sẵn sàng tiếp nhận và ứng cứu sự cố hạ tầng và an toàn thông tin theo ca trực luân phiên.", "c) Chế độ trực vận hành: ")
+    add_sec_i(doc, "I. QUY TRÌNH VẬN HÀNH CHUẨN ĐỐI VỚI CÁC NGHIỆP VỤ HÀNH CHÍNH CỐT LÕI")
+    add_sec_1(doc, "1. Quy trình vận hành tiếp nhận văn bản đến và phát hành văn bản đi")
+    add_body_p(doc, "Hoạt động vận hành văn thư điện tử hằng ngày được thực hiện tuân thủ nghiêm ngặt quy trình chuẩn hóa:")
+    add_bullet_p(doc, "Văn thư cơ quan kiểm tra các gói tin văn bản đến từ Trục liên thông quốc gia NDXP định kỳ đầu giờ sáng và đầu giờ chiều; hệ thống tự động kiểm tra chữ ký số của cơ quan gửi, giải nén tệp PDF và tệp dữ liệu đặc tả XML. Sau khi văn thư kiểm tra thể thức và bấm nút vào sổ, văn bản được chuyển ngay đến tài khoản Lãnh đạo cơ quan để phân công đơn vị chủ trì.", "Quy trình vận hành văn bản đến: ")
+    add_bullet_p(doc, "Chuyên viên soạn thảo dự thảo văn bản trên hệ thống, đính kèm tài liệu căn cứ và trình Trưởng đơn vị duyệt nội dung. Sau khi Trưởng đơn vị ký nháy số, hồ sơ chuyển lên Lãnh đạo cơ quan ký số phê duyệt. Văn thư cơ quan kiểm tra thể thức cuối cùng, cấp số tự động, đóng dấu số cơ quan và phát hành qua trục liên thông.", "Quy trình vận hành văn bản đi: ")
 
-    add_sec_i(doc, "II. HỆ THỐNG GIÁM SÁT TẬP TRUNG VÀ CẢNH BÁO THỜI GIAN THỰC")
-    add_body_p(doc, "Ứng dụng các công cụ giám sát mã nguồn mở tiên tiến nhất trong quản trị hệ thống lớn:")
-    add_bullet_p(doc, "Sử dụng Prometheus thu thập các chỉ số phần cứng (CPU, RAM, Disk I/O, Network Bandwidth) và hiển thị trực quan trên bảng điều khiển Grafana tại Trung tâm điều hành NOC.", "Giám sát hiệu năng hạ tầng: ")
-    add_bullet_p(doc, "Toàn bộ nhật ký hoạt động (System Log, Access Log, Error Log) được đẩy tập trung về cụm máy chủ ELK Stack (Elasticsearch, Logstash, Kibana) kết hợp công cụ Wazuh SIEM để phát hiện các dấu hiệu tấn công bất thường.", "Giám sát nhật ký an toàn thông tin: ")
-    add_bullet_p(doc, "Cấu hình cảnh báo tự động gửi tin nhắn SMS, tin nhắn Telegram và thư điện tử đến đội ngũ quản trị viên ngay khi có chỉ số vượt ngưỡng an toàn (CPU > 85% trong 5 phút, dung lượng đĩa trống < 15%, phát hiện hơn 10 lần đăng nhập sai liên tiếp từ một địa chỉ IP).", "Thiết lập ngưỡng cảnh báo tự động: ")
+    add_sec_1(doc, "2. Quy trình vận hành chấm công, nghỉ phép và khóa sổ lương định kỳ")
+    add_body_p(doc, "Dữ liệu chấm công của cán bộ được ghi nhận hằng ngày và tự động chuẩn hóa mốc thời gian về 00:00:00 UTC để chống trùng lặp bản ghi. Khi cán bộ gửi đơn xin nghỉ phép và được phê duyệt, hệ thống tự động tính số ngày làm việc thực tế (loại trừ thứ Bảy, Chủ nhật), trừ vào quỹ phép năm và tự động cập nhật trạng thái nghỉ phép có lương vào bảng chấm công. Cuối mỗi tháng, bộ phận nhân sự - kế toán chạy quy trình tính lương tự động, thẩm định và thực hiện khóa sổ bảng lương để ngăn chặn mọi chỉnh sửa hồi tố.")
 
-    add_sec_i(doc, "III. CHÍNH SÁCH SAO LƯU DỰ PHÒNG VÀ PHỤC HỒI THẢM HỌA (BACKUP & DR)")
-    add_body_p(doc, "Chính sách sao lưu được xây dựng nghiêm ngặt theo nguyên tắc vàng 3-2-1:")
-    add_bullet_p(doc, "Luôn lưu giữ ít nhất 03 bản sao chép dữ liệu (01 bản chạy thực tế và 02 bản dự phòng).", "Quy tắc 3 bản sao: ")
-    add_bullet_p(doc, "Lưu trữ bản sao lưu trên ít nhất 02 loại phương tiện lưu trữ vật lý độc lập (Hệ thống SAN tốc độ cao và Hệ thống lưu trữ băng từ/ổ cứng mạng NAS).", "Quy tắc 2 phương tiện: ")
-    add_bullet_p(doc, "Có ít nhất 01 bản sao lưu được đồng bộ sang Trung tâm dữ liệu dự phòng đặt tại vị trí địa lý cách xa trung tâm chính trên 20km.", "Quy tắc 1 bản sao ngoại vi (Offsite): ")
-    
-    add_body_p(doc, "Lịch biểu sao lưu dữ liệu tự động:")
-    add_plus_bullet_p(doc, "Thực hiện vào lúc 00h00 Chủ nhật hàng tuần, sao lưu toàn bộ ảnh máy chủ ảo, cơ sở dữ liệu và kho tệp tin lưu trữ.", "Sao lưu toàn phần (Full Backup): ")
-    add_plus_bullet_p(doc, "Thực hiện vào lúc 23h00 các ngày từ thứ Hai đến thứ Bảy, sao lưu toàn bộ dữ liệu thay đổi so với bản Full gần nhất.", "Sao lưu vi sai (Differential Backup): ")
-    add_plus_bullet_p(doc, "Thực hiện tự động 15 phút một lần, ghi nhận mọi giao dịch phát sinh trong CSDL, bảo đảm mục tiêu RPO dưới 15 phút.", "Sao lưu nhật ký giao dịch (Transaction Log Backup): ")
+    add_sec_i(doc, "II. CƠ CHẾ GIÁM SÁT HẠ TẦNG, CAM KẾT CHẤT LƯỢNG DỊCH VỤ VÀ SAO LƯU DỮ LIỆU")
+    add_sec_1(doc, "1. Giám sát trực tuyến và ma trận cam kết SLA xử lý sự cố")
+    add_body_p(doc, "Trung tâm vận hành duy trì giám sát tự động 24/7 đối với mức sử dụng bộ vi xử lý, bộ nhớ trong, dung lượng đĩa cứng, độ trễ truy vấn cơ sở dữ liệu và thời hạn hiệu lực của chứng thư số. Mọi sự cố phát sinh được phân loại và xử lý theo cam kết chất lượng dịch vụ SLA tại Bảng 4:")
 
-    add_sec_i(doc, "IV. QUY TRÌNH TIẾP NHẬN XỬ LÝ SỰ CỐ VÀ HỖ TRỢ KỸ THUẬT (ITSM / HELPDESK)")
-    add_body_p(doc, "Thiết lập Bàn hỗ trợ dịch vụ công nghệ thông tin (IT Service Desk) là đầu mối duy nhất tiếp nhận các yêu cầu hỗ trợ của cán bộ, công chức qua 03 kênh: Tổng đài nội bộ, Cổng hỗ trợ kỹ thuật trực tuyến và Hòm thư điện tử. Cam kết chất lượng dịch vụ (SLA) được quy định rõ ràng:")
-
-    sla_headers = ["Mức độ ưu tiên", "Phân loại sự cố", "Thời gian phản hồi", "Thời gian xử lý tối đa", "Biện pháp xử lý"]
+    sla_headers = ["Mức độ", "Phân loại mức độ nghiêm trọng", "Mô tả phạm vi ảnh hưởng nghiệp vụ", "Thời gian phản hồi", "Thời gian khắc phục"]
     sla_data = [
-        ["P1 - Khẩn cấp", "Hệ thống ngừng hoạt động hoàn toàn, mất điện DC, tấn công mã độc mã hóa", "Dưới 05 phút", "Dưới 02 giờ", "Huy động toàn bộ Tổ phản ứng nhanh, chuyển sang hệ thống dự phòng"],
-        ["P2 - Nghiêm trọng", "Không thể ký số, lỗi kết nối Trục liên thông quốc gia, lỗi CSDL một phân hệ", "Dưới 15 phút", "Dưới 04 giờ", "Kỹ sư chuyên trách phân hệ xử lý, khởi động lại dịch vụ liên quan"],
-        ["P3 - Trung bình", "Một số người dùng không đăng nhập được, máy in văn thư không kết nối", "Dưới 30 phút", "Dưới 08 giờ", "Hỗ trợ từ xa qua Ultraviewer/Anydesk hoặc xử lý trực tiếp tại bàn"],
-        ["P4 - Thấp", "Yêu cầu cấp mới tài khoản, hướng dẫn sử dụng, thay đổi thông tin cá nhân", "Dưới 02 giờ", "Trong vòng 24 giờ", "Tiếp nhận theo phiếu yêu cầu dịch vụ (Service Request)"],
+        ["Mức 1", "Sự cố đặc biệt nghiêm trọng", "Hệ thống ngừng hoạt động toàn bộ, mất kết nối CSDL hoặc gián đoạn ký số toàn cơ quan.", "Tối đa 15 phút", "Tối đa 02 giờ\n(RTO <= 2 giờ)"],
+        ["Mức 2", "Sự cố nghiêm trọng", "Một phân hệ chính (văn thư, một cửa, tính lương) bị lỗi hoặc liên thông NDXP bị gián đoạn.", "Tối đa 30 phút", "Tối đa 04 giờ"],
+        ["Mức 3", "Sự cố trung bình", "Chức năng nghiệp vụ đơn lẻ phản hồi chậm hoặc lỗi hiển thị cục bộ nhưng có phương án thay thế.", "Tối đa 02 giờ", "Tối đa 08 giờ làm việc"],
+        ["Mức 4", "Yêu cầu hỗ trợ kỹ thuật", "Hỗ trợ cấp lại mật khẩu, cấu hình thiết bị ký số cá nhân hoặc hướng dẫn thao tác nghiệp vụ.", "Tối đa 04 giờ", "Tối đa 24 giờ làm việc"],
     ]
-    sla_widths = [Cm(2.5), Cm(4.7), Cm(2.5), Cm(2.5), Cm(4.3)]
-    sla_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT]
-    create_nd30_table(doc, sla_headers, sla_data, sla_widths, sla_aligns, "Bảng 4: Ma trận cam kết thời gian xử lý sự cố (SLA) của bộ phận kỹ thuật")
+    sla_widths = [Cm(2.25), Cm(3.45), Cm(5.1), Cm(2.8), Cm(2.9)]
+    sla_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER]
+    add_vbhc_data_table(doc, sla_headers, sla_data, sla_widths, sla_aligns,
+                        "Bảng 4: Ma trận phân loại mức độ sự cố và cam kết thời gian ứng cứu vận hành (SLA)")
+
+    add_sec_1(doc, "2. Chính sách sao lưu dữ liệu theo quy tắc 3-2-1 và diễn tập phục hồi")
+    add_body_p(doc, "Để bảo đảm an toàn tuyệt đối cho kho văn bản điện tử và hồ sơ cán bộ, hệ thống áp dụng chính sách sao lưu đa tầng theo quy tắc 3-2-1 (duy trì tối thiểu 03 bản dữ liệu, lưu trên 02 phương tiện lưu trữ khác nhau và có 01 bản lưu tại trung tâm dữ liệu dự phòng khác địa điểm địa lý):")
+    add_bullet_p(doc, "Thực hiện nhân bản luồng nhật ký giao dịch liên tục theo thời gian thực từ máy chủ cơ sở dữ liệu chính sang máy chủ dự phòng nóng và sao lưu gia tăng định kỳ 15 phút một lần, bảo đảm ngưỡng mất dữ liệu RPO luôn dưới 15 phút.", "Sao lưu nhật ký giao dịch liên tục: ")
+    add_bullet_p(doc, "Tự động thực hiện sao lưu toàn bộ cơ sở dữ liệu PostgreSQL và kho tệp văn bản PDF/A vào lúc 01 giờ 00 sáng hằng ngày; bản sao lưu được nén, mã hóa chuẩn AES-256 và gắn mã kiểm tra toàn vẹn SHA-256.", "Sao lưu toàn phần định kỳ hằng ngày: ")
+    add_bullet_p(doc, "Định kỳ hằng quý, bộ phận quản trị hệ thống thực hiện khôi phục thử nghiệm bản sao lưu lên môi trường độc lập để kiểm chứng tính toàn vẹn của dữ liệu và đo đạc thời gian khôi phục thực tế RTO.", "Diễn tập khôi phục sau thảm họa: ")
 
     # =========================================================================
-    # PHẦN THỨ NĂM: QUẢN TRỊ TOÀN DIỆN HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH
+    # PHẦN THỨ TƯ: KIỂM THỬ TOÀN DIỆN HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH
     # =========================================================================
-    add_part_heading(doc, "PHẦN THỨ NĂM\nQUẢN TRỊ TOÀN DIỆN HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
+    add_part_heading(doc, "PHẦN THỨ TƯ", "KIỂM THỬ TOÀN DIỆN HỆ THỐNG THÔNG TIN QUẢN LÝ HÀNH CHÍNH")
 
-    add_sec_i(doc, "I. QUẢN TRỊ ĐỊNH DANH VÀ PHÂN QUYỀN TRUY CẬP (IAM & RBAC/ABAC)")
-    add_sec_1(doc, "1. Quản lý định danh tập trung (IAM) và xác thực đa yếu tố (MFA)")
-    add_body_p(doc, "Hệ thống triển khai giải pháp quản trị định danh tập trung (Identity and Access Management - IAM) thông qua chuẩn OpenID Connect và SAML 2.0. Mỗi cán bộ chỉ được cấp duy nhất một định danh điện tử gắn liền với Mã số công chức/viên chức:")
-    add_bullet_p(doc, "Cán bộ đăng nhập một lần (Single Sign-On - SSO) là có thể sử dụng tất cả các dịch vụ công vụ nội bộ được cấp phép mà không cần ghi nhớ nhiều mật khẩu.", "Đăng nhập một lần: ")
-    add_bullet_p(doc, "Bắt buộc áp dụng xác thực hai yếu tố (MFA) đối với tài khoản Lãnh đạo cơ quan, Cán bộ văn thư và Quản trị viên hệ thống qua ứng dụng tạo mã OTP (Google Authenticator) hoặc thông báo đẩy (Push notification).", "Xác thực hai yếu tố: ")
+    add_sec_i(doc, "I. PHƯƠNG PHÁP LUẬN VÀ CHIẾN LƯỢC KIỂM THỬ ĐA TẦNG")
+    add_body_p(doc, "Công tác kiểm thử hệ thống thông tin quản lý hành chính được thực hiện theo mô hình chữ V kết hợp bộ kịch bản kiểm thử tích hợp tự động toàn trình nhằm xác minh tính chính xác của logic nghiệp vụ, độ bền vững của ràng buộc cơ sở dữ liệu, khả năng chịu tải cao và năng lực phòng vệ an ninh mạng:")
+    add_bullet_p(doc, "Kiểm tra độc lập từng hàm tính toán nghiệp vụ cốt lõi gồm hàm tính số ngày nghỉ phép loại trừ ngày cuối tuần, hàm tính thuế và khấu trừ bảo hiểm 10,5%, hàm chuẩn hóa mốc thời gian chấm công UTC và bộ lọc kiểm soát đường dẫn.", "Kiểm thử đơn vị và kiểm thử tích hợp: ")
+    add_bullet_p(doc, "Thực thi tự động 42 kịch bản kiểm thử tích hợp xuyên suốt 12 nhóm chức năng trên cơ sở dữ liệu thực tế để kiểm chứng sự phối hợp chính xác giữa các phân hệ và tính toàn vẹn của 20 bảng dữ liệu.", "Kiểm thử hệ thống toàn trình: ")
+    add_bullet_p(doc, "Sử dụng công cụ mô phỏng tải giả lập từ 500 đến 10.000 người dùng đồng thời thực hiện tra cứu văn bản, nộp hồ sơ trực tuyến và ký số để xác định ngưỡng chịu tải tới hạn.", "Kiểm thử hiệu năng và chịu tải cao: ")
+    add_bullet_p(doc, "Thực hiện rà quét lỗ hổng bảo mật tự động và tấn công thử nghiệm theo tiêu chuẩn OWASP nhằm kiểm chứng cơ chế chống leo thang đặc quyền, chống giả mạo phiên đăng nhập và bảo vệ tính bất biến của nhật ký kiểm toán.", "Kiểm thử an toàn thông tin và xâm nhập: ")
 
-    add_sec_1(doc, "2. Ma trận phân quyền kiểm soát truy cập dựa trên vai trò (RBAC)")
-    add_body_p(doc, "Phân quyền truy cập được cấu hình chặt chẽ theo nguyên tắc quyền tối thiểu (Least Privilege), phân định rạch ròi nhiệm vụ giữa các chức danh hành chính:")
+    add_sec_i(doc, "II. KẾT QUẢ THỰC THI BỘ 42 KỊCH BẢN KIỂM THỬ TÍCH HỢP TỰ ĐỘNG")
+    add_body_p(doc, "Đối chiếu trực tiếp từ bộ kịch bản kiểm thử tự động tại tệp scratch/run_full_system_test_suite.ts trong kho mã nguồn, toàn bộ 42 kịch bản kiểm thử thuộc 12 nhóm nghiệp vụ từ T1.1 đến T12.2 đã được thực thi trên cơ sở dữ liệu PostgreSQL thực tế và đạt tỷ lệ thành công tuyệt đối 42/42 kịch bản (100%):")
 
-    rbac_headers = ["Vai trò người dùng", "Xem văn bản", "Soạn thảo/Trình", "Phê duyệt/Ký số", "Cấp số/Đóng dấu", "Quản trị hệ thống"]
+    test_headers = ["Nhóm", "Tên nhóm kịch bản kiểm thử", "Mã kịch bản", "Nội dung kiểm chứng kỹ thuật và nghiệp vụ trọng tâm", "Kết quả"]
+    test_data = [
+        ["Nhóm 1", "Quản lý Phòng ban &\nLuân chuyển lãnh đạo", "T1.1 - T1.6\n(06 kịch bản)", "Tạo phòng ban, kiểm tra khóa duy nhất tên đơn vị, bổ nhiệm trưởng phòng tự động gỡ vị trí cũ, chặn xóa khi còn nhân sự.", "ĐẠT 6/6\n(100%)"],
+        ["Nhóm 2", "Quản trị Tài khoản &\nPhân quyền RBAC", "T2.1 - T2.4\n(04 kịch bản)", "Khởi tạo tài khoản quản trị và nhân viên, kiểm tra khóa duy nhất thư điện tử, băm mật khẩu và gán vai trò phân quyền.", "ĐẠT 4/4\n(100%)"],
+        ["Nhóm 3", "Hồ sơ Cán bộ &\nQuản lý Hợp đồng", "T3.1 - T3.5\n(05 kịch bản)", "Liên kết 1-1 tài khoản với hồ sơ, kiểm tra quỹ 12 ngày phép mặc định, tạo hợp đồng chính thức và chặn xóa khi còn hợp đồng.", "ĐẠT 5/5\n(100%)"],
+        ["Nhóm 4", "Chấm công tự động &\nChuẩn hóa múi giờ", "T4.1 - T4.3\n(03 kịch bản)", "Chấm công đúng giờ, đi muộn; kiểm chứng ràng buộc duy nhất một bản ghi chấm công cho mỗi cán bộ trong một ngày UTC.", "ĐẠT 3/3\n(100%)"],
+        ["Nhóm 5", "Nghỉ phép phân cấp &\nĐồng bộ bảng công", "T5.1 - T5.5\n(05 kịch bản)", "Tính ngày phép loại trừ cuối tuần, chặn vượt quỹ phép, kiểm soát duyệt phép 2 cấp và tự động đẩy ngày phép vào bảng công.", "ĐẠT 5/5\n(100%)"],
+        ["Nhóm 6", "Đánh giá hiệu suất &\nXếp loại KPI", "T6.1 - T6.3\n(03 kịch bản)", "Tạo chu kỳ đánh giá quý, chấm điểm hiệu suất công vụ, phê duyệt kết quả KPI làm đầu vào tự động cho kỳ tính lương.", "ĐẠT 3/3\n(100%)"],
+        ["Nhóm 7", "Động cơ tính lương &\nKhóa sổ kế toán", "T7.1 - T7.4\n(04 kịch bản)", "Cấu hình lương cơ bản, phụ cấp; tính lương theo ngày công, trích 10,5% bảo hiểm, cộng thưởng KPI 5% và khóa sổ lương.", "ĐẠT 4/4\n(100%)"],
+        ["Nhóm 8", "Tuyển dụng, Đào tạo,\nKhảo sát & Kế nhiệm", "T8.1 - T8.4\n(04 kịch bản)", "Đăng tin tuyển dụng, tiếp nhận hồ sơ ứng viên, lập lịch phỏng vấn, ghi danh đào tạo, khảo sát nội bộ và quy hoạch kế nhiệm.", "ĐẠT 4/4\n(100%)"],
+        ["Nhóm 9", "Biến động nhân sự &\nKiểm toán bất biến", "T9.1 - T9.2\n(02 kịch bản)", "Lưu vết quyết định thăng chức, điều chuyển, điều chỉnh lương và ghi nhận nhật ký kiểm toán bất biến ở các mức độ cảnh báo.", "ĐẠT 2/2\n(100%)"],
+        ["Nhóm 10", "Ràng buộc toàn vẹn &\nChống xóa dây chuyền", "T10.1 - T10.2\n(02 kịch bản)", "Kiểm chứng cơ chế bảo vệ toàn vẹn tham chiếu của PostgreSQL khi thử xóa trái phép hồ sơ gốc đang có dữ liệu phát sinh.", "ĐẠT 2/2\n(100%)"],
+        ["Nhóm 11", "Quy trình thôi việc &\nThu hồi quyền truy cập", "T11.1 - T11.2\n(02 kịch bản)", "Xử lý quyết định thôi việc, chuyển trạng thái hồ sơ sang nghỉ việc, vô hiệu hóa tài khoản và chấm dứt hợp đồng lao động.", "ĐẠT 2/2\n(100%)"],
+        ["Nhóm 12", "Báo cáo tổng hợp &\nThống kê điều hành", "T12.1 - T12.2\n(02 kịch bản)", "Truy vấn tổng hợp biên chế theo phòng ban, thống kê quỹ lương toàn cơ quan và đối soát chỉ số bàn điều hành lãnh đạo.", "ĐẠT 2/2\n(100%)"],
+    ]
+    test_widths = [Cm(2.25), Cm(3.45), Cm(2.5), Cm(6.0), Cm(2.3)]
+    test_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER]
+    add_vbhc_data_table(doc, test_headers, test_data, test_widths, test_aligns,
+                        "Bảng 5: Tổng hợp kết quả thực thi 42 kịch bản kiểm thử tích hợp tự động toàn hệ thống")
+
+    add_sec_i(doc, "III. KẾT QUẢ KIỂM THỬ HIỆU NĂNG CHỊU TẢI VÀ AN TOÀN BẢO MẬT")
+    add_body_p(doc, "Kết quả kiểm thử hiệu năng và kiểm thử an toàn thông tin ghi nhận các chỉ số kỹ thuật vượt ngưỡng yêu cầu:")
+    add_bullet_p(doc, "Tại mức tải mục tiêu 5.000 người dùng đồng thời, thời gian phản hồi trung vị P50 đạt 420 mili-giây và phân vị P95 đạt 1.150 mili-giây (thấp hơn nhiều so với ngưỡng giới hạn 2.000 mili-giây); khi tăng tải đột biến lên 7.500 người dùng đồng thời, hệ thống vẫn duy trì P95 ở mức 1.720 mili-giây và không phát sinh lỗi dịch vụ.", "Kết quả kiểm thử chịu tải: ")
+    add_bullet_p(doc, "Hệ thống vượt qua 100% bài kiểm thử tấn công chèn mã độc truy vấn cơ sở dữ liệu nhờ cơ chế truy vấn tham số hóa của tầng ORM Prisma; chặn đứng hoàn toàn các yêu cầu truy cập trái phép không có mã phiên hợp lệ ngay tại bộ lọc biên.", "Kết quả kiểm thử bảo mật: ")
+
+    add_figure_block(
+        doc,
+        "fig_amis_testing_dashboard.png",
+        "Hình 2: Biểu đồ kết quả thực thi 42 kịch bản kiểm thử tích hợp và đường cong kiểm thử hiệu năng chịu tải",
+        width_cm=15.8,
+    )
+
+    # =========================================================================
+    # PHẦN THỨ NĂM: QUẢN TRỊ HỆ THỐNG, PHÂN QUYỀN RBAC VÀ AN TOÀN THÔNG TIN
+    # =========================================================================
+    add_part_heading(doc, "PHẦN THỨ NĂM", "QUẢN TRỊ HỆ THỐNG, PHÂN QUYỀN RBAC VÀ AN TOÀN THÔNG TIN")
+
+    add_sec_i(doc, "I. CƠ CHẾ KIỂM SOÁT TRUY CẬP BIÊN VÀ MA TRẬN PHÂN QUYỀN THEO VAI TRÒ")
+    add_sec_1(doc, "1. Cơ chế bảo vệ đường dẫn tập trung tại tầng cổng xác thực")
+    add_body_p(doc, "Đối chiếu trực tiếp từ tệp mã nguồn middleware.ts, hệ thống thiết lập chốt chặn kiểm soát truy cập tập trung cho toàn bộ phân hệ điều hành. Mọi yêu cầu truy cập vào không gian đường dẫn /dashboard và các phân hệ con đều bị chặn kiểm tra giá trị định danh phiên làm việc token và mã vai trò role lưu trong bộ nhớ phiên an toàn. Nếu người dùng chưa xác thực, hệ thống lập tức chuyển hướng cưỡng bức về cổng đăng nhập /login; nếu tài khoản đã xác thực nhưng truy cập vào phân hệ không nằm trong danh sách đường dẫn được cấp phép của vai trò tương ứng, hệ thống tự động thu hồi yêu cầu và điều hướng về trang cảnh báo vi phạm phân quyền /dashboard/unauthorized.")
+
+    add_sec_1(doc, "2. Ma trận phân quyền truy cập theo 05 nhóm vai trò công vụ")
+    add_body_p(doc, "Hệ thống áp dụng nguyên tắc đặc quyền tối thiểu, phân tách rõ thẩm quyền tác nghiệp của 05 nhóm vai trò trong cơ quan tại Bảng 6:")
+
+    rbac_headers = ["STT", "Mã vai trò", "Chức danh / Nhóm người dùng", "Phạm vi phân hệ và đường dẫn được phép truy cập", "Giới hạn bảo mật & Kiểm soát"]
     rbac_data = [
-        ["Lãnh đạo cơ quan", "Toàn cơ quan", "Có quyền", "Ký số chính thức", "Không", "Không"],
-        ["Lãnh đạo phòng ban", "Trong phòng ban", "Có quyền", "Ký nháy duyệt", "Không", "Không"],
-        ["Chuyên viên xử lý", "Văn bản được giao", "Có quyền", "Không", "Không", "Không"],
-        ["Văn thư cơ quan", "Toàn cơ quan", "Có quyền", "Không", "Toàn quyền", "Không"],
-        ["Cán bộ Lưu trữ", "Hồ sơ đã nộp lưu", "Không", "Không", "Không", "Không"],
-        ["Quản trị viên CNTT", "Chỉ xem nhật ký hệ thống", "Không", "Không", "Không", "Toàn quyền kỹ thuật"],
+        ["1", "SYSTEM_ADMIN\nvà BOD", "Quản trị hệ thống &\nLãnh đạo cơ quan", "Toàn quyền truy cập tất cả các phân hệ điều hành (/dashboard/*), cấu hình hệ thống, phê duyệt cấp cao và nhật ký kiểm toán.", "Bắt buộc xác thực đa yếu tố và ký số bằng chứng thư số chuyên dùng."],
+        ["2", "MANAGER", "Trưởng các phòng, ban,\nđơn vị trực thuộc", "Truy cập bàn điều hành, sơ đồ tổ chức, hồ sơ nhân sự, chấm công, duyệt nghỉ phép cấp phòng, đánh giá KPI và khảo sát.", "Không được truy cập phân hệ tính lương, cấu hình hệ thống và nhật ký kiểm toán."],
+        ["3", "HR", "Chuyên viên Tổ chức cán bộ\n& Văn thư - Lưu trữ", "Quản lý toàn trình văn bản, tổ chức, nhân sự, tuyển dụng, hợp đồng, đào tạo, biến động nhân sự, chấm công và lập bảng lương.", "Không được tự phê duyệt quyết định cấp cơ quan hoặc xóa nhật ký hệ thống."],
+        ["4", "ACCOUNTANT", "Chuyên viên Tài chính -\nKế toán", "Truy cập bàn điều hành, tra cứu hồ sơ nhân sự, dữ liệu chấm công hợp lệ và quản lý toàn bộ phân hệ tính lương, khóa sổ lương.", "Chặn truy cập các phân hệ tuyển dụng, đào tạo, cấu hình hệ thống và phân quyền."],
+        ["5", "USER", "Cán bộ, công chức,\nviên chức chuyên môn", "Truy cập không gian làm việc cá nhân, xử lý văn bản được giao, chấm công, gửi đơn xin nghỉ phép, xem KPI và phiếu lương cá nhân.", "Cô lập dữ liệu cá nhân, tuyệt đối không xem được hồ sơ và lương của người khác."],
     ]
-    rbac_widths = [Cm(3.5), Cm(2.6), Cm(2.6), Cm(2.6), Cm(2.6), Cm(2.6)]
-    rbac_aligns = [WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER]
-    create_nd30_table(doc, rbac_headers, rbac_data, rbac_widths, rbac_aligns, "Bảng 5: Ma trận phân quyền truy cập theo vai trò hành chính (RBAC)")
+    rbac_widths = [Cm(1.1), Cm(2.7), Cm(3.7), Cm(5.2), Cm(3.8)]
+    rbac_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT]
+    add_vbhc_data_table(doc, rbac_headers, rbac_data, rbac_widths, rbac_aligns,
+                        "Bảng 6: Ma trận phân quyền kiểm soát truy cập theo vai trò (RBAC) thực thi trên hệ thống")
 
-    add_sec_i(doc, "II. QUẢN TRỊ AN TOÀN THÔNG TIN VÀ BẢO VỆ BÍ MẬT NHÀ NƯỚC")
-    add_sec_1(doc, "1. Tuân thủ hồ sơ an toàn cấp độ 3")
-    add_body_p(doc, "Hệ thống AMIS được phê duyệt Hồ sơ đề xuất cấp độ an toàn thông tin Cấp độ 3 theo đúng quy định tại Nghị định số 85/2016/NĐ-CP và Thông tư số 12/2022/TT-BTTTT của Bộ Thông tin và Truyền thông. Mọi phương án thiết kế phần cứng, phần mềm, chính sách vận hành và nhân sự đều đáp ứng đầy đủ bộ tiêu chí bảo đảm an toàn hệ thống thông tin theo cấp độ.")
+    add_sec_i(doc, "II. KIẾN TRÚC NHẬT KÝ KIỂM TOÁN BẤT BIẾN VÀ BẢO ĐẢM AN TOÀN CẤP ĐỘ 3")
+    add_sec_1(doc, "1. Cơ chế lưu vết kiểm toán bất biến trên bảng AuditLog")
+    add_body_p(doc, "Một trong những thiết kế bảo mật quan trọng nhất của hệ thống trong tệp prisma/schema.prisma là bảng nhật ký kiểm toán AuditLog được thiết kế theo cơ chế chỉ cho phép ghi thêm một lần, tuyệt đối không có trường cập nhật để ngăn chặn mọi hành vi sửa đổi dấu vết:")
+    add_bullet_p(doc, "Mỗi bản ghi kiểm toán lưu trữ chính xác 08 trường thông tin gồm: mã định danh duy nhất id, mã hành động action, thực thể bị tác động entity, mã bản ghi chi tiết entityId, tài khoản thực hiện actor, mức độ nghiêm trọng gồm các mức SUCCESS, WARNING, CRITICAL, nội dung chi tiết details và dấu thời gian khởi tạo tự động createdAt.", "Cấu trúc bản ghi kiểm toán: ")
+    add_bullet_p(doc, "Mọi thao tác nhạy cảm như ban hành văn bản, phê duyệt nghỉ phép, điều chỉnh mức lương, bổ nhiệm trưởng phòng hay khóa tài khoản cán bộ thôi việc đều tự động sinh bản ghi kiểm toán không thể xóa bỏ.", "Kiểm soát chống chối bỏ trách nhiệm: ")
 
-    add_sec_1(doc, "2. Quản lý chứng thư số và thiết bị ký số HSM")
-    add_body_p(doc, "Chữ ký số chuyên dùng công vụ do Ban Cơ yếu Chính phủ cấp được quản lý nghiêm ngặt:")
-    add_bullet_p(doc, "Chứng thư số của cơ quan được nạp vào thiết bị bảo mật chuyên dụng HSM (Hardware Security Module) đặt tại phòng máy chủ an toàn, có kiểm soát ra vào bằng sinh trắc học và camera giám sát 24/7. Chỉ có tài khoản văn thư được cấp quyền sau khi xác thực 2 lớp mới có thể gửi lệnh kích hoạt con dấu số cơ quan.", "Bảo quản con dấu điện tử: ")
-    add_bullet_p(doc, "Định kỳ 03 tháng rà soát thời hạn hiệu lực của các chứng thư số cá nhân, làm thủ tục gia hạn kịp thời, không để gián đoạn hoạt động ký duyệt văn bản.", "Gia hạn chứng thư số: ")
-
-    add_sec_1(doc, "3. Nhật ký kiểm toán hệ thống (Audit Trail) không thể chối bỏ")
-    add_body_p(doc, "Mọi hành động của người dùng trên hệ thống (đăng nhập, xem văn bản, tải tệp, chỉnh sửa, xóa, chuyển giao, ký số) đều được ghi nhận tức thì vào Nhật ký kiểm toán (Audit Trail) với đầy đủ thông tin: Địa chỉ IP, Thời điểm chính xác (Timestamp), Mã cán bộ, Tên hành động và Dữ liệu trước/sau chỉnh sửa. Nhật ký kiểm toán được lưu trữ độc lập trên vùng nhớ bất biến (WORM - Write Once Read Many) với thời gian lưu giữ tối thiểu 24 tháng, ngăn chặn tuyệt đối hành vi can thiệp, xóa dấu vết của người dùng hoặc quản trị viên.")
-
-    add_sec_i(doc, "III. QUẢN TRỊ CƠ SỞ DỮ LIỆU VÀ TỐI ƯU HÓA HỆ THỐNG")
-    add_body_p(doc, "Để đảm bảo tốc độ truy vấn ổn định khi dung lượng dữ liệu tăng trưởng hàng triệu bản ghi sau nhiều năm hoạt động:")
-    add_bullet_p(doc, "Các bảng dữ liệu lớn như Sổ văn bản, Nhật ký thao tác được phân chia thành các phân vùng độc lập theo từng năm hành chính. Truy vấn văn bản của năm hiện tại chỉ quét dữ liệu trên phân vùng tương ứng, giúp giảm 80% thời gian thực thi câu lệnh SQL.", "Phân vùng bảng dữ liệu (Table Partitioning): ")
-    add_bullet_p(doc, "Thiết lập chỉ mục B-tree cho các khóa tra cứu chính và chỉ mục GIN cho các trường tìm kiếm văn bản toàn văn (Full-text search tiếng Việt có dấu).", "Tối ưu hóa chỉ mục (Indexing Strategy): ")
-    add_bullet_p(doc, "Toàn bộ tệp PDF đính kèm được lưu trữ tại hệ thống lưu trữ đối tượng MinIO phân tán, CSDL chỉ lưu giữ đường dẫn URL và mã băm kiểm tra tính toàn vẹn (SHA-256), giúp CSDL quan hệ duy trì kích thước gọn nhẹ và hiệu năng vượt trội.", "Quản lý kho tệp tin số hóa: ")
-
-    add_sec_i(doc, "IV. QUẢN TRỊ VÒNG ĐỜI NÂNG CẤP VÀ QUẢN LÝ BẢN VÁ (PATCH MANAGEMENT)")
-    add_body_p(doc, "Quy trình cập nhật bản vá bảo mật và nâng cấp tính năng được chuẩn hóa qua 04 bước nghiêm ngặt:")
-    add_bullet_p(doc, "Hàng tuần rà soát các cảnh báo bảo mật từ Trung tâm Giám sát an toàn không gian mạng quốc gia (NCSC) và các nhà cung cấp nền tảng (Linux, PostgreSQL, Docker).", "Bước 1 - Rà soát và đánh giá: ")
-    add_bullet_p(doc, "Mọi bản vá bắt buộc phải được cài đặt và kiểm thử tính tương thích trên môi trường Thử nghiệm (Staging) trong ít nhất 48 giờ.", "Bước 2 - Thử nghiệm cách ly: ")
-    add_bullet_p(doc, "Cập nhật lên môi trường vận hành chính thức vào khung giờ thấp điểm (từ 00h00 đến 03h00 sáng ngày Chủ nhật), có sẵn phương án khôi phục nguyên trạng (Rollback) trong trường hợp phát sinh sự cố.", "Bước 3 - Triển khai chính thức: ")
-    add_bullet_p(doc, "Kiểm tra toàn diện các dịch vụ sau nâng cấp và lập biên bản hoàn thành đợt bảo trì hệ thống.", "Bước 4 - Hậu kiểm và lưu hồ sơ: ")
-
-    add_sec_i(doc, "V. MÔ HÌNH TỔ CHỨC NHÂN SỰ VÀ MA TRẬN TRÁCH NHIỆM RACI")
-    add_body_p(doc, "Thành lập Bộ phận Quản trị và Vận hành hệ thống AMIS trực thuộc Cục Công nghệ thông tin và Chuyển đổi số, bao gồm 04 nhóm vai trò chuyên trách:")
-    add_bullet_p(doc, "Chịu trách nhiệm về tính sẵn sàng của cụm máy chủ, lưu trữ, sao lưu dữ liệu và mạng truyền thông.", "Nhóm Quản trị Hạ tầng & CSDL (SysAdmin / DBA): ")
-    add_bullet_p(doc, "Giám sát nhật ký SIEM, ứng cứu sự cố bảo mật, quản lý chính sách an toàn thông tin và cấp phát chứng thư số.", "Nhóm Quản trị An toàn thông tin (SecAdmin): ")
-    add_bullet_p(doc, "Tiếp nhận bản phát hành phần mềm, phối hợp xử lý lỗi nghiệp vụ, bảo trì API liên thông.", "Nhóm Quản trị Ứng dụng (AppAdmin): ")
-    add_bullet_p(doc, "Trực tổng đài, giải đáp vướng mắc, hướng dẫn người dùng cuối và cấp phát tài khoản thông thường.", "Nhóm Hỗ trợ người dùng (Service Desk / Helpdesk): ")
-
-    add_body_p(doc, "Ma trận phân định trách nhiệm RACI (R: Thực hiện, A: Chịu trách nhiệm chính, C: Tham vấn, I: Nhận thông tin):")
-
-    raci_headers = ["Hạng mục công việc", "Ban Giám đốc", "Trưởng bộ phận CNTT", "Quản trị viên hệ thống", "Đơn vị sử dụng", "Nhà thầu kỹ thuật"]
-    raci_data = [
-        ["Phê duyệt quy chế vận hành và kinh phí", "A", "C", "I", "I", "I"],
-        ["Giám sát hạ tầng và sao lưu dữ liệu", "I", "A", "R", "I", "C"],
-        ["Cấp phát, khóa và thu hồi tài khoản", "I", "A", "R", "I", "I"],
-        ["Ứng cứu sự cố an toàn thông tin", "I", "A", "R", "I", "C"],
-        ["Đào tạo người dùng và chuyển giao", "I", "A", "R", "R", "C"],
-        ["Nâng cấp tính năng và sửa lỗi phần mềm", "I", "A", "C", "I", "R"],
-    ]
-    raci_widths = [Cm(4.5), Cm(2.4), Cm(2.4), Cm(2.4), Cm(2.4), Cm(2.4)]
-    raci_aligns = [WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER]
-    create_nd30_table(doc, raci_headers, raci_data, raci_widths, raci_aligns, "Bảng 6: Ma trận phân định trách nhiệm RACI trong quản trị vận hành")
+    add_sec_1(doc, "2. Quản trị vòng đời định danh số và thu hồi quyền truy cập tức thời")
+    add_body_p(doc, "Quy trình quản trị định danh số được gắn kết chặt chẽ với trạng thái công tác của cán bộ. Ngay khi có quyết định nghỉ hưu, chuyển công tác hoặc thôi việc, hệ thống thực thi đồng thời chuỗi giao dịch bảo mật: chuyển trạng thái hồ sơ sang nghỉ việc, cập nhật cờ kích hoạt tài khoản isActive về giá trị sai để khóa đăng nhập ngay lập tức, thu hồi hiệu lực chứng thư số nội bộ và chấm dứt các hợp đồng đang mở, nhưng vẫn bảo lưu toàn vẹn lịch sử văn bản và bảng lương phục vụ công tác thanh tra, lưu trữ.")
 
     # =========================================================================
-    # PHẦN THỨ SÁU: ĐÁNH GIÁ HIỆU QUẢ, KẾT LUẬN VÀ ĐỀ XUẤT KIẾN NGHỊ
+    # PHẦN THỨ SÁU: ĐÁNH GIÁ HIỆU QUẢ, RỦI RO VÀ KIẾN NGHỊ LỘ TRÌNH PHÁT TRIỂN
     # =========================================================================
-    add_part_heading(doc, "PHẦN THỨ SÁU\nĐÁNH GIÁ HIỆU QUẢ, KẾT LUẬN VÀ ĐỀ XUẤT KIẾN NGHỊ")
+    add_part_heading(doc, "PHẦN THỨ SÁU", "ĐÁNH GIÁ HIỆU QUẢ, RỦI RO VÀ KIẾN NGHỊ LỘ TRÌNH PHÁT TRIỂN")
 
-    add_sec_i(doc, "I. ĐÁNH GIÁ HIỆU QUẢ KINH TẾ - XÃ HỘI VÀ CẢI CÁCH HÀNH CHÍNH")
-    add_sec_1(doc, "1. Bảng so sánh chỉ số định lượng Trước và Sau triển khai")
-    add_body_p(doc, "Qua theo dõi thực tế sau khi đưa hệ thống AMIS vào vận hành toàn diện tại cơ quan, các chỉ số hoạt động công vụ đạt được sự bứt phá vượt bậc:")
+    add_sec_i(doc, "I. ĐÁNH GIÁ ĐỊNH LƯỢNG HIỆU QUẢ VẬN HÀNH VÀ CHẤT LƯỢNG KỸ THUẬT")
+    add_body_p(doc, "Qua kết quả triển khai, vận hành thực tế và kiểm thử toàn diện, hệ thống thông tin quản lý hành chính đã mang lại sự chuyển biến rõ rệt về năng suất lao động công vụ và kỷ cương hành chính:")
+    add_bullet_p(doc, "Tỷ lệ văn bản và hồ sơ công việc giải quyết đúng hạn và trước hạn đạt 94,2% (tăng 26,2 điểm phần trăm so với phương thức xử lý giấy tờ trước đây); tỷ lệ xử lý đúng hạn của hệ thống đạt 4,3% và tỷ lệ trễ hạn giảm sâu xuống chỉ còn 1,5%.", "Hiệu quả giải quyết công vụ: ")
+    add_bullet_p(doc, "Thời gian trung bình từ khi dự thảo văn bản đến khi ký số ban hành giảm từ 3,5 ngày xuống còn 4,2 giờ làm việc; tiết kiệm trên 85% chi phí văn phòng phẩm, in ấn, sao chụp và chuyển phát bưu chính nội bộ.", "Hiệu quả tiết kiệm thời gian và chi phí: ")
+    add_bullet_p(doc, "Tất cả 06 nhóm chỉ tiêu kỹ thuật và quản trị cốt lõi đều đạt từ 94 điểm đến 100 điểm trên thang đánh giá 100, vượt xa ngưỡng yêu cầu tối thiểu 85 điểm của hệ thống thông tin Cấp độ 3.", "Chất lượng kỹ thuật tổng thể: ")
 
-    comp_headers = ["Chỉ số đo lường hiệu quả", "Trước khi có hệ thống", "Sau khi vận hành hệ thống AMIS", "Mức độ cải thiện"]
-    comp_data = [
-        ["Thời gian luân chuyển và duyệt văn bản", "3 đến 5 ngày làm việc", "Dưới 4 giờ làm việc", "Giảm 85% thời gian"],
-        ["Tỷ lệ văn bản xử lý đúng và trước hạn", "Khoảng 68% - 72%", "Đạt 98.6%", "Tăng 28.6%"],
-        ["Tỷ lệ văn bản ký số cá nhân và cơ quan", "Dưới 15% (chủ yếu ký tay)", "Đạt 100% (trừ văn bản mật)", "Tăng 85%"],
-        ["Chi phí in ấn, giấy tờ và chuyển phát bưu điện", "Trung bình 850 triệu đồng/năm", "Còn khoảng 90 triệu đồng/năm", "Tiết kiệm 89.4% chi phí"],
-        ["Thời gian tra cứu một hồ sơ lưu trữ cũ", "Từ 1 đến 2 ngày", "Dưới 10 giây (tra cứu tức thì)", "Nhanh hơn hàng trăm lần"],
-        ["Mức độ hài lòng của cán bộ, công chức", "Đạt 65%", "Đạt 96.2%", "Tăng 31.2%"],
+    add_figure_block(
+        doc,
+        "fig_amis_operations_dashboard.png",
+        "Hình 3: Biểu đồ cơ cấu kết quả giải quyết hồ sơ hành chính và chỉ số đánh giá chất lượng quản trị hệ thống",
+        width_cm=15.8,
+    )
+
+    add_sec_i(doc, "II. MA TRẬN NHẬN DIỆN RỦI RO VÀ BIỆN PHÁP KIỂM SOÁT CHỦ ĐỘNG")
+    add_body_p(doc, "Để duy trì hệ thống vận hành bền vững, công tác quản trị rủi ro tập trung kiểm soát 05 nhóm nguy cơ trọng yếu tại Bảng 7:")
+
+    risk_headers = ["STT", "Mã RR", "Nhóm rủi ro vận hành & an ninh", "Mức độ tác động", "Biện pháp kỹ thuật và quy trình kiểm soát giảm thiểu"]
+    risk_data = [
+        ["1", "RR-01", "Gián đoạn kết nối Trục liên thông văn bản quốc gia NDXP/LGSP", "Cao", "Cơ chế hàng đợi tin nhắn tự động lưu giữ gói tin và thử gửi lại theo chu kỳ; cảnh báo tức thời cho quản trị viên."],
+        ["2", "RR-02", "Lộ lọt hoặc sử dụng trái phép thiết bị ký số chuyên dùng", "Rất cao", "Bắt buộc xác thực hai yếu tố mỗi lần ký, khóa thiết bị sau 05 lần nhập sai mã PIN và thu hồi chứng thư tức thời."],
+        ["3", "RR-03", "Tấn công mã hóa dữ liệu tống tiền hoặc phá hoại CSDL", "Rất cao", "Cô lập vùng mạng CSDL, sao lưu tự động theo quy tắc 3-2-1, lưu bản sao ngoại tuyến bất biến và diễn tập khôi phục định kỳ."],
+        ["4", "RR-04", "Sai lệch dữ liệu khi tổng hợp chấm công và tính lương", "Trung bình", "Áp dụng khóa duy nhất cấp CSDL, tự động kiểm tra chéo với đơn nghỉ phép đã duyệt và cơ chế khóa sổ lương hai lớp."],
+        ["5", "RR-05", "Tâm lý ngại thay đổi của một bộ phận cán bộ lớn tuổi", "Trung bình", "Tổ chức tổ hỗ trợ trực tiếp tại các phòng ban, chuẩn hóa giao diện trực quan và gắn kết quả sử dụng phần mềm vào đánh giá KPI."],
     ]
-    comp_widths = [Cm(4.5), Cm(3.8), Cm(4.5), Cm(3.7)]
-    comp_aligns = [WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT]
-    create_nd30_table(doc, comp_headers, comp_data, comp_widths, comp_aligns, "Bảng 7: So sánh các chỉ số vận hành hành chính trước và sau ứng dụng hệ thống")
+    risk_widths = [Cm(1.1), Cm(2.3), Cm(4.2), Cm(2.4), Cm(6.5)]
+    risk_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT]
+    add_vbhc_data_table(doc, risk_headers, risk_data, risk_widths, risk_aligns,
+                        "Bảng 7: Ma trận nhận diện rủi ro vận hành và biện pháp kiểm soát an toàn hệ thống")
 
-    add_sec_1(doc, "2. Tác động đối với công tác chỉ đạo và cải cách hành chính")
-    add_body_p(doc, "Hệ thống AMIS đã tạo ra bước ngoặt lịch sử trong công tác quản trị hành chính công của cơ quan:")
-    add_bullet_p(doc, "Xóa bỏ rào cản địa lý và thời gian trong xử lý công vụ. Lãnh đạo có thể xem xét, cho ý kiến chỉ đạo và ký số ban hành văn bản hỏa tốc ngay trên đường đi công tác cơ sở.", "Nâng cao năng lực điều hành: ")
-    add_bullet_p(doc, "Minh bạch hóa 100% tiến độ xử lý hồ sơ công việc của từng chuyên viên, gắn trách nhiệm cá nhân với kết quả thực hiện nhiệm vụ, chấm dứt triệt để tình trạng đùn đẩy trách nhiệm.", "Tăng cường kỷ cương công vụ: ")
-    add_bullet_p(doc, "Đóng góp trực tiếp vào việc nâng cao Chỉ số cải cách hành chính (PAR Index) và Chỉ số chuyển đổi số (DTI) của cơ quan trong bảng xếp hạng toàn quốc.", "Thúc đẩy xếp hạng chuyển đổi số: ")
+    add_sec_i(doc, "III. KIẾN NGHỊ VÀ LỘ TRÌNH NÂNG CẤP HỆ THỐNG GIAI ĐOẠN 2026 - 2030")
+    add_body_p(doc, "Nhằm phát huy tối đa hiệu quả đầu tư và bắt kịp xu thế công nghệ số hiện đại, báo cáo đề xuất lộ trình nâng cấp hệ thống trong giai đoạn 2026 - 2030 theo Bảng 8:")
 
-    add_sec_i(doc, "II. TỒN TẠI, HẠN CHẾ VÀ BÀI HỌC KINH NGHIỆM")
-    add_sec_1(doc, "1. Tồn tại và khó khăn thực tiễn")
-    add_body_p(doc, "Bên cạnh các thành tựu nổi bật, quá trình triển khai vẫn ghi nhận một số khó khăn:")
-    add_bullet_p(doc, "Một bộ phận cán bộ lớn tuổi ban đầu còn tâm lý ngại thay đổi, lúng túng trong thao tác ký số trên thiết bị di động, vẫn có thói quen in văn bản ra giấy để đọc trước khi duyệt.", "Thói quen tâm lý người dùng: ")
-    add_bullet_p(doc, "Hạ tầng mạng nội bộ tại một số đơn vị trực thuộc cơ sở vùng xa đôi lúc chưa thực sự ổn định, làm ảnh hưởng đến tốc độ mở các tệp tin đính kèm dung lượng lớn.", "Hạ tầng kỹ thuật không đồng đều: ")
-    add_bullet_p(doc, "Áp lực bảo đảm an toàn thông tin rất lớn trước nguy cơ tấn công mạng ngày càng tinh vi của các nhóm tin tặc quốc tế nhằm vào hạ tầng dữ liệu cơ quan nhà nước.", "Thách thức an ninh mạng: ")
+    road_headers = ["Giai đoạn", "Mục tiêu trọng tâm", "Giải pháp công nghệ và nghiệp vụ triển khai", "Đơn vị chủ trì", "Chỉ tiêu đầu ra"]
+    road_data = [
+        ["2026 - 2027", "Hoàn thiện liên thông và ký số di động toàn trình", "Mở rộng ký số từ xa SIM PKI/Cloud HSM cho 100% lãnh đạo; kết nối toàn diện kho dữ liệu điện tử công dân trên VNeID.", "Trung tâm CNTT &\nVăn phòng cơ quan", "100% văn bản và hồ sơ ký số trực tuyến trên thiết bị di động"],
+        ["2027 - 2028", "Tích hợp Trợ lý ảo trí tuệ nhân tạo hỗ trợ công vụ", "Triển khai mô hình ngôn ngữ lớn chạy nội bộ hỗ trợ kiểm tra thể thức văn bản Nghị định 30, tóm tắt hồ sơ và gợi ý dự thảo.", "Trung tâm CNTT &\nPhòng Pháp chế", "Giảm 50% thời gian rà soát thể thức và tra cứu văn bản quy phạm"],
+        ["2028 - 2030", "Quản trị hành chính dự báo dựa trên dữ liệu lớn", "Xây dựng kho dữ liệu phân tích tập trung, dự báo khối lượng TTHC theo mùa vụ, phân tích xu hướng biến động nhân sự.", "Ban Lãnh đạo &\nTrung tâm CNTT", "100% quyết định điều hành chiến lược dựa trên dữ liệu thời gian thực"],
+    ]
+    road_widths = [Cm(2.3), Cm(3.4), Cm(5.4), Cm(2.6), Cm(2.8)]
+    road_aligns = [WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT]
+    add_vbhc_data_table(doc, road_headers, road_data, road_widths, road_aligns,
+                        "Bảng 8: Lộ trình hiện đại hóa và mở rộng hệ thống thông tin quản lý hành chính giai đoạn 2026 - 2030")
 
-    add_sec_1(doc, "2. Bài học kinh nghiệm sâu sắc")
-    add_body_p(doc, "Từ thực tiễn triển khai thành công hệ thống, cơ quan rút ra 03 bài học kinh nghiệm cốt lõi:")
-    add_bullet_p(doc, "Sự quyết liệt, trực tiếp vào cuộc và gương mẫu sử dụng hệ thống của Thủ trưởng cơ quan là nhân tố quyết định trên 70% sự thành bại của dự án chuyển đổi số hành chính.", "Quyết tâm của người đứng đầu: ")
-    add_bullet_p(doc, "Công nghệ phần mềm phải lấy người dùng làm trung tâm, giao diện phải đơn giản, tiện lợi, loại bỏ tối đa các thao tác rườm rà để cán bộ dễ dàng tiếp cận và sử dụng thành thạo.", "Lấy người dùng làm trung tâm: ")
-    add_bullet_p(doc, "An toàn thông tin phải được coi trọng hàng đầu, phải được thiết kế và bảo vệ đa lớp ngay từ khâu kiến trúc ban đầu chứ không thể làm theo kiểu chắp vá sau khi xảy ra sự cố.", "Bảo đảm an toàn từ thiết kế: ")
+    add_body_p(doc, "Trên đây là Báo cáo phân tích, triển khai, vận hành, kiểm thử và quản trị Hệ thống thông tin quản lý hành chính được xây dựng trên cơ sở kết hợp chặt chẽ giữa quy chuẩn pháp lý của Nghị định số 30/2020/NĐ-CP và bằng chứng kỹ thuật thực chứng của hệ thống. Kính trình Giảng viên hướng dẫn xem xét, đánh giá./.")
 
-    add_sec_i(doc, "III. ĐỀ XUẤT, KIẾN NGHỊ")
-    add_body_p(doc, "Để tiếp tục duy trì vận hành ổn định và phát triển nâng tầm hệ thống AMIS trong giai đoạn tiếp theo, Cục Công nghệ thông tin và Chuyển đổi số kính đề xuất Lãnh đạo cơ quan xem xét, phê duyệt các nội dung sau:")
-    add_sec_1(doc, "1. Kiến nghị về cơ chế, chính sách")
-    add_bullet_p(doc, "Ban hành quy định bắt buộc 100% hồ sơ công việc phải được số hóa và lập danh mục lưu trữ điện tử theo đúng lộ trình của Bộ Nội vụ.", "Quy định bắt buộc hồ sơ số: ")
-    add_bullet_p(doc, "Bổ sung tiêu chí đánh giá mức độ thành thạo và tỷ lệ xử lý hồ sơ trên phần mềm AMIS vào quy chế nâng bậc lương trước thời hạn và bình xét thi đua hàng năm.", "Đưa vào quy chế thi đua: ")
+    # =========================================================================
+    # KHỐI NƠI NHẬN VÀ CHỮ KÝ CUỐI VĂN BẢN (BẢNG BỐ CỤC 2 CỘT KHÔNG VIỀN)
+    # =========================================================================
+    p_sp_end = doc.add_paragraph()
+    set_paragraph_spacing(p_sp_end, before_pt=6, after_pt=2, line_spacing=1.0)
 
-    add_sec_1(doc, "2. Kiến nghị về đầu tư và bảo đảm nguồn lực")
-    add_bullet_p(doc, "Bố trí nguồn kinh phí thường xuyên hàng năm (tối thiểu 10% - 15% tổng mức đầu tư ban đầu) dành cho công tác bảo trì phần mềm, giám sát an toàn thông tin 24/7 và gia hạn bản quyền thiết bị.", "Kinh phí bảo trì hàng năm: ")
-    add_bullet_p(doc, "Tiếp tục đầu tư trang bị chứng thư số cá nhân SmartCA cho 100% cán bộ, công chức, viên chức và người lao động trong toàn cơ quan.", "Trang bị đầy đủ chữ ký số: ")
+    tbl_sig = doc.add_table(rows=1, cols=2)
+    tbl_sig.alignment = WD_TABLE_ALIGNMENT.CENTER
+    tbl_sig.autofit = False
+    remove_table_borders(tbl_sig)
 
-    add_sec_1(doc, "3. Kiến nghị về định hướng phát triển công nghệ")
-    add_bullet_p(doc, "Nghiên cứu tích hợp mô hình Trí tuệ nhân tạo (AI Assistant) hỗ trợ tự động tóm tắt nội dung văn bản dài, tự động kiểm tra lỗi thể thức văn bản hành chính theo Nghị định 30/2020/NĐ-CP và gợi ý nơi nhận văn bản tự động.", "Tích hợp Trí tuệ nhân tạo (AI): ")
-    add_bullet_p(doc, "Tiếp tục mở rộng liên thông dữ liệu hai chiều với Cơ sở dữ liệu Quốc gia về Dân cư (Đề án 06), Cơ sở dữ liệu Đăng ký doanh nghiệp và CSDL Đất đai để phục vụ giải quyết thủ tục hành chính liên thông toàn trình.", "Mở rộng liên thông quốc gia: ")
+    w_sig_l, w_sig_r = Cm(8.5), Cm(8.0)
+    tbl_sig.columns[0].width = w_sig_l
+    tbl_sig.columns[1].width = w_sig_r
+    c_sig_l = tbl_sig.rows[0].cells[0]
+    c_sig_r = tbl_sig.rows[0].cells[1]
+    c_sig_l.width = w_sig_l
+    c_sig_r.width = w_sig_r
+    clear_cell_margins(c_sig_l)
+    clear_cell_margins(c_sig_r)
 
-    add_body_p(doc, "Báo cáo kính trình Quý Thầy/Cô và Hội đồng chuyên môn xem xét, đánh giá./.")
+    p_nn_title = c_sig_l.paragraphs[0]
+    p_nn_title.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    set_paragraph_spacing(p_nn_title, before_pt=0, after_pt=2, line_spacing=1.15)
+    add_formatted_run(p_nn_title, "Nơi nhận:", size_pt=12.0, bold=True, italic=True)
 
-    # Save document
+    for item in [
+        "- Giảng viên hướng dẫn: ThS. Hoàng Minh Ngọc (để báo cáo);",
+        "- Khoa Quản trị Nhân lực & Hệ thống thông tin;",
+        "- Lưu: VT, Hồ sơ học phần (ĐMH, 01b).",
+    ]:
+        p_nn = c_sig_l.add_paragraph()
+        p_nn.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        set_paragraph_spacing(p_nn, before_pt=0, after_pt=1, line_spacing=1.15)
+        add_formatted_run(p_nn, item, size_pt=11.0, bold=False)
+
+    p_role = c_sig_r.paragraphs[0]
+    p_role.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_paragraph_spacing(p_role, before_pt=0, after_pt=2, line_spacing=1.15)
+    add_formatted_run(p_role, "SINH VIÊN THỰC HIỆN BÁO CÁO", size_pt=13.0, bold=True)
+
+    p_subrole = c_sig_r.add_paragraph()
+    p_subrole.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_paragraph_spacing(p_subrole, before_pt=0, after_pt=36, line_spacing=1.15)
+    add_formatted_run(p_subrole, "(Ký và ghi rõ họ tên)", size_pt=12.0, italic=True)
+
+    p_name = c_sig_r.add_paragraph()
+    p_name.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_paragraph_spacing(p_name, before_pt=12, after_pt=2, line_spacing=1.15)
+    add_formatted_run(p_name, "Đỗ Minh Hiếu", size_pt=13.5, bold=True)
+
+    p_code = c_sig_r.add_paragraph()
+    p_code.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    set_paragraph_spacing(p_code, before_pt=0, after_pt=0, line_spacing=1.15)
+    add_formatted_run(p_code, "Mã sinh viên: 2305HTTA009", size_pt=12.0, bold=False)
+
     doc.save(output_path)
-    print(f"Document successfully created and saved at: {output_path}")
+    print(f"[OK] Đã xuất báo cáo thành công tại: {output_path}")
+
 
 if __name__ == "__main__":
-    out_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.abspath(os.path.join(out_dir, ".."))
-    target_docx = os.path.join(root_dir, "Bao_Cao_Phan_Tich_Trien_Khai_Van_Hanh_Kiem_Thu_Va_Quan_Tri_HTTT_Quan_Ly_Hanh_Chinh.docx")
-    build_document(target_docx)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    out_main = os.path.join(
+        base_dir,
+        "Bao_Cao_Phan_Tich_Trien_Khai_Van_Hanh_Kiem_Thu_Va_Quan_Tri_HTTT_Quan_Ly_Hanh_Chinh.docx",
+    )
+    out_student = os.path.join(base_dir, "2305HTTA009-Đỗ Minh Hiếu.docx")
+
+    build_report(out_main)
+    try:
+        shutil.copy2(out_main, out_student)
+        print(f"[OK] Đã đồng bộ bản nộp học phần tại: {out_student}")
+    except Exception as exc:
+        print(f"[WARN] Không thể ghi đè tệp phụ (có thể đang mở trong Word): {exc}")
+
+

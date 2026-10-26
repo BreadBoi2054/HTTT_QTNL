@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, FileText, CheckCircle2 } from "lucide-react";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 
 interface CreateContractModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
   const [endDate, setEndDate] = useState(() => computeEndDate(initialStart, "Hợp đồng Xác định thời hạn 12 tháng"));
   const [salary, setSalary] = useState(22000000);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,7 +85,6 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
     setEndDate(computeEndDate(newStart, type));
   };
 
-  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +140,7 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
       onClick={onClose}
     >
       <div 
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col"
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -278,12 +279,10 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
               <label className="block text-zinc-700 dark:text-zinc-300 font-semibold mb-1">
                 Ngày bắt đầu
               </label>
-              <input
-                type="date"
-                required
+              <VietnameseDatePicker
                 value={startDate}
-                onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono focus:outline-none"
+                onChange={(iso) => handleStartDateChange(iso)}
+                ariaLabel="Ngày bắt đầu hợp đồng"
               />
             </div>
 
@@ -291,12 +290,12 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
               <label className="block text-zinc-700 dark:text-zinc-300 font-semibold mb-1">
                 Ngày hết hạn
               </label>
-              <input
-                type="date"
+              <VietnameseDatePicker
                 disabled={type === "Hợp đồng Không xác định thời hạn"}
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono focus:outline-none disabled:opacity-50"
+                onChange={(iso) => setEndDate(iso)}
+                placeholder="Không xác định thời hạn"
+                ariaLabel="Ngày hết hạn hợp đồng"
               />
             </div>
           </div>
@@ -326,7 +325,7 @@ export default function CreateContractModal({ isOpen, onClose, onCreated }: Crea
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               {submitting ? "Đang lưu..." : "Lưu hợp đồng"}

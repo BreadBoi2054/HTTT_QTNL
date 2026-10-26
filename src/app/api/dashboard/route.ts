@@ -56,6 +56,21 @@ export async function GET() {
       }))
       .filter(d => d.value > 0);
 
+    let effectiveAttendances: Array<{ status: string; _count: { status: number } }> = attendances as any;
+    if (effectiveAttendances.length === 0) {
+      const latestRecord = await prisma.attendance.findFirst({
+        orderBy: { date: 'desc' },
+        select: { date: true }
+      });
+      if (latestRecord?.date) {
+        effectiveAttendances = (await prisma.attendance.groupBy({
+          by: ['status'],
+          where: { date: latestRecord.date },
+          _count: { status: true }
+        })) as any;
+      }
+    }
+
     const attendanceToday = {
       PRESENT: 0,
       LATE: 0,
@@ -63,7 +78,7 @@ export async function GET() {
       LEAVE: 0
     };
 
-    attendances.forEach(a => {
+    effectiveAttendances.forEach(a => {
       if (a.status === 'PRESENT') attendanceToday.PRESENT = a._count.status;
       if (a.status === 'LATE') attendanceToday.LATE = a._count.status;
       if (a.status === 'ABSENT') attendanceToday.ABSENT = a._count.status;

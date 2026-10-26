@@ -163,7 +163,7 @@ export default function SalaryComponentsPage() {
           <div className="overflow-x-auto flex-1">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-zinc-50/80 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 text-xs uppercase tracking-wider">
+                <tr className="bg-zinc-50/80 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 text-xs tracking-tight">
                   <th className="px-6 py-4 font-semibold border-b border-zinc-200 dark:border-zinc-800">Tên khoản mục</th>
                   <th className="px-6 py-4 font-semibold border-b border-zinc-200 dark:border-zinc-800">Loại</th>
                   <th className="px-6 py-4 font-semibold border-b border-zinc-200 dark:border-zinc-800">Giá trị</th>

@@ -172,7 +172,7 @@ export default function ScheduleInterviewModal({
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95 disabled:opacity-50"
             >
               {loading ? "Đang lên lịch..." : "Xác nhận lịch phỏng vấn"}
             </button>

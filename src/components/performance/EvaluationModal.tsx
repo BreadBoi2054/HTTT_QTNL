@@ -270,13 +270,13 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, isSelfOnl
           </div>
 
           {/* Consolidated Result Banner */}
-          <div className="p-5 bg-zinc-900 dark:bg-zinc-800 text-white rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="p-5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
-              <div className="text-xs text-zinc-400 font-medium">
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                 Kết quả tổng hợp hiệu suất
               </div>
               <div className="font-semibold text-sm mt-0.5">
-                Điểm trung bình trọng số: <span className="font-mono text-xl text-blue-400 font-bold ml-1">{totalScore}</span> / 100
+                Điểm trung bình trọng số: <span className="font-mono text-xl text-blue-600 dark:text-blue-400 font-bold ml-1">{totalScore}</span> / 100
               </div>
             </div>
 
@@ -284,7 +284,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, isSelfOnl
               <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${gradeBadgeColor}`}>
                 {grade}
               </span>
-              <div className="text-xs text-emerald-400 font-medium mt-1">
+              <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
                 Thưởng hiệu suất: {gradeBonus}
               </div>
             </div>
@@ -343,7 +343,7 @@ export default function EvaluationModal({ isOpen, onClose, evaluation, isSelfOnl
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               Lưu & Xác nhận đánh giá

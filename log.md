@@ -158,3 +158,22 @@
      - `npx tsc --noEmit` đạt Exit code 0 (0 lỗi type).
      - `npm run build` Next.js 16.3.1 (Turbopack) hoàn tất xuất sắc 41/41 static & dynamic routes.
 
+- **[2026-10-12 (Chuẩn hóa toàn diện KPI, Chấm công và Bảng tính lương)]**:
+  1. **Xác nhận trạng thái Docker & PostgreSQL**:
+     - Container hrmis-db (image postgres:15-alpine) hoạt động ổn định trên cổng ánh xạ 54321:5432.
+  2. **Chuẩn hóa & Hoàn thiện Phân hệ KPI (Performance & KPI)**:
+     - Thêm Model PerformanceEvaluation vào prisma/schema.prisma và quan hệ evaluations trong EmployeeProfile. Đồng bộ CSDL thành công qua npx prisma db push và npx prisma generate.
+     - Xây dựng mới Service src/services/performance.service.ts với đầy đủ logic tính điểm Bell Curve, phân bổ hệ số thưởng (+25%, +10%, 0%, -10%), audit trail và kiểm soát phân quyền RBAC.
+     - Xây dựng 2 API routes mới: GET/POST /api/performance và PUT/DELETE /api/performance/[id].
+     - Kết nối giao diện /dashboard/performance và Cổng cá nhân /dashboard/my-workspace vào CSDL thật thay vì mock state.
+  3. **Liên thông KPI sang Engine Tính Lương (payroll.service.ts)**:
+     - Tự động tra cứu hồ sơ đánh giá KPI đã được phê duyệt trong kỳ để cộng thưởng hiệu suất KPI (Hạng A +25%, Hạng B +10%) hoặc khấu trừ phạt (Hạng D -10%) vào lương thực lĩnh.
+     - Khắc phục lỗi logic bảo hiểm bắt buộc: đảm bảo BHXH 8%, BHYT 1.5%, BHTN 1.0% luôn được trích nộp đúng luật lao động kể cả khi có các khoản giảm trừ phụ khác.
+     - Đồng bộ múi giờ tính lương startDate và endDate theo chuẩn UTC.
+     - Nạp danh mục 3 cấu phần phụ cấp lương mẫu: Phụ cấp ăn trưa (730k), Phụ cấp xăng xe (500k), Phụ cấp trách nhiệm (2tr) và gán cho toàn bộ 38 nhân sự.
+  4. **Chuẩn hóa Nghiệp vụ Chấm công & Nghỉ phép (leave.service.ts)**:
+     - Cập nhật hàm đồng bộ duyệt đơn nghỉ phép sang bảng chấm công loại trừ cả Thứ 7 và Chủ nhật (dayOfWeek !== 0 && dayOfWeek !== 6) theo chuẩn tuần làm việc 5 ngày và 22 ngày công định mức.
+  5. **Kiểm thử tích hợp & Biên dịch**:
+     - Suite kiểm thử tự động scratch/test_payroll_kpi_integration.ts đạt kết quả 4/4 bài test PASSED (100% Tuyệt đối).
+     - npx tsc --noEmit đạt Exit code 0 (100% không còn lỗi type).
+     - npm run build Next.js 16.3.1 (Turbopack) hoàn tất xuất sắc toàn bộ static & dynamic routes.

@@ -190,7 +190,7 @@ export default function RoleModal({ isOpen, onClose, onSuccess, role }: RoleModa
             type="submit" 
             form="roleForm" 
             disabled={loading} 
-            className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium rounded-lg disabled:opacity-70 flex items-center gap-2 transition-colors shadow-xs"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg disabled:opacity-70 flex items-center gap-2 transition-colors shadow-xs"
           >
             {loading && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900 rounded-full animate-spin" />}
             {role ? "Cập nhật vai trò" : "Khởi tạo vai trò"}

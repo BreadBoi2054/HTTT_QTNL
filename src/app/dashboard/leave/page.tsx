@@ -121,7 +121,7 @@ export default function LeavePage() {
           </div>
           <button 
             onClick={() => { setSelectedReq(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm active:scale-95 shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Tạo đơn nghỉ phép</span>
@@ -143,15 +143,15 @@ export default function LeavePage() {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
               <div className="text-[10px] text-zinc-500 uppercase font-mono">Định mức</div>
-              <div className="text-base font-mono font-bold text-zinc-900 dark:text-zinc-100">{leaveBalance ? `${leaveBalance.allowance} ngày` : "—"}</div>
+              <div className="text-base font-mono font-bold text-zinc-900 dark:text-zinc-100">{leaveBalance ? `${leaveBalance.allowance} ngày` : "-"}</div>
             </div>
             <div className="px-3 py-1.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
               <div className="text-[10px] text-amber-600 dark:text-amber-400 uppercase font-mono">Đã dùng</div>
-              <div className="text-base font-mono font-bold text-amber-700 dark:text-amber-300">{leaveBalance ? `${leaveBalance.usedDays} ngày` : "—"}</div>
+              <div className="text-base font-mono font-bold text-amber-700 dark:text-amber-300">{leaveBalance ? `${leaveBalance.usedDays} ngày` : "-"}</div>
             </div>
             <div className="px-3 py-1.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
               <div className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-mono">Còn lại</div>
-              <div className="text-base font-mono font-bold text-emerald-700 dark:text-emerald-300">{leaveBalance ? `${leaveBalance.remainingDays} ngày` : "—"}</div>
+              <div className="text-base font-mono font-bold text-emerald-700 dark:text-emerald-300">{leaveBalance ? `${leaveBalance.remainingDays} ngày` : "-"}</div>
             </div>
           </div>
         </div>

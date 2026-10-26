@@ -319,7 +319,7 @@ export default function ContractsPage() {
           <div className="flex items-center gap-2.5">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-all border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-colors border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
               title="Xuất danh sách ra CSV"
             >
               <Download className="w-3.5 h-3.5 text-zinc-500" />
@@ -328,7 +328,7 @@ export default function ContractsPage() {
             {canManageContracts && (
               <button
                 onClick={() => setIsCreateOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95 shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Tạo hợp đồng</span>
@@ -344,7 +344,7 @@ export default function ContractsPage() {
               <div className="flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                  <h3 className="text-xs font-bold text-amber-900 dark:text-amber-200 tracking-tight">
                     Cảnh báo: Có {expiringList.length} hợp đồng lao động sẽ hết hạn trong 30 ngày tới
                   </h3>
                   <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
@@ -595,8 +595,8 @@ export default function ContractsPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-zinc-500 dark:text-zinc-400 mr-1">Trang <strong className="font-mono text-zinc-900 dark:text-zinc-100">{safePage}</strong> / <span className="font-mono">{totalPages}</span></span>
-              <button type="button" disabled={safePage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-all active:scale-[0.98]"><ChevronLeft className="w-3.5 h-3.5" /> Trước</button>
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-all active:scale-[0.98]">Sau <ChevronRight className="w-3.5 h-3.5" /></button>
+              <button type="button" disabled={safePage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors active:scale-[0.98]"><ChevronLeft className="w-3.5 h-3.5" /> Trước</button>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors active:scale-[0.98]">Sau <ChevronRight className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         </div>

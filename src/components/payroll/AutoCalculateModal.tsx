@@ -164,7 +164,7 @@ export default function AutoCalculateModal({ isOpen, onClose, onSuccess }: AutoC
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <>

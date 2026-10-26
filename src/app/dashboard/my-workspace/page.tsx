@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 import { 
   User, 
   Calendar, 
@@ -266,14 +267,14 @@ export default function MyWorkspacePage() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsLeaveModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Tạo đơn phép</span>
           </button>
           <button
             onClick={() => setIsDisputeModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-all border border-zinc-200 dark:border-zinc-700 shadow-2xs active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-colors border border-zinc-200 dark:border-zinc-700 shadow-2xs active:scale-95"
           >
             <Clock className="w-3.5 h-3.5 text-zinc-500" />
             <span>Giải trình công</span>
@@ -340,7 +341,7 @@ export default function MyWorkspacePage() {
             </div>
             <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
               <div 
-                className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                className="bg-blue-600 h-full rounded-full transition-colors duration-500" 
                 style={{ width: `${(employeeData.leaveRemaining / employeeData.leaveAllowance) * 100}%` }}
               ></div>
             </div>
@@ -430,7 +431,7 @@ export default function MyWorkspacePage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab("ATTENDANCE")}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors ${
                 activeTab === "ATTENDANCE"
                   ? "bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-2xs border border-zinc-200 dark:border-zinc-700"
                   : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -440,7 +441,7 @@ export default function MyWorkspacePage() {
             </button>
             <button
               onClick={() => setActiveTab("REQUESTS")}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors ${
                 activeTab === "REQUESTS"
                   ? "bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-2xs border border-zinc-200 dark:border-zinc-700"
                   : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -577,7 +578,7 @@ export default function MyWorkspacePage() {
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
           >
             <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -611,26 +612,22 @@ export default function MyWorkspacePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Từ ngày</label>
-                  <input
-                    type="date"
-                    required
+                  <VietnameseDatePicker
                     value={leaveStartDate}
-                    onChange={(e) => {
-                      setLeaveStartDate(e.target.value);
-                      if (leaveEndDate < e.target.value) setLeaveEndDate(e.target.value);
+                    onChange={(iso) => {
+                      setLeaveStartDate(iso);
+                      if (leaveEndDate < iso) setLeaveEndDate(iso);
                     }}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
+                    ariaLabel="Từ ngày xin nghỉ"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Đến ngày</label>
-                  <input
-                    type="date"
-                    required
+                  <VietnameseDatePicker
                     min={leaveStartDate}
                     value={leaveEndDate}
-                    onChange={(e) => setLeaveEndDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
+                    onChange={(iso) => setLeaveEndDate(iso)}
+                    ariaLabel="Đến ngày xin nghỉ"
                   />
                 </div>
               </div>
@@ -659,7 +656,7 @@ export default function MyWorkspacePage() {
                 <button
                   type="submit"
                   disabled={leaveSubmitted}
-                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors shadow-xs"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
                 >
                   {leaveSubmitted ? "Đang gửi..." : "Gửi đơn phê duyệt"}
                 </button>
@@ -677,7 +674,7 @@ export default function MyWorkspacePage() {
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
           >
             <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -697,12 +694,10 @@ export default function MyWorkspacePage() {
             <form onSubmit={handleSendDispute} className="p-5 space-y-4 text-xs">
               <div>
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Ngày cần bổ sung công</label>
-                <input
-                  type="date"
-                  required
+                <VietnameseDatePicker
                   value={disputeDate}
-                  onChange={(e) => setDisputeDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-600"
+                  onChange={(iso) => setDisputeDate(iso)}
+                  ariaLabel="Ngày cần bổ sung công"
                 />
               </div>
 
@@ -730,7 +725,7 @@ export default function MyWorkspacePage() {
                 <button
                   type="submit"
                   disabled={disputeSubmitted}
-                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors shadow-xs"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
                 >
                   {disputeSubmitted ? "Đang gửi..." : "Gửi giải trình"}
                 </button>

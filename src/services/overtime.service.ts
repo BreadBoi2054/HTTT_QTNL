@@ -21,7 +21,7 @@ export function evaluateOvertimeThresholds(monthlyHours: number, yearlyHours: nu
 
   if (exceedsMonthly40) {
     warnings.push(
-      `Lũy kế tháng (${monthlyHours}h) vượt ngưỡng 40h/tháng — Duyệt theo thỏa thuận 2 bên / công việc cấp bách.`
+      `Lũy kế tháng (${monthlyHours}h) vượt ngưỡng 40h/tháng · Duyệt theo thỏa thuận 2 bên / công việc cấp bách.`
     );
   }
   if (exceedsYearly300) {

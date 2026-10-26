@@ -66,7 +66,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   if (success) {
     return (
       <div className="career-page min-h-dvh bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
-        <div className="bento-card p-8 rounded-2xl shadow-xl max-w-md w-full text-center space-y-6 animate-swiss-in">
+        <div className="bento-card p-8 rounded-2xl max-w-md w-full text-center space-y-6 animate-swiss-in">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 squircle flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
@@ -76,7 +76,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               Cảm ơn bạn đã ứng tuyển vào vị trí <strong className="text-blue-600 dark:text-blue-400">{job.title}</strong>. Phòng nhân sự Nexustech sẽ phản hồi kết quả sơ loại CV qua email của bạn trong thời gian sớm nhất.
             </p>
           </div>
-          <Link href="/careers" className="inline-block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-[0.98]">
+          <Link href="/careers" className="inline-block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors active:scale-[0.98]">
             Quay lại danh sách việc làm
           </Link>
         </div>
@@ -91,17 +91,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           <ArrowLeft className="w-4 h-4" /> Trở lại danh sách tuyển dụng
         </Link>
 
-        <div className="bento-card rounded-2xl overflow-hidden shadow-xs">
+        <div className="bento-card rounded-2xl overflow-hidden">
           {/* Job Header */}
           <div className="p-8 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/60 dark:bg-zinc-900/40">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 mb-2.5">
               Tuyển dụng nhân sự chính thức
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 mb-4">{job.title}</h1>
-            <div className="flex flex-wrap gap-6 text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+            <div className="flex flex-wrap gap-6 text-xs text-zinc-600 dark:text-zinc-400 font-medium tabular-nums">
               <div className="flex items-center gap-2"><Building className="w-4 h-4 text-blue-500" /> {job.department?.name || 'Nexustech'}</div>
               <div className="flex items-center gap-2"><Users className="w-4 h-4 text-zinc-400" /> Chỉ tiêu: {job.headcount} cán bộ</div>
-              {job.dueDate && <div className="flex items-center gap-2 font-mono text-zinc-400"><Calendar className="w-4 h-4" /> Hạn nộp: {new Date(job.dueDate).toLocaleDateString('vi-VN')}</div>}
+              {job.dueDate && <div className="flex items-center gap-2 text-zinc-400"><Calendar className="w-4 h-4" /> Hạn nộp: {new Date(job.dueDate).toLocaleDateString('vi-VN')}</div>}
             </div>
           </div>
 
@@ -127,11 +127,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               <form onSubmit={handleSubmit} className="space-y-4 text-xs font-sans">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Họ và tên *</label>
-                  <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-zinc-900 dark:text-zinc-100" placeholder="Nguyễn Văn A" />
+                  <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-zinc-900 dark:text-zinc-100" placeholder="Nguyễn Hoàng Minh" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Email liên hệ *</label>
-                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-zinc-900 dark:text-zinc-100" placeholder="email@example.com" />
+                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-zinc-900 dark:text-zinc-100" placeholder="ungvien@nexustech.vn" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Số điện thoại</label>
@@ -140,13 +140,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Đường dẫn CV (Google Drive / Portfolio) *</label>
                   <div className="relative">
-                    <input type="url" required value={cvUrl} onChange={e => setCvUrl(e.target.value)} className="w-full px-3.5 py-2.5 pl-9 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-zinc-900 dark:text-zinc-100" placeholder="https://..." />
+                    <input type="url" required value={cvUrl} onChange={e => setCvUrl(e.target.value)} className="w-full px-3.5 py-2.5 pl-9 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-zinc-900 dark:text-zinc-100" placeholder="https://drive.google.com/..." />
                     <Upload className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   </div>
                   <p className="text-[11px] text-zinc-500 mt-1">Vui lòng mở quyền xem liên kết đối với file CV của bạn.</p>
                 </div>
                 
-                <button disabled={submitting} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm active:scale-[0.98] disabled:opacity-70 mt-2">
+                <button disabled={submitting} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-colors active:scale-[0.98] disabled:opacity-70 mt-2">
                   {submitting ? "Đang gửi hồ sơ..." : "Nộp đơn ứng tuyển"}
                 </button>
               </form>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 import { 
   TrendingUp, 
   UserPlus, 
@@ -298,7 +299,7 @@ export default function PersonnelChangesPage() {
               type="button"
               onClick={handleApplyDueDecisions}
               disabled={applyingDue}
-              className="flex items-center gap-2 px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-60 shrink-0"
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95 disabled:opacity-60 shrink-0"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>
@@ -313,7 +314,7 @@ export default function PersonnelChangesPage() {
           {canManageChanges && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95 shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tạo quyết định biến động</span>
@@ -384,7 +385,7 @@ export default function PersonnelChangesPage() {
               placeholder="Tìm theo tên hoặc số quyết định..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs"
+              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-colors shadow-2xs"
             />
           </div>
 
@@ -489,7 +490,7 @@ export default function PersonnelChangesPage() {
                           ) : item.lifecycleState === "DUE_READY" ? (
                             <span
                               title={item.lifecycleNote || undefined}
-                              className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 font-medium"
+                              className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-sky-200 dark:border-sky-800/60 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 font-medium"
                             >
                               <Clock className="w-3 h-3" /> Đến hạn thi hành ({item.effectiveDateIso || item.effectiveDate})
                             </span>
@@ -543,7 +544,7 @@ export default function PersonnelChangesPage() {
                                   "APPLY_DECISION_NOW"
                                 )
                               }
-                              className="text-xs px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors"
+                              className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors"
                             >
                               Thi hành
                             </button>
@@ -837,12 +838,10 @@ export default function PersonnelChangesPage() {
                   <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                     Ngày có hiệu lực thi hành <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    required
+                  <VietnameseDatePicker
                     value={formData.effectiveDate}
-                    onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:outline-none focus:border-blue-600 font-mono"
+                    onChange={(iso) => setFormData({ ...formData, effectiveDate: iso })}
+                    ariaLabel="Ngày có hiệu lực thi hành"
                   />
                 </div>
                 <div>
@@ -878,7 +877,7 @@ export default function PersonnelChangesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
                 >
                   Ban hành quyết định
                 </button>
@@ -927,13 +926,13 @@ export default function PersonnelChangesPage() {
             <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
               {/* National Motto & Header */}
               <div className="border-b border-zinc-200 dark:border-zinc-800 pb-5 text-center space-y-1">
-                <div className="font-bold text-xs uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+                <div className="font-bold text-xs uppercase text-zinc-900 dark:text-zinc-100">
                   TẬP ĐOÀN CÔNG NGHỆ NEXUSTECH (NEXUSTECH GROUP)
                 </div>
                 <div className="text-[11px] font-mono text-zinc-500">
                   Số: <strong>{viewingChange.code}/QĐ-NXTC</strong>
                 </div>
-                <div className="pt-2 text-xs font-bold uppercase tracking-widest text-zinc-700 dark:text-zinc-300">
+                <div className="pt-2 text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300">
                   CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
                 </div>
                 <div className="text-[11px] italic text-zinc-500 border-b border-zinc-200 dark:border-zinc-800 pb-2 inline-block">
@@ -1004,8 +1003,8 @@ export default function PersonnelChangesPage() {
                     <div className="font-bold uppercase text-zinc-900 dark:text-zinc-100">{viewingChange.signer}</div>
                     <div className="text-[11px] text-zinc-400 italic">(Ký, đóng dấu điện tử)</div>
                   </div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 inline-block px-3 font-medium">
-                    ✓ Đã ký số điện tử
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1 px-3 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã ký số điện tử
                   </div>
                 </div>
               </div>
@@ -1024,7 +1023,7 @@ export default function PersonnelChangesPage() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
               >
                 <Printer className="w-3.5 h-3.5" />
                 In quyết định

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { CardGridSkeleton } from "@/components/providers/ToastProvider";
 import { useSession } from "next-auth/react";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 
 interface TrainingCourse {
   id: string;
@@ -212,7 +213,7 @@ export default function TrainingSurveysPage() {
 
   const avgCourseProgress = courses.length > 0 ? Math.round(courses.reduce((s, c) => s + (c.progress || 0), 0) / courses.length) : 0;
   const surveysWithResponses = surveys.filter((survey) => survey.respondents > 0);
-  const avgSurveyScore = surveysWithResponses.length > 0 ? (surveysWithResponses.reduce((s, sv) => s + (sv.score || 0), 0) / surveysWithResponses.length).toFixed(1) : "—";
+  const avgSurveyScore = surveysWithResponses.length > 0 ? (surveysWithResponses.reduce((s, sv) => s + (sv.score || 0), 0) / surveysWithResponses.length).toFixed(1) : "-";
   const avgSurveyParticipation = surveys.length > 0 ? Math.round(surveys.reduce((s, sv) => s + (sv.totalTarget > 0 ? (sv.respondents / sv.totalTarget) * 100 : 0), 0) / surveys.length) : 0;
 
   return (
@@ -233,7 +234,7 @@ export default function TrainingSurveysPage() {
           <div className="flex bg-zinc-100/80 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
             <button
               onClick={() => setActiveTab("training")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                 activeTab === "training"
                   ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -244,7 +245,7 @@ export default function TrainingSurveysPage() {
             </button>
             <button
               onClick={() => setActiveTab("surveys")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                 activeTab === "surveys"
                   ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -257,7 +258,7 @@ export default function TrainingSurveysPage() {
 
           {canManageLearning && <button
             onClick={() => activeTab === "surveys" ? setIsSurveyModalOpen(true) : setIsModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{activeTab === "surveys" ? "Tạo khảo sát" : "Thêm khóa học"}</span>
@@ -315,7 +316,7 @@ export default function TrainingSurveysPage() {
             courses.map((course) => (
               <div
                 key={course.id}
-                className="bento-card rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-all group"
+                className="bento-card rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-colors group"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -349,7 +350,7 @@ export default function TrainingSurveysPage() {
                     </div>
                     <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-blue-600 rounded-full transition-all duration-500" 
+                        className="h-full bg-blue-600 rounded-full transition-colors duration-500" 
                         style={{ width: `${course.progress}%` }} 
                       />
                     </div>
@@ -362,7 +363,7 @@ export default function TrainingSurveysPage() {
                   </span>
                   <div className="flex items-center gap-2">
                     {canManageLearning && <button onClick={() => handleUpdateCourseProgress(course)} className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold text-xs">+Tiến độ</button>}
-                    <button onClick={() => setSelectedCourse(course)} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold flex items-center gap-1 hover:gap-1.5 transition-all">
+                    <button onClick={() => setSelectedCourse(course)} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold flex items-center gap-1 hover:gap-1.5 transition-colors">
                       <span>Chi tiết</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -392,7 +393,7 @@ export default function TrainingSurveysPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-b border-zinc-100 dark:border-zinc-800 uppercase tracking-wider">
+                <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-b border-zinc-100 dark:border-zinc-800 tracking-tight">
                   <th className="px-5 py-3.5">Tên khảo sát</th>
                   <th className="px-5 py-3.5">Đối tượng</th>
                   <th className="px-5 py-3.5 text-center">Tiến độ phản hồi</th>
@@ -439,9 +440,9 @@ export default function TrainingSurveysPage() {
                           Đã đóng
                         </span>
                       )}
-                      {survey.status === "ACTIVE" && !survey.hasResponded && <button onClick={() => handleRespondSurvey(survey)} className="text-xs px-3 py-1.5 rounded-xl border border-blue-200/80 dark:border-blue-700/80 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-semibold transition-all shadow-2xs">Gửi phản hồi</button>}
+                      {survey.status === "ACTIVE" && !survey.hasResponded && <button onClick={() => handleRespondSurvey(survey)} className="text-xs px-3 py-1.5 rounded-xl border border-blue-200/80 dark:border-blue-700/80 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-semibold transition-colors shadow-2xs">Gửi phản hồi</button>}
                       {survey.hasResponded && <span className="text-xs text-zinc-500">Đã phản hồi</span>}
-                      <button onClick={() => setSelectedSurvey(survey)} className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-semibold transition-all shadow-2xs">Xem kết quả</button>
+                      <button onClick={() => setSelectedSurvey(survey)} className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-semibold transition-colors shadow-2xs">Xem kết quả</button>
                     </td>
                   </tr>
                 ))}
@@ -539,7 +540,7 @@ export default function TrainingSurveysPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
                 >
                   Tạo khóa học
                 </button>
@@ -573,7 +574,7 @@ export default function TrainingSurveysPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Hạn chót</label>
-                <input type="date" required value={surveyForm.deadline} onChange={(e) => setSurveyForm({ ...surveyForm, deadline: e.target.value })} className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700/80 rounded-lg text-xs text-zinc-900 dark:text-zinc-100" />
+                <VietnameseDatePicker value={surveyForm.deadline} onChange={(iso) => setSurveyForm({ ...surveyForm, deadline: iso })} ariaLabel="Hạn chót khảo sát" />
               </div>
               <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
                 <button type="button" onClick={() => setIsSurveyModalOpen(false)} className="px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium">Thoát</button>
@@ -607,7 +608,7 @@ export default function TrainingSurveysPage() {
               <div>
                 <div className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">{respondingSurvey.title}</div>
                 <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-                  Chọn mức độ hài lòng của bạn trên thang điểm từ 1 đến 5 (1: Rất chưa hài lòng — 5: Rất hài lòng):
+                  Chọn mức độ hài lòng của bạn trên thang điểm từ 1 đến 5 (1: Rất chưa hài lòng · 5: Rất hài lòng):
                 </p>
               </div>
               <div className="grid grid-cols-5 gap-2 pt-1">
@@ -616,7 +617,7 @@ export default function TrainingSurveysPage() {
                     key={val}
                     type="button"
                     onClick={() => setSelectedRating(val)}
-                    className={`py-3 rounded-xl font-mono font-bold text-sm border transition-all flex flex-col items-center gap-1 ${
+                    className={`py-3 rounded-xl font-mono font-bold text-sm border transition-colors flex flex-col items-center gap-1 ${
                       selectedRating === val
                         ? "bg-blue-600 text-white border-blue-600 shadow-sm scale-[1.02]"
                         : "bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-blue-400"
@@ -794,7 +795,7 @@ export default function TrainingSurveysPage() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
               >
                 <Printer className="w-3.5 h-3.5" /> In khung đào tạo
               </button>
@@ -925,7 +926,7 @@ export default function TrainingSurveysPage() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
               >
                 <Printer className="w-3.5 h-3.5" /> In báo cáo
               </button>

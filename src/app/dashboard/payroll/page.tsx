@@ -35,6 +35,31 @@ import OvertimePanel from "@/components/payroll/OvertimePanel";
 import CalendarPanel from "@/components/payroll/CalendarPanel";
 import { useConfirm, TableSkeleton } from "@/components/providers/ToastProvider";
 
+
+const RIPPLING_AVATAR_TONES = [
+  "bg-[#f3e8ee] text-[#611f4c] border-[#e2cada] dark:bg-[#38192e] dark:text-[#f0c6e2] dark:border-[#542846]",
+  "bg-[#e6f3f5] text-[#155666] border-[#c4e2e8] dark:bg-[#113640] dark:text-[#9ddce9] dark:border-[#1d5260]",
+  "bg-[#faefe4] text-[#7c3a11] border-[#edd5bc] dark:bg-[#3d2210] dark:text-[#f5cfa8] dark:border-[#5c351a]",
+  "bg-[#e8f3ec] text-[#185936] border-[#c6e1d0] dark:bg-[#123623] dark:text-[#a6e3bf] dark:border-[#1d5437]",
+  "bg-[#ececf6] text-[#353273] border-[#d1d1e8] dark:bg-[#201f42] dark:text-[#c7c6f0] dark:border-[#343266]",
+  "bg-[#f2ece4] text-[#4d4132] border-[#dfd3c3] dark:bg-[#2c261e] dark:text-[#dfd4c5] dark:border-[#473d31]",
+];
+
+function getInitials(fullName: string): string {
+  if (!fullName) return "NV";
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getPeopleAvatarTone(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return RIPPLING_AVATAR_TONES[hash % RIPPLING_AVATAR_TONES.length];
+}
+
 export default function PayrollPage() {
   const { data: session } = useSession();
   const confirm = useConfirm();
@@ -51,6 +76,7 @@ export default function PayrollPage() {
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>("ALL");
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>("ALL");
   const [showRbacGuide, setShowRbacGuide] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<"ledger" | "overtime" | "calendar" | "rbac">("ledger");
   const [sortConfig, setSortConfig] = useState<{ key: "baseSalary" | "bonus" | "deductions" | "netSalary" | null; direction: "asc" | "desc" }>({ key: null, direction: "desc" });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -392,7 +418,7 @@ export default function PayrollPage() {
     switch (roleName) {
       case "BOD":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border border-zinc-900 dark:border-zinc-200">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
             Ban Giám Đốc (BOD)
           </span>
         );
@@ -435,7 +461,6 @@ export default function PayrollPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-zinc-200/80 dark:border-zinc-800/80">
           <div>
-            <div className="folio-kicker mb-3">Sổ điều hành / Thu nhập</div>
             <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
               Sổ lương theo kỳ
             </h1>
@@ -446,8 +471,16 @@ export default function PayrollPage() {
 
           <div className="flex flex-wrap items-center gap-2.5">
             <button 
-              onClick={() => setShowRbacGuide(!showRbacGuide)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold transition-all border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
+              onClick={() => {
+                const next = !(showRbacGuide || activeSubTab === "rbac");
+                setShowRbacGuide(next);
+                setActiveSubTab(next ? "rbac" : "ledger");
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors border shadow-2xs active:scale-95 ${
+                showRbacGuide || activeSubTab === "rbac"
+                  ? "bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 border-teal-400 dark:border-teal-700"
+                  : "bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-zinc-700/80"
+              }`}
               title="Xem quy chế phân quyền & kiểm soát nội bộ cho 6 vai trò"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-zinc-500" />
@@ -457,7 +490,7 @@ export default function PayrollPage() {
 
             <button 
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl text-xs font-semibold transition-all border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl text-xs font-semibold transition-colors border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
               title="Xuất Sổ cái bảng lương & Chi tiết khoản mục ra file Excel (.xlsx)"
             >
               <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -466,7 +499,7 @@ export default function PayrollPage() {
 
             <button 
               onClick={handleExportCSV}
-              className="px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-all border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
+              className="px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-colors border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
               title="Xuất bảng lương ra file CSV"
             >
               <span>Xuất CSV</span>
@@ -476,19 +509,19 @@ export default function PayrollPage() {
               <>
                 <Link
                   href="/dashboard/payroll/components"
-                  className="px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-all border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
+                  className="px-3.5 py-2 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold transition-colors border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
                 >
                   Danh mục Phụ cấp & Khấu trừ
                 </Link>
                 <button 
                   onClick={() => setIsAutoCalcOpen(true)}
-                  className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold transition-all border border-emerald-200/80 dark:border-emerald-800/80 shadow-2xs active:scale-95"
+                  className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold transition-colors border border-emerald-200/80 dark:border-emerald-800/80 shadow-2xs active:scale-95"
                 >
                   <span>Tính tự động</span>
                 </button>
                 <button 
                   onClick={openAddModal}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95 shrink-0"
                 >
                   <span>+ Tạo phiếu lương</span>
                 </button>
@@ -497,135 +530,99 @@ export default function PayrollPage() {
           </div>
         </div>
 
-        {canManage && (
-          <div className="folio-panel border-l-4 border-l-amber-600 px-5 py-4 text-sm text-zinc-700 dark:text-zinc-200">
-            <strong className="block font-semibold text-zinc-900 dark:text-zinc-100">Kiểm tra trước khi duyệt chi</strong>
-            <span>Ngày công chuẩn lấy theo lịch làm việc tháng, đã trừ ngày nghỉ lễ; OT chỉ tính từ đơn đã duyệt. Nghỉ ốm theo chế độ BHXH được tách khỏi lương công ty. Đối chiếu bảo hiểm và thuế trước khi chốt. Chuyển phiếu sang PAID chỉ ghi nhận trạng thái trong ứng dụng, không thực hiện chuyển tiền.</span>
-          </div>
-        )}
+        {/* RIPPLING-STYLE SUB-NAVIGATION TABS */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setActiveSubTab("ledger"); setShowRbacGuide(false); }}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                activeSubTab === "ledger" && !showRbacGuide
+                  ? "bg-[#1b6c80] text-white shadow-2xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <Banknote className="w-3.5 h-3.5" />
+              <span>Sổ lương & Duyệt chi</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                activeSubTab === "ledger" && !showRbacGuide
+                  ? "bg-white/20 text-white"
+                  : "bg-zinc-200/70 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+              }`}>
+                {filteredData.length}
+              </span>
+            </button>
 
-        <OvertimePanel userId={session?.user?.id} roleName={userRole} onApproved={fetchPayrolls} />
-        {["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole) && <CalendarPanel />}
+            <button
+              type="button"
+              onClick={() => { setActiveSubTab("overtime"); setShowRbacGuide(false); }}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                activeSubTab === "overtime"
+                  ? "bg-[#1b6c80] text-white shadow-2xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Đề nghị & Duyệt OT</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                activeSubTab === "overtime"
+                  ? "bg-white/20 text-white"
+                  : "bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+              }`}>
+                150%–300%
+              </span>
+            </button>
 
-        {/* Asymmetric Financial Ledger Strip (Swiss Treasury Layout) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-          {/* Primary Net Disbursement Treasury Block */}
-          <div className="lg:col-span-5 folio-panel-dark text-white p-6 flex flex-col justify-between">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400">
-                  Tổng thực lĩnh theo bộ lọc
+            {["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole) && (
+              <button
+                type="button"
+                onClick={() => { setActiveSubTab("calendar"); setShowRbacGuide(false); }}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  activeSubTab === "calendar"
+                    ? "bg-[#1b6c80] text-white shadow-2xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                <span>Lịch công & Ngày nghỉ chuẩn</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                  activeSubTab === "calendar"
+                    ? "bg-white/20 text-white"
+                    : "bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                }`}>
+                  2026
                 </span>
-                <div className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight mt-2 text-white">
-                  {formatVND(payrollTotals.net)}
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-blue-400 shrink-0">
-                <Banknote className="w-5 h-5" />
-              </div>
-            </div>
+              </button>
+            )}
 
-            <div className="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-zinc-400">
-                Đã ghi nhận chi trả: <strong className="text-white font-mono">{filteredData.filter((p) => p.status === "PAID").length}/{filteredData.length}</strong> phiếu
-                {draftPayrollsInView.length > 0 && (
-                  <span className="ml-2 text-amber-400 font-medium">
-                    ({draftPayrollsInView.length} bản nháp)
-                  </span>
-                )}
-              </div>
-              {canDisburse && draftPayrollsInView.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleBulkDisburse}
-                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors shadow-xs"
-                >
-                  Ghi nhận chi trả ({draftPayrollsInView.length})
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => { setActiveSubTab("rbac"); setShowRbacGuide(true); }}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                activeSubTab === "rbac" || showRbacGuide
+                  ? "bg-[#1b6c80] text-white shadow-2xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Ma trận Phân quyền (6 Vai trò)</span>
+            </button>
           </div>
 
-          {/* Right 3-Column Unified Ledger Breakdown */}
-          <div className="lg:col-span-7 bento-card p-0 overflow-hidden flex flex-col justify-between">
-            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800 flex-1">
-              <div className="p-5 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                  <span>Quỹ lương cơ bản</span>
-                  <Calculator className="w-3.5 h-3.5 text-zinc-400" />
-                </div>
-                <div className="mt-3">
-                  <div className="text-xl font-bold font-mono text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {formatVND(payrollTotals.base)}
-                  </div>
-                  <div className="mt-1 text-[11px] text-zinc-500">
-                    Quy đổi theo ngày công chuẩn từng tháng
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-5 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                  <span>Thưởng & Phụ cấp (+)</span>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div className="mt-3">
-                  <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
-                    +{formatVND(payrollTotals.bonus)}
-                  </div>
-                  <div className="mt-1 text-[11px] text-zinc-500">
-                    Thưởng KPI & phụ cấp chức vụ
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-5 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                  <span>Khấu trừ & BHXH (-)</span>
-                  <FileText className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                </div>
-                <div className="mt-3">
-                  <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 tracking-tight">
-                    -{formatVND(payrollTotals.deductions)}
-                  </div>
-                  <div className="mt-1 text-[11px] text-zinc-500">
-                    Bảo hiểm, thuế và các khoản khác
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Settlement Progress Footer */}
-            <div className="px-5 py-3 bg-zinc-50/80 dark:bg-zinc-900/60 border-t border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Tiến độ khóa sổ kỳ lọc</span>
-              </div>
-              <div className="flex items-center gap-3 w-48 sm:w-64">
-                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${filteredData.length > 0 ? Math.round((filteredData.filter((p) => p.status === "PAID").length / filteredData.length) * 100) : 0}%`,
-                    }}
-                  />
-                </div>
-                <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200 shrink-0">
-                  {filteredData.length > 0 ? Math.round((filteredData.filter((p) => p.status === "PAID").length / filteredData.length) * 100) : 0}%
-                </span>
-              </div>
-            </div>
+          <div className="hidden xl:flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span>Vai trò hiện tại:</span>
+            {getRoleBadge(userRole)}
           </div>
         </div>
 
         {/* DISTILLED COLLAPSIBLE RBAC & ROLE AUTHORIZATION GUIDE */}
-        {showRbacGuide && (
+        {(showRbacGuide || activeSubTab === "rbac") && (
           <div className="space-y-4 animate-in fade-in">
         {/* ACTIVE ROLE AUTHORIZATION BANNER */}
         <div className="bento-card p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 group">
           <div className="flex items-start sm:items-center gap-4">
             <div className={`squircle w-11 h-11 shrink-0 font-mono font-bold text-xs flex items-center justify-center ${
-              isBOD ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border border-zinc-900 dark:border-zinc-200" :
+              isBOD ? "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800" :
               isAccountant ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800" :
               userRole === "HR" ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700" :
               isManager ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800" :
@@ -689,7 +686,7 @@ export default function PayrollPage() {
         </div>
 
         {/* EXPANDABLE 6-ROLE RBAC SPECIFICATION MATRIX */}
-        {showRbacGuide && (
+        {(showRbacGuide || activeSubTab === "rbac") && (
           <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
               <div>
@@ -701,7 +698,7 @@ export default function PayrollPage() {
                 </p>
               </div>
               <button 
-                onClick={() => setShowRbacGuide(false)}
+                onClick={() => { setShowRbacGuide(false); setActiveSubTab("ledger"); }}
                 className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 font-medium"
               >
                 Thu gọn
@@ -712,7 +709,7 @@ export default function PayrollPage() {
               {/* Role 1: BOD */}
               <div className="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-xs space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-600 text-white dark:bg-blue-600 dark:text-white">
                     BOD
                   </span>
                   <span className="text-[10px] text-zinc-400 font-medium">HĐQT & Ban Giám Đốc</span>
@@ -810,6 +807,195 @@ export default function PayrollPage() {
           </div>
         )}
 
+        {activeSubTab === "overtime" && (
+          <OvertimePanel userId={session?.user?.id} roleName={userRole} onApproved={fetchPayrolls} />
+        )}
+
+        {activeSubTab === "calendar" && ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole) && (
+          <CalendarPanel />
+        )}
+
+        {activeSubTab === "ledger" && canManage && (
+          <div className="bento-card p-3.5 sm:p-4 bg-zinc-50/70 dark:bg-zinc-900/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+              <button
+                type="button"
+                onClick={() => ["SYSTEM_ADMIN", "BOD", "HR"].includes(userRole) && setActiveSubTab("calendar")}
+                className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left hover:border-[#1b6c80] transition-colors group"
+              >
+                <span className="w-5 h-5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-[#1b6c80] dark:text-[#2ba3be] border border-teal-200 dark:border-teal-800 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-[#1b6c80] dark:group-hover:text-[#2ba3be] truncate">
+                    Chốt công & Lịch lễ 2026
+                  </div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    Công chuẩn theo tháng · Trừ nghỉ ốm BHXH
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSubTab("overtime")}
+                className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left hover:border-[#1b6c80] transition-colors group"
+              >
+                <span className="w-5 h-5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-[#1b6c80] dark:text-[#2ba3be] border border-teal-200 dark:border-teal-800 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-[#1b6c80] dark:group-hover:text-[#2ba3be] truncate">
+                    Tổng hợp Tăng ca (OT)
+                  </div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    Đơn đã duyệt · 150% / 200% / 300%
+                  </div>
+                </div>
+              </button>
+
+              <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left">
+                <span className="w-5 h-5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-[#1b6c80] dark:text-[#2ba3be] border border-teal-200 dark:border-teal-800 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                    Đối soát BHXH & Thuế TNCN
+                  </div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    BHXH 10.5% lương HĐ · Miễn khi nghỉ ≥14 ngày
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left">
+                <span className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  4
+                </span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                    BOD Duyệt chi & Khóa sổ (PAID)
+                  </div>
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium truncate mt-0.5">
+                    Đã chốt {filteredData.filter((p) => p.status === "PAID").length}/{filteredData.length} phiếu trong kỳ lọc
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Asymmetric Financial Ledger Strip (Swiss Treasury Layout) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          {/* Primary Net Disbursement Treasury Block */}
+          <div className="lg:col-span-5 bento-card p-6 flex flex-col justify-between">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="swiss-label">
+                  Tổng thực lĩnh theo bộ lọc
+                </span>
+                <div className="text-2xl sm:text-3xl font-semibold font-mono tracking-tight mt-2 text-zinc-900 dark:text-zinc-100">
+                  {formatVND(payrollTotals.net)}
+                </div>
+              </div>
+              <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-zinc-800 border border-blue-200 dark:border-zinc-700 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                <Banknote className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                Đã ghi nhận chi trả: <strong className="text-zinc-900 dark:text-zinc-100 font-mono">{filteredData.filter((p) => p.status === "PAID").length}/{filteredData.length}</strong> phiếu
+                {draftPayrollsInView.length > 0 && (
+                  <span className="ml-2 text-amber-600 dark:text-amber-400 font-medium">
+                    ({draftPayrollsInView.length} bản nháp)
+                  </span>
+                )}
+              </div>
+              {canDisburse && draftPayrollsInView.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleBulkDisburse}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+                >
+                  Ghi nhận chi trả ({draftPayrollsInView.length})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Right 3-Column Unified Ledger Breakdown */}
+          <div className="lg:col-span-7 bento-card p-0 overflow-hidden flex flex-col justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800 flex-1">
+              <div className="p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  <span>Quỹ lương cơ bản</span>
+                  <Calculator className="w-3.5 h-3.5 text-zinc-400" />
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl font-bold font-mono text-zinc-900 dark:text-zinc-100 tracking-tight">
+                    {formatVND(payrollTotals.base)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-zinc-500">
+                    Quy đổi theo ngày công chuẩn từng tháng
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  <span>Thưởng & Phụ cấp (+)</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
+                    +{formatVND(payrollTotals.bonus)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-zinc-500">
+                    Thưởng KPI & phụ cấp chức vụ
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  <span>Khấu trừ & BHXH (-)</span>
+                  <FileText className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 tracking-tight">
+                    -{formatVND(payrollTotals.deductions)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-zinc-500">
+                    Bảo hiểm, thuế và các khoản khác
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Settlement Progress Footer */}
+            <div className="px-5 py-3 bg-zinc-50/80 dark:bg-zinc-900/60 border-t border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Tiến độ khóa sổ kỳ lọc</span>
+              </div>
+              <div className="flex items-center gap-3 w-48 sm:w-64">
+                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 rounded-full transition-colors duration-300"
+                    style={{
+                      width: `${filteredData.length > 0 ? Math.round((filteredData.filter((p) => p.status === "PAID").length / filteredData.length) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200 shrink-0">
+                  {filteredData.length > 0 ? Math.round((filteredData.filter((p) => p.status === "PAID").length / filteredData.length) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-5">
         {/* Table Container */}
         <div className="bento-card rounded-2xl overflow-hidden shadow-xs flex flex-col">
@@ -821,7 +1007,7 @@ export default function PayrollPage() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2 bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-colors shadow-2xs"
                   placeholder="Tìm theo tên nhân viên, email, phòng ban..."
                 />
               </div>
@@ -880,7 +1066,7 @@ export default function PayrollPage() {
 
           {/* Table */}
           <div className="w-full overflow-x-auto">
-            <table className="min-w-[1120px] w-full table-auto text-left border-collapse text-xs">
+            <table className="w-full table-auto text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 font-medium text-xs border-b border-zinc-200 dark:border-zinc-800">
                   <th className="px-4 py-3">Cán bộ nhân sự</th>
@@ -956,15 +1142,22 @@ export default function PayrollPage() {
                     return (
                       <tr key={payroll.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
                         <td className="px-4 py-3">
-                          <div className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs">
-                            {payroll.employee?.user?.name}
-                          </div>
-                          <div className="text-xs text-zinc-500 font-mono">
-                            {payroll.employee?.user?.email} · NV-{(payroll.employee?.id || "").slice(-5).toUpperCase()}
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-mono text-[11px] font-bold shrink-0 ${getPeopleAvatarTone(payroll.employee?.user?.name || "")}`}>
+                              {getInitials(payroll.employee?.user?.name || "")}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs truncate">
+                                {payroll.employee?.user?.name}
+                              </div>
+                              <div className="text-[11px] text-zinc-500 font-mono truncate">
+                                {payroll.employee?.user?.email} · NV-{(payroll.employee?.id || "").slice(-5).toUpperCase()}
+                              </div>
+                            </div>
                           </div>
                         </td>
 
-                        <td className="px-3.5 py-3 min-w-[220px] max-w-[260px]">
+                        <td className="px-3 py-3 max-w-[210px]">
                           <div className="space-y-1">
                             <div>{getRoleBadge(empRole)}</div>
                             <div className="text-[11px] text-zinc-600 dark:text-zinc-400">

@@ -319,20 +319,23 @@ export async function getPayrolls(
   if (year) where.year = year;
 
   if (scope?.roleName === "USER") {
-    if (!scope.userId) throw new Error("Thiếu định danh người dùng.");
-    where.employee = { user: { id: scope.userId } };
+    if (!scope.userId && !scope.userEmail) throw new Error("Thiếu định danh người dùng.");
+    where.employee = {
+      user: scope.userId ? { id: scope.userId } : { email: scope.userEmail },
+    };
   } else if (scope?.roleName === "MANAGER") {
-    if (!scope.userId) throw new Error("Thiếu định danh người dùng.");
+    if (!scope.userId && !scope.userEmail) throw new Error("Thiếu định danh người dùng.");
+    const userFilter = scope.userId ? { id: scope.userId } : { email: scope.userEmail };
     const managedDept = await prisma.department.findFirst({
-      where: { manager: { userId: scope.userId } },
+      where: { manager: { user: userFilter } },
       select: { id: true },
     });
     if (managedDept) {
       where.employee = {
-        OR: [{ departmentId: managedDept.id }, { user: { id: scope.userId } }],
+        OR: [{ departmentId: managedDept.id }, { user: userFilter }],
       };
     } else {
-      where.employee = { user: { id: scope.userId } };
+      where.employee = { user: userFilter };
     }
   }
 
@@ -1051,7 +1054,7 @@ export async function calculateMonthlyPayroll(
 
     if (ins.needsHrReconciliation) {
       details.push({
-        name: `Cần HR đối chiếu chấm công/bảo hiểm (Thiếu dữ liệu công ${missingAttendanceDays} ngày, vào/nghỉ giữa tháng ${midMonthUnworkedDays} ngày — tạm trích bảo hiểm theo HĐ)`,
+        name: `Cần HR đối chiếu chấm công/bảo hiểm (Thiếu dữ liệu công ${missingAttendanceDays} ngày, vào/nghỉ giữa tháng ${midMonthUnworkedDays} ngày · tạm trích bảo hiểm theo HĐ)`,
         type: "INFO",
         amount: ins.nonPaidWorkingDays,
         amountType: "DAYS",
@@ -1060,7 +1063,7 @@ export async function calculateMonthlyPayroll(
 
     if (!ins.regionConfirmed && contractInsuranceBaseSalary > 20 * REGIONAL_MINIMUM_WAGES_ND74_2024.IV) {
       details.push({
-        name: `Trần BHTN đang tạm tính theo Vùng ${ins.region} (${ins.bhtnCap.toLocaleString("vi-VN")} VNĐ — Cần HR xác nhận vùng địa bàn làm việc nếu khác Vùng ${ins.region})`,
+        name: `Trần BHTN đang tạm tính theo Vùng ${ins.region} (${ins.bhtnCap.toLocaleString("vi-VN")} VNĐ · Cần HR xác nhận vùng địa bàn làm việc nếu khác Vùng ${ins.region})`,
         type: "INFO",
         amount: ins.bhtnCap,
         amountType: "FIXED",

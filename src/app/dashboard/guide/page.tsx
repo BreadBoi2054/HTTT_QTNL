@@ -180,9 +180,9 @@ export default function UserGuidePage() {
           </div>
 
           {/* Role 5: BOD */}
-          <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-3">
+          <div className="p-4 rounded-xl border border-sky-200 dark:border-sky-900/60 bg-sky-50/30 dark:bg-sky-950/20 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-600 text-white">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-600 text-white">
                 <ShieldCheck className="w-3.5 h-3.5" /> Ban Giám Đốc (BOD)
               </span>
               <span className="text-xs text-zinc-500 font-medium">Lãnh đạo Điều hành Tập đoàn</span>
@@ -195,7 +195,7 @@ export default function UserGuidePage() {
               <li>Phê duyệt quyết định bổ nhiệm, điều chuyển, quy hoạch cán bộ nguồn và định biên nhân sự.</li>
               <li>Phê duyệt đơn từ cấp quản lý và kiểm tra nhật ký kiểm toán vận hành.</li>
             </ul>
-            <div className="pt-2 border-t border-indigo-200/50 dark:border-indigo-900/40 text-xs text-indigo-700 dark:text-indigo-300">
+            <div className="pt-2 border-t border-sky-200/50 dark:border-sky-900/40 text-xs text-sky-700 dark:text-sky-300">
               Vai trò hệ thống: <strong>BOD</strong> (Quyền điều hành cấp cao)
             </div>
           </div>
@@ -387,7 +387,7 @@ export default function UserGuidePage() {
         {/* 4.1 Thuật toán Đánh giá KPI & Phân bổ thưởng */}
         <div className="p-4 rounded-xl border border-amber-200/80 dark:border-amber-900/60 bg-amber-50/30 dark:bg-amber-950/20 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-xs font-bold text-amber-700 dark:text-amber-300 tracking-tight flex items-center gap-1.5">
               <Award className="w-4 h-4 text-amber-600" /> Phân hệ 1: Thuật toán Đánh giá Hiệu suất & Xếp loại Bell Curve KPI
             </span>
             <span className="text-[11px] font-mono font-semibold text-zinc-500">Trọng số 50% - 25% - 25%</span>
@@ -446,7 +446,7 @@ export default function UserGuidePage() {
         {/* 4.2 Nghiệp vụ Chấm công, Lịch công & Tăng ca (OT) */}
         <div className="p-4 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/30 dark:bg-blue-950/20 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-xs font-bold text-blue-700 dark:text-blue-300 tracking-tight flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-blue-600" /> Phân hệ 2: Cơ Chế Chấm Công, Lịch Công Chuẩn & Tăng Ca (OT)
             </span>
             <span className="text-[11px] font-mono font-semibold text-zinc-500">Công chuẩn thực tế & OT 2 bên thỏa thuận</span>
@@ -479,7 +479,7 @@ export default function UserGuidePage() {
         {/* 4.3 Công thức tính lương & Phụ cấp */}
         <div className="p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 tracking-tight flex items-center gap-1.5">
               <Banknote className="w-4 h-4 text-emerald-600" /> Phân hệ 3: Thuật Toán Quyết Toán Lương Thực Lĩnh & Bảo Hiểm (Luật BHXH 2024)
             </span>
             <span className="text-[11px] font-mono font-semibold text-zinc-500">BHXH/BHYT/BHTN 10.5% trên Lương HĐ</span>
@@ -646,7 +646,7 @@ export default function UserGuidePage() {
         <div className="overflow-x-auto text-xs">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 font-semibold text-xs text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 uppercase tracking-wider">
+              <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 font-semibold text-xs text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 tracking-tight">
                 <th className="px-4 py-3">Họ và tên</th>
                 <th className="px-4 py-3">Email đăng nhập</th>
                 <th className="px-4 py-3">Phòng ban</th>
@@ -844,7 +844,7 @@ export default function UserGuidePage() {
           </Link>
           <Link
             href="/dashboard/attendance"
-            className="px-3.5 py-2 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors"
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors"
           >
             Chấm công & Điểm danh &rarr;
           </Link>

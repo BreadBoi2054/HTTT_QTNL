@@ -373,7 +373,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
                 <option value="">-- Chọn nhân sự để tự động nạp mức lương hợp đồng --</option>
                 {filteredEmployees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.user?.name} — {emp.position || "Chuyên viên"} ({emp.department?.name || "Chưa phân phòng"})
+                    {emp.user?.name} · {emp.position || "Chuyên viên"} ({emp.department?.name || "Chưa phân phòng"})
                   </option>
                 ))}
               </select>
@@ -470,14 +470,14 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
                 2. Ngày công hưởng lương và giảm trừ gia cảnh
               </span>
               <span className="text-[11px] text-zinc-500">
-                Công chuẩn: <strong className="font-mono">{standardDays || "—"} ngày/tháng</strong> (8h/ngày)
+                Công chuẩn: <strong className="font-mono">{standardDays || "-"} ngày/tháng</strong> (8h/ngày)
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
                 <label className="block text-[11px] font-semibold text-zinc-500 mb-1">
-                  Số ngày công hưởng lương (0 - {standardDays || "—"})
+                  Số ngày công hưởng lương (0 - {standardDays || "-"})
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -489,7 +489,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
                     onChange={(e) => setWorkedDays(Number(e.target.value))}
                     className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-500"
                   />
-                  <span className="text-xs font-mono text-zinc-400 shrink-0">/ {standardDays || "—"} công</span>
+                  <span className="text-xs font-mono text-zinc-400 shrink-0">/ {standardDays || "-"} công</span>
                 </div>
               </div>
 
@@ -626,30 +626,30 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
             </div>
           </div>
 
-          <div className="p-4 bg-zinc-900 dark:bg-zinc-950 text-white rounded-2xl border border-zinc-800 space-y-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-3 border-b border-zinc-800 text-xs">
+          <div className="p-4 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800 text-xs">
               <div>
-                <div className="text-zinc-400 text-[11px]">Lương ngày công ({workedDays} công)</div>
-                <div className="font-mono font-bold text-zinc-100 mt-0.5">{formatVND(Number(baseSalary) || 0)}</div>
+                <div className="text-zinc-500 dark:text-zinc-400 text-[11px]">Lương ngày công ({workedDays} công)</div>
+                <div className="font-mono font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">{formatVND(Number(baseSalary) || 0)}</div>
               </div>
               <div>
-                <div className="text-zinc-400 text-[11px]">Thưởng / phụ cấp</div>
-                <div className="font-mono font-bold text-emerald-400 mt-0.5">+{formatVND(totalBonusWithOt)}</div>
+                <div className="text-zinc-500 dark:text-zinc-400 text-[11px]">Thưởng / phụ cấp</div>
+                <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">+{formatVND(totalBonusWithOt)}</div>
               </div>
               <div>
-                <div className="text-zinc-400 text-[11px]">BHXH (10.5%) & Thuế TNCN</div>
-                <div className="font-mono font-bold text-rose-400 mt-0.5">-{formatVND(Number(deductions) || 0)}</div>
+                <div className="text-zinc-500 dark:text-zinc-400 text-[11px]">BHXH (10.5%) & Thuế TNCN</div>
+                <div className="font-mono font-bold text-rose-600 dark:text-rose-400 mt-0.5">-{formatVND(Number(deductions) || 0)}</div>
               </div>
               <div className="sm:text-right">
-                <div className="text-blue-400 text-[11px] font-semibold uppercase tracking-wider">Thực lĩnh dự kiến (Net)</div>
-                <div className="font-mono font-extrabold text-lg text-white mt-0.5">{formatVND(netSalary)}</div>
+                <div className="text-blue-600 dark:text-blue-400 text-[11px] font-semibold uppercase tracking-wider">Thực lĩnh dự kiến (Net)</div>
+                <div className="font-mono font-extrabold text-lg text-zinc-900 dark:text-white mt-0.5">{formatVND(netSalary)}</div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-zinc-400">
+            <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
               <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Phiếu lương khi lưu sẽ ở trạng thái <strong className="text-amber-400">Bản nháp (DRAFT)</strong> chờ Ban Giám đốc duyệt chi.
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Phiếu lương khi lưu sẽ ở trạng thái <strong className="text-amber-600 dark:text-amber-400">Bản nháp (DRAFT)</strong> chờ Ban Giám đốc duyệt chi.
               </span>
             </div>
           </div>
@@ -665,7 +665,7 @@ export default function PayrollModal({ isOpen, onClose, onSuccess, payroll }: Pa
             <button
               type="submit"
               disabled={loading || !employeeId}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl disabled:opacity-50 flex items-center gap-2 transition-all shadow-sm active:scale-95"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl disabled:opacity-50 flex items-center gap-2 transition-colors shadow-sm active:scale-95"
             >
               {loading ? (
                 <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

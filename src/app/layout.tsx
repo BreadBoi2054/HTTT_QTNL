@@ -1,42 +1,44 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono, Noto_Serif } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 
-const sans = Plus_Jakarta_Sans({ 
-  subsets: ["latin", "vietnamese"], 
+const sans = IBM_Plex_Sans({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
-  display: "swap" 
+  display: "swap",
 });
 
-const mono = JetBrains_Mono({
+const mono = IBM_Plex_Mono({
   subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600"],
   variable: "--font-mono",
-  display: "swap"
-});
-
-const editorial = Noto_Serif({
-  subsets: ["latin", "vietnamese"],
-  variable: "--font-editorial",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Hệ Thống Thông Tin Quản Trị Nguồn Nhân Lực (HRMIS)",
-  description: "Hệ thống Quản trị Nguồn nhân lực & Tiền lương Doanh nghiệp theo Bộ Luật Lao Động 2019",
+  title: "NEXUSTECH HRIS · Hệ Thống Quản Trị Nhân Lực & Tiền Lương",
+  description: "Hệ thống thông tin quản trị nguồn nhân lực, chấm công, hợp đồng lao động và quyết toán tiền lương doanh nghiệp theo Bộ luật Lao động 2019",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-} >) {
+}>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${sans.variable} ${mono.variable} ${editorial.variable} font-sans antialiased bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 selection:bg-blue-600 selection:text-white`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+      <body className={`${sans.variable} ${mono.variable} font-sans antialiased bg-background text-foreground`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          storageKey="nexustech-theme-v3"
+          disableTransitionOnChange
+        >
           <AuthProvider>
             <ToastProvider>
               {children}

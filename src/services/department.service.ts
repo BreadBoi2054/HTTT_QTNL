@@ -12,9 +12,15 @@ const SAFE_USER_SELECT = {
 
 export async function getDepartments() {
   return await prisma.department.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
     include: {
       manager: {
+        include: {
+          user: { select: SAFE_USER_SELECT },
+        },
+      },
+      employees: {
+        orderBy: { createdAt: "asc" },
         include: {
           user: { select: SAFE_USER_SELECT },
         },

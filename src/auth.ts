@@ -69,6 +69,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.sub = user.id;
         token.roleId = (user as any).roleId;
         token.roleName = (user as any).roleName;
         token.employeeId = (user as any).employeeId;
@@ -76,19 +77,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return token;
       }
 
-      if (token?.id) {
+      if (token?.id || token?.email) {
         try {
-          const freshUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              roleId: true,
-              role: { select: { name: true } },
-              employee: { select: { id: true, status: true } },
-            },
-          });
+          const selectFields = {
+            id: true,
+            name: true,
+            email: true,
+            roleId: true,
+            role: { select: { name: true } },
+            employee: { select: { id: true, status: true } },
+          };
+
+          let freshUser = token?.id
+            ? await prisma.user.findUnique({
+                where: { id: token.id as string },
+                select: selectFields,
+              })
+            : null;
+
+          // Tự động phục hồi phiên (Self-healing session) theo email nếu CSDL vừa được seed lại làm đổi cuid
+          if (!freshUser && token?.email) {
+            const rawEmail = String(token.email).trim().toLowerCase();
+            freshUser = await prisma.user.findFirst({
+              where: {
+                email: {
+                  in: [
+                    rawEmail,
+                    rawEmail.replace(/@nexustech\.vn$/, "@hrmis.com"),
+                    rawEmail.replace(/@hrmis\.com$/, "@nexustech.vn"),
+                  ],
+                },
+              },
+              select: selectFields,
+            });
+          }
 
           if (
             !freshUser ||
@@ -100,6 +122,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return token;
           }
 
+          token.id = freshUser.id;
+          token.sub = freshUser.id;
           token.name = freshUser.name;
           token.email = freshUser.email;
           token.roleId = freshUser.roleId;
@@ -114,12 +138,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (token?.revoked) {
+        if (session?.user) {
+          (session.user as any).id = "";
+          (session.user as any).revoked = true;
+        }
         return null as any;
       }
       if (token && session.user) {
-        session.user.id = token.id as string;
+        session.user.id = (token.id || token.sub || "") as string;
         (session.user as any).roleId = token.roleId;
-        (session.user as any).roleName = token.roleName;
+        (session.user as any).roleName = token.roleName || "USER";
         (session.user as any).employeeId = token.employeeId;
       }
       return session;

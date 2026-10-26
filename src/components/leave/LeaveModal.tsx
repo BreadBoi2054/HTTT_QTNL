@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Calendar, FileText, CheckCircle, Clock } from "lucide-react";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 
 interface LeaveModalProps {
   isOpen: boolean;
@@ -141,7 +142,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
 
           {leaveRequest && isAdmin && (
             <div className="p-3.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg">
-              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
+              <span className="text-xs font-semibold text-zinc-500 tracking-tight block mb-1">
                 Thông tin người làm đơn
               </span>
               <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
@@ -179,26 +180,23 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
               <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Từ ngày <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
-                required
+              <VietnameseDatePicker
                 disabled={isFieldsLocked}
                 value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:border-blue-500 outline-none transition-colors disabled:opacity-60"
+                onChange={(iso) => setFormData({ ...formData, startDate: iso, endDate: formData.endDate < iso ? iso : formData.endDate })}
+                ariaLabel="Từ ngày nghỉ phép"
               />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 Đến ngày <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
-                required
+              <VietnameseDatePicker
                 disabled={isFieldsLocked}
+                min={formData.startDate}
                 value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:border-blue-500 outline-none transition-colors disabled:opacity-60"
+                onChange={(iso) => setFormData({ ...formData, endDate: iso })}
+                ariaLabel="Đến ngày nghỉ phép"
               />
             </div>
           </div>
@@ -269,7 +267,7 @@ export default function LeaveModal({ isOpen, onClose, onSuccess, leaveRequest, i
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 text-xs font-medium text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2"
               >
                 {loading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

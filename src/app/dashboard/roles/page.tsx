@@ -88,7 +88,7 @@ export default function RolesPage() {
         </div>
         <button 
           onClick={openAddModal}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Thêm vai trò</span>
@@ -116,7 +116,7 @@ export default function RolesPage() {
         <div className="hidden lg:block overflow-x-auto">
           <table className="min-w-[760px] w-full text-left border-collapse">
             <thead>
-              <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-b border-zinc-100 dark:border-zinc-800 uppercase tracking-wider">
+              <tr className="bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-b border-zinc-100 dark:border-zinc-800 tracking-tight">
                 <th className="px-5 py-3.5">Tên vai trò</th>
                 <th className="px-5 py-3.5">Danh sách quyền</th>
                 <th className="px-5 py-3.5 text-center">Tài khoản</th>
@@ -141,7 +141,7 @@ export default function RolesPage() {
                   <tr key={role.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors group">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-all">
+                        <div className="squircle w-9 h-9 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-colors">
                           <ShieldCheck className="w-4 h-4" />
                         </div>
                         <div>
@@ -173,7 +173,7 @@ export default function RolesPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button 
                             onClick={() => openEditModal(role)} 
-                            className="p-1.5 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition-all shadow-2xs"
+                            className="p-1.5 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition-colors shadow-2xs"
                             title="Sửa"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -181,7 +181,7 @@ export default function RolesPage() {
                           {!CORE_ROLES.includes(role.name) && (
                             <button 
                               onClick={() => handleDelete(role.id, role.name)} 
-                              className="p-1.5 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all shadow-2xs"
+                              className="p-1.5 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors shadow-2xs"
                               title="Xóa"
                             >
                               <Trash2 className="w-3.5 h-3.5" />

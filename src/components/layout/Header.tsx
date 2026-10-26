@@ -2,7 +2,7 @@
 
 import { 
   LogOut, Bell, Search, Moon, Sun, AlertTriangle, FileText, 
-  Banknote, Target, ArrowRight, Menu, User, Sparkles, KeyRound, X, Phone, ShieldCheck 
+  Banknote, Target, ArrowRight, Menu, User, Sparkles, KeyRound, X, Phone, ShieldCheck, type LucideIcon 
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
@@ -15,9 +15,39 @@ interface NotificationItem {
   title: string;
   desc: string;
   time: string;
-  icon: any;
+  icon: LucideIcon;
   href: string;
   read: boolean;
+}
+
+interface HeaderSession {
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    roleName?: string;
+  };
+}
+
+interface SearchEmployeeItem {
+  id: string;
+  position?: string | null;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+  } | null;
+  department?: {
+    name?: string | null;
+  } | null;
+}
+
+interface SearchDecisionItem {
+  id: string;
+  code?: string;
+  employeeName?: string;
+  fromPosition?: string;
+  toPosition?: string;
+  toDept?: string;
+  status?: string;
 }
 
 const fallbackNotifications: NotificationItem[] = [
@@ -50,11 +80,10 @@ const fallbackNotifications: NotificationItem[] = [
   }
 ];
 
-export default function Header({ session }: { session: any }) {
+export default function Header({ session }: { session: HeaderSession | null }) {
   const user = session?.user;
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [secForm, setSecForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "", phone: "" });
@@ -62,8 +91,8 @@ export default function Header({ session }: { session: any }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>(fallbackNotifications);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const [employeeIndex, setEmployeeIndex] = useState<any[]>([]);
-  const [decisionIndex, setDecisionIndex] = useState<any[]>([]);
+  const [employeeIndex, setEmployeeIndex] = useState<SearchEmployeeItem[]>([]);
+  const [decisionIndex, setDecisionIndex] = useState<SearchDecisionItem[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -122,8 +151,6 @@ export default function Header({ session }: { session: any }) {
     : [];
 
   useEffect(() => {
-    setMounted(true);
-
     let savedReadIds: number[] = [];
     try {
       const raw = localStorage.getItem("hrmis_read_notifications");
@@ -148,7 +175,7 @@ export default function Header({ session }: { session: any }) {
         if (leaveRes.status === "fulfilled" && leaveRes.value.ok) {
           const leaves = await leaveRes.value.json();
           if (Array.isArray(leaves)) {
-            const pendingCount = leaves.filter((l: any) => l.status === "PENDING").length;
+            const pendingCount = leaves.filter((l: { status?: string }) => l.status === "PENDING").length;
             if (pendingCount > 0) {
               liveItems.push({
                 id: 201,
@@ -166,8 +193,8 @@ export default function Header({ session }: { session: any }) {
         if (changeRes.status === "fulfilled" && changeRes.value.ok) {
           const changes = await changeRes.value.json();
           if (Array.isArray(changes)) {
-            setDecisionIndex(changes);
-            const pendingDecisions = changes.filter((c: any) => c.status === "PENDING").length;
+            setDecisionIndex(changes as SearchDecisionItem[]);
+            const pendingDecisions = changes.filter((c: { status?: string }) => c.status === "PENDING").length;
             if (pendingDecisions > 0) {
               liveItems.push({
                 id: 206,
@@ -186,7 +213,7 @@ export default function Header({ session }: { session: any }) {
           const contracts = await contractRes.value.json();
           if (Array.isArray(contracts)) {
             const expiringCount = contracts.filter(
-              (c: any) => c.status === "EXPIRING_SOON" || c.status === "EXPIRED"
+              (c: { status?: string }) => c.status === "EXPIRING_SOON" || c.status === "EXPIRED"
             ).length;
             if (expiringCount > 0) {
               liveItems.push({
@@ -206,7 +233,7 @@ export default function Header({ session }: { session: any }) {
           const payrolls = await payrollRes.value.json();
           if (Array.isArray(payrolls)) {
             const draftCount = payrolls.filter(
-              (p: any) => p.status === "DRAFT" || p.status === "PENDING_APPROVAL"
+              (p: { status?: string }) => p.status === "DRAFT" || p.status === "PENDING_APPROVAL"
             ).length;
             if (draftCount > 0) {
               liveItems.push({
@@ -247,7 +274,7 @@ export default function Header({ session }: { session: any }) {
         if (empRes.status === "fulfilled" && empRes.value.ok) {
           const emps = await empRes.value.json();
           if (Array.isArray(emps)) {
-            setEmployeeIndex(emps);
+            setEmployeeIndex(emps as SearchEmployeeItem[]);
           }
         }
       } catch {
@@ -285,7 +312,7 @@ export default function Header({ session }: { session: any }) {
     };
   }, []);
 
-  const isDark = mounted ? resolvedTheme === "dark" : false;
+  const isDark = resolvedTheme === "dark";
 
   const toggleDarkMode = () => {
     setTheme(isDark ? "light" : "dark");
@@ -338,8 +365,8 @@ export default function Header({ session }: { session: any }) {
       alert(data.message || "Đã cập nhật mật khẩu & thông tin liên hệ thành công!");
       setShowSecurityModal(false);
       setSecForm({ currentPassword: "", newPassword: "", confirmPassword: "", phone: "" });
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Đã xảy ra lỗi.");
     } finally {
       setSecLoading(false);
     }
@@ -356,10 +383,10 @@ export default function Header({ session }: { session: any }) {
     }
   };
 
-  const getRoleBadgeStyle = (role: string) => {
+  const getRoleBadgeStyle = (role?: string) => {
     switch (role) {
       case "BOD":
-        return "bg-zinc-900 text-white border-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-300";
+        return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800";
       case "ACCOUNTANT":
         return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900";
       case "HR":
@@ -383,21 +410,21 @@ export default function Header({ session }: { session: any }) {
     : "U";
 
   return (
-    <header className="folio-header h-16 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 transition-colors duration-200 no-print gap-3">
-      <div className="flex items-center gap-2.5 flex-1 max-w-md" ref={searchRef}>
+    <header className="folio-header h-12 bg-[#f4f6f8] dark:bg-[#0c0e10] flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 no-print gap-3">
+      <div className="flex items-center gap-2.5 flex-1 max-w-lg" ref={searchRef}>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent("hrmis:toggle-mobile-sidebar"))}
-          className="lg:hidden w-9 h-9 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 transition-all shrink-0"
+          className="lg:hidden w-8 h-8 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#121518] flex items-center justify-center hover:bg-[#ebedef] dark:hover:bg-[#1e2328] text-[#131416] dark:text-zinc-200 transition-colors shrink-0"
           title="Mở danh mục điều hướng"
           aria-label="Mở menu điều hướng"
         >
-          <Menu className="w-4.5 h-4.5" />
+          <Menu className="w-4 h-4" />
         </button>
 
         <form onSubmit={handleSearchSubmit} className="relative w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+            <Search className="h-3.5 w-3.5 text-[#5d5f60] dark:text-[#9ba3b0]" />
           </div>
           <input
             ref={searchInputRef}
@@ -408,22 +435,22 @@ export default function Header({ session }: { session: any }) {
               setSearchQuery(e.target.value);
               setShowSearchDropdown(true);
             }}
-            className="w-full pl-9 pr-12 py-1.5 bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl text-xs focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 transition-all shadow-2xs"
-            placeholder="Tìm nhân sự, phòng ban, phân hệ (⌘K)..."
+            className="w-full h-8 pl-8.5 pr-12 bg-white dark:bg-[#121518] border border-[#cfd3d8] dark:border-[#2c3138] rounded-md text-[13px] focus:outline-none focus:border-[#1b6c80] dark:focus:border-[#2ba3be] text-[#131416] dark:text-white placeholder-[#5d5f60] dark:placeholder-[#9ba3b0] transition-colors"
+            placeholder="Tìm hồ sơ nhân sự, hợp đồng, bảng lương..."
           />
-          <div className="absolute inset-y-0 right-0 pr-2.5 hidden sm:flex items-center pointer-events-none">
-            <span className="font-mono text-[10px] text-zinc-400 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 px-1.5 py-0.5 rounded-md shadow-2xs">
+          <div className="absolute inset-y-0 right-0 pr-2 hidden sm:flex items-center pointer-events-none">
+            <span className="font-mono text-[11px] text-[#5d5f60] dark:text-[#9ba3b0] border border-[#e6e8eb] dark:border-[#22262b] bg-[#f4f6f8] dark:bg-[#171b1f] px-1.5 py-0.2 rounded">
               ⌘K
             </span>
           </div>
 
           {showSearchDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden z-50 text-xs max-h-96 overflow-y-auto animate-swiss-in">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0e0f11] rounded-xl border border-zinc-200 dark:border-white/[0.1] shadow-2xl overflow-hidden z-50 text-xs max-h-96 overflow-y-auto animate-swiss-in">
               {searchQuery.trim() ? (
                 <>
                   {matchedNavLinks.length > 0 && (
                     <div className="p-2 border-b border-zinc-100 dark:border-zinc-800">
-                      <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                      <div className="px-2 py-1 text-[11px] font-medium text-zinc-500">
                         Phân hệ chức năng
                       </div>
                       {matchedNavLinks.map((item) => (
@@ -446,7 +473,7 @@ export default function Header({ session }: { session: any }) {
 
                   {matchedEmployees.length > 0 && (
                     <div className="p-2 border-b border-zinc-100 dark:border-zinc-800">
-                      <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                      <div className="px-2 py-1 text-[11px] font-medium text-zinc-500">
                         Nhân sự khớp từ khóa ({matchedEmployees.length})
                       </div>
                       {matchedEmployees.map((emp) => (
@@ -474,7 +501,7 @@ export default function Header({ session }: { session: any }) {
                               </div>
                             </div>
                           </div>
-                          <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 shrink-0">
+                          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 shrink-0">
                             Hồ sơ →
                           </span>
                         </button>
@@ -484,7 +511,7 @@ export default function Header({ session }: { session: any }) {
 
                   {matchedDecisions.length > 0 && (
                     <div className="p-2 border-b border-zinc-100 dark:border-zinc-800">
-                      <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                      <div className="px-2 py-1 text-[11px] font-medium text-zinc-500">
                         Quyết định nhân sự ({matchedDecisions.length})
                       </div>
                       {matchedDecisions.map((dec) => (
@@ -506,7 +533,7 @@ export default function Header({ session }: { session: any }) {
                               {dec.fromPosition} → {dec.toPosition} ({dec.toDept})
                             </div>
                           </div>
-                          <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 shrink-0">
+                          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 shrink-0">
                             Quyết định →
                           </span>
                         </button>
@@ -524,8 +551,8 @@ export default function Header({ session }: { session: any }) {
                 </>
               ) : (
                 <div className="p-2 space-y-1">
-                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                    Lệnh điều hành nhanh (Command Palette)
+                  <div className="px-2 py-1 text-[11px] font-medium text-zinc-500">
+                    Truy cập nhanh phân hệ
                   </div>
                   {quickNavLinks.slice(0, 5).map((item) => (
                     <button
@@ -564,79 +591,79 @@ export default function Header({ session }: { session: any }) {
         </form>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-2.5">
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={toggleDarkMode}
-          className="w-9 h-9 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300 transition-all shadow-2xs"
+          className="w-8 h-8 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#121518] flex items-center justify-center hover:bg-[#ebedef] dark:hover:bg-[#1e2328] text-[#434648] dark:text-[#9ba3b0] hover:text-[#131416] dark:hover:text-white transition-colors"
           title={isDark ? "Chuyển sang nền sáng" : "Chuyển sang nền tối"}
         >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
+          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-[#434648]" />}
         </button>
 
         <div className="relative" ref={notifRef}>
           <button
             type="button"
             onClick={() => setShowNotif(!showNotif)}
-            className={`w-9 h-9 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-center transition-all shadow-2xs relative ${
+            className={`w-8 h-8 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#121518] flex items-center justify-center transition-colors relative ${
               showNotif
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
-                : "hover:bg-zinc-100 dark:hover:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300"
+                ? "bg-[#1b6c80] text-white"
+                : "hover:bg-[#ebedef] dark:hover:bg-[#1e2328] text-[#434648] dark:text-[#9ba3b0] hover:text-[#131416] dark:hover:text-white"
             }`}
             title="Thông báo tác nghiệp thời gian thực"
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-900">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-[#1b6c80] text-white tabular-nums text-[10px] font-semibold rounded-full flex items-center justify-center ring-2 ring-[#f4f6f8] dark:ring-[#0c0e10]">
                 {unreadCount}
               </span>
             )}
           </button>
 
           {showNotif && (
-            <div className="absolute top-full right-0 mt-2.5 w-80 sm:w-88 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xl overflow-hidden animate-swiss-in origin-top-right z-50">
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50">
+            <div className="absolute top-full right-0 mt-2 w-80 sm:w-88 bg-white dark:bg-[#121518] rounded-xl border border-[#e6e8eb] dark:border-[#22262b] shadow-xl overflow-hidden animate-swiss-in origin-top-right z-50">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#e6e8eb] dark:border-[#22262b] bg-[#f8f9fb] dark:bg-[#171b1f]">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                  <span className="text-xs font-semibold text-[#131416] dark:text-white">
                     Thông báo tác nghiệp
                   </span>
                 </div>
                 {unreadCount > 0 ? (
-                  <span className="text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full font-semibold border border-blue-200/60 dark:border-blue-900/60">
+                  <span className="tabular-nums text-[11px] text-[#1b6c80] dark:text-[#2ba3be] bg-[#1b6c80]/10 px-2 py-0.5 rounded font-medium">
                     {unreadCount} mới
                   </span>
                 ) : (
-                  <span className="text-[11px] text-zinc-400 font-medium">Đã xem hết</span>
+                  <span className="text-[11px] text-[#5d5f60] dark:text-[#9ba3b0]">Đã xem hết</span>
                 )}
               </div>
 
-              <div className="max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60">
+              <div className="max-h-80 overflow-y-auto divide-y divide-[#eef0f2] dark:divide-[#1b1f24]">
                 {notifications.map((n) => (
                   <div
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`p-3.5 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors flex gap-3 cursor-pointer ${
-                      !n.read ? "bg-blue-50/30 dark:bg-blue-950/20" : ""
+                    className={`p-3.5 hover:bg-[#f8f9fb] dark:hover:bg-[#171b1f] transition-colors flex gap-3 cursor-pointer ${
+                      !n.read ? "bg-[#eef7f9]/60 dark:bg-[#1b6c80]/10" : ""
                     }`}
                   >
-                    <div className="mt-0.5 w-8 h-8 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center shrink-0 shadow-2xs">
-                      <n.icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <div className="mt-0.5 w-8 h-8 rounded-md border border-[#e6e8eb] dark:border-[#22262b] bg-white dark:bg-[#171b1f] text-[#1b6c80] dark:text-[#2ba3be] flex items-center justify-center shrink-0">
+                      <n.icon className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                        <h4 className="text-xs font-semibold text-[#131416] dark:text-white truncate">
                           {n.title}
                         </h4>
                         {!n.read && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#1b6c80] shrink-0"></span>
                         )}
                       </div>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] line-clamp-2 leading-relaxed">
                         {n.desc}
                       </p>
-                      <div className="flex items-center justify-between mt-2 text-[10px]">
-                        <span className="text-zinc-400 font-mono">{n.time}</span>
-                        <span className="text-blue-600 dark:text-blue-400 flex items-center gap-0.5 font-semibold">
+                      <div className="flex items-center justify-between mt-2 text-[11px]">
+                        <span className="text-[#5d5f60] dark:text-[#9ba3b0]">{n.time}</span>
+                        <span className="text-[#1b6c80] dark:text-[#2ba3be] flex items-center gap-0.5 font-medium">
                           Xem chi tiết <ArrowRight className="w-2.5 h-2.5" />
                         </span>
                       </div>
@@ -645,18 +672,18 @@ export default function Header({ session }: { session: any }) {
                 ))}
               </div>
 
-              <div className="p-2.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between px-4 bg-zinc-50/70 dark:bg-zinc-900/40">
+              <div className="p-2.5 border-t border-[#e6e8eb] dark:border-[#22262b] flex items-center justify-between px-4 bg-[#f8f9fb] dark:bg-[#171b1f]">
                 <button
                   type="button"
                   onClick={markAllAsRead}
-                  className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium"
+                  className="text-xs text-[#5d5f60] dark:text-[#9ba3b0] hover:text-[#131416] dark:hover:text-white font-medium"
                 >
                   Đánh dấu đã đọc
                 </button>
                 <Link
                   href="/dashboard/my-workspace"
                   onClick={() => setShowNotif(false)}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                  className="text-xs text-[#1b6c80] dark:text-[#2ba3be] hover:underline font-medium"
                 >
                   Cổng cá nhân →
                 </Link>
@@ -665,26 +692,22 @@ export default function Header({ session }: { session: any }) {
           )}
         </div>
 
-        <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-800 mx-0.5 hidden sm:block"></div>
+        <div className="h-4 w-px bg-[#cfd3d8] dark:bg-[#2c3138] mx-0.5 hidden sm:block"></div>
 
         <Link
           href="/dashboard/my-workspace"
-          className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-zinc-100/70 dark:hover:bg-zinc-800/60 transition-all"
+          className="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-[#ebedef] dark:hover:bg-[#1e2328] transition-colors"
           title="Không gian cá nhân (ESS)"
         >
           <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none">
+            <span className="text-xs font-semibold text-[#131416] dark:text-white leading-none">
               {user?.name || "Người dùng"}
             </span>
-            <span
-              className={`text-[10px] font-semibold mt-1 px-1.5 py-0.2 rounded border ${getRoleBadgeStyle(
-                user?.roleName
-              )}`}
-            >
+            <span className="text-[11px] text-[#5d5f60] dark:text-[#9ba3b0] mt-0.5">
               {user?.roleName || "Nhân viên"}
             </span>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-xs font-extrabold uppercase shadow-xs">
+          <div className="w-7 h-7 rounded-md bg-[#1b6c80] text-white flex items-center justify-center text-xs font-semibold">
             {initials}
           </div>
         </Link>
@@ -692,7 +715,7 @@ export default function Header({ session }: { session: any }) {
         <button
           type="button"
           onClick={() => setShowSecurityModal(true)}
-          className="w-9 h-9 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-950/40 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all shadow-2xs"
+          className="w-8 h-8 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#121518] flex items-center justify-center hover:bg-[#ebedef] dark:hover:bg-[#1e2328] text-[#434648] dark:text-[#9ba3b0] hover:text-[#131416] dark:hover:text-white transition-colors"
           title="Đổi mật khẩu & Cập nhật SĐT liên hệ"
         >
           <KeyRound className="w-3.5 h-3.5" />
@@ -701,7 +724,7 @@ export default function Header({ session }: { session: any }) {
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="w-9 h-9 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/40 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all shadow-2xs"
+          className="w-8 h-8 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#121518] flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-500/15 text-[#5d5f60] dark:text-[#9ba3b0] hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
           title="Đăng xuất khỏi hệ thống"
         >
           <LogOut className="w-3.5 h-3.5" />

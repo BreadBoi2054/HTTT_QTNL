@@ -2,12 +2,36 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { Plus, Search, Building2, CheckCircle2, UserCheck, X, Printer, Users, ArrowUpDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Building2, CheckCircle2, UserCheck, X, Printer, Users, ArrowUpDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 type SortKey = "name" | "department" | "joinDate" | "baseSalary";
 type SortOrder = "asc" | "desc";
 import EmployeeModal from "@/components/employees/EmployeeModal";
 import { useConfirm } from "@/components/providers/ToastProvider";
+
+const RIPPLING_AVATAR_TONES = [
+  "bg-[#f3e8ee] text-[#611f4c] border-[#e2cada] dark:bg-[#38192e] dark:text-[#f0c6e2] dark:border-[#542846]",
+  "bg-[#e6f3f5] text-[#155666] border-[#c4e2e8] dark:bg-[#113640] dark:text-[#9ddce9] dark:border-[#1d5260]",
+  "bg-[#faefe4] text-[#7c3a11] border-[#edd5bc] dark:bg-[#3d2210] dark:text-[#f5cfa8] dark:border-[#5c351a]",
+  "bg-[#e8f3ec] text-[#185936] border-[#c6e1d0] dark:bg-[#123623] dark:text-[#a6e3bf] dark:border-[#1d5437]",
+  "bg-[#ececf6] text-[#353273] border-[#d1d1e8] dark:bg-[#201f42] dark:text-[#c7c6f0] dark:border-[#343266]",
+  "bg-[#f2ece4] text-[#4d4132] border-[#dfd3c3] dark:bg-[#2c261e] dark:text-[#dfd4c5] dark:border-[#473d31]",
+];
+
+function getInitials(fullName: string): string {
+  if (!fullName) return "NV";
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getPeopleAvatarTone(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return RIPPLING_AVATAR_TONES[hash % RIPPLING_AVATAR_TONES.length];
+}
 
 export default function EmployeesPage() {
   const { data: session } = useSession();
@@ -90,12 +114,10 @@ export default function EmployeesPage() {
     }
   };
 
-  // Helper check manager
   const checkIsManager = (emp: any) => {
     return !!(emp.managedDept || (emp.department && emp.department.managerId === emp.id));
   };
 
-  // Filter departments for dropdown
   const departmentsList = Array.from(
     new Map(
       employees
@@ -188,7 +210,7 @@ export default function EmployeesPage() {
             <button
               type="button"
               onClick={handleExportEmployeesExcel}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl text-xs font-semibold transition-all border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl text-xs font-semibold transition-colors border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs active:scale-95"
               title="Xuất danh bạ nhân sự đang lọc ra file Excel (.xlsx)"
             >
               <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -196,7 +218,7 @@ export default function EmployeesPage() {
             </button>
             <button 
               onClick={() => { setSelectedEmp(null); setIsModalOpen(true); }}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm active:scale-95 shrink-0"
             >
               <span>+ Thêm nhân sự</span>
             </button>
@@ -247,55 +269,6 @@ export default function EmployeesPage() {
           </div>
         </div>
 
-        {/* Executive Leadership & Heads Overview */}
-        <div className="bento-card p-5 shadow-xs">
-          <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-zinc-100 dark:border-zinc-800/80">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                LÃNH ĐẠO
-              </span>
-              <h2 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">
-                Ban điều hành & Trưởng bộ phận ({departmentManagers.length} vị trí)
-              </h2>
-            </div>
-            <span className="text-[11px] text-zinc-400 font-medium">
-              Đầy đủ 5 vị trí phụ trách
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-3">
-            {departmentManagers.map((mgr) => (
-              <div 
-                key={mgr.id}
-                onClick={() => {
-                  setSearch(mgr.user.name);
-                }}
-                className="cursor-pointer p-3.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-xs transition-all flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                      TRƯỞNG PHÒNG
-                    </span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  </div>
-                  <div className="font-bold text-xs text-zinc-900 dark:text-zinc-100 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
-                    {mgr.user.name}
-                  </div>
-                  <div className="text-[11px] font-medium text-amber-900 dark:text-amber-300 line-clamp-2 mt-1 leading-snug">
-                    {mgr.position}
-                  </div>
-                </div>
-
-                <div className="pt-2.5 mt-2.5 border-t border-amber-200/50 dark:border-amber-900/40 text-[11px] text-zinc-600 dark:text-zinc-400">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">Đơn vị: </span>
-                  <span>{mgr.managedDept?.name || mgr.department?.name}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Main Employee Table */}
         <div className="bento-card rounded-2xl overflow-hidden shadow-xs">
           {/* Controls & Filter Bar */}
@@ -306,7 +279,7 @@ export default function EmployeesPage() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-700/80 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-600 transition-all rounded-xl shadow-2xs"
+                  className="w-full px-3.5 py-2 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-700/80 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-600 transition-colors rounded-xl shadow-2xs"
                   placeholder="Tìm tên, chức vụ, email..."
                 />
               </div>
@@ -315,7 +288,7 @@ export default function EmployeesPage() {
               <div className="flex bg-zinc-200/60 dark:bg-zinc-800 p-1 rounded-xl text-xs">
                 <button
                   onClick={() => setRoleFilter("ALL")}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
                     roleFilter === "ALL" 
                       ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-bold shadow-2xs" 
                       : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -325,7 +298,7 @@ export default function EmployeesPage() {
                 </button>
                 <button
                   onClick={() => setRoleFilter("MANAGERS")}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
                     roleFilter === "MANAGERS" 
                       ? "bg-amber-500 text-white font-bold shadow-2xs" 
                       : "text-amber-600 dark:text-amber-400 hover:text-amber-700"
@@ -335,7 +308,7 @@ export default function EmployeesPage() {
                 </button>
                 <button
                   onClick={() => setRoleFilter("STAFF")}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
                     roleFilter === "STAFF" 
                       ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-bold shadow-2xs" 
                       : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -374,7 +347,7 @@ export default function EmployeesPage() {
                   <th onClick={() => handleSort("department")} className="px-5 py-3 font-semibold cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 select-none">
                     <span className="inline-flex items-center gap-1.5">Phòng ban <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" /></span>
                   </th>
-                  <th onClick={() => handleSort("joinDate")} className="px-5 py-3 font-semibold cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 select-none">
+                  <th onClick={() => handleSort("joinDate")} className="px-5 py-3 font-semibold whitespace-nowrap cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 select-none">
                     <span className="inline-flex items-center gap-1.5">Ngày vào làm <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" /></span>
                   </th>
                   <th onClick={() => handleSort("baseSalary")} className="px-5 py-3 font-semibold text-right cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 select-none">
@@ -387,7 +360,7 @@ export default function EmployeesPage() {
               <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, idx) => (
-                    <tr key={idx} className="animate-pulse">
+                    <tr key={idx} className="">
                       <td className="px-5 py-3.5"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded bg-zinc-200 dark:bg-zinc-800" /><div className="space-y-1.5"><div className="h-3.5 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" /><div className="h-2.5 w-16 bg-zinc-100 dark:bg-zinc-800/60 rounded" /></div></div></td>
                       <td className="px-5 py-3.5"><div className="space-y-1.5"><div className="h-3 w-36 bg-zinc-200 dark:bg-zinc-800 rounded" /><div className="h-2.5 w-24 bg-zinc-100 dark:bg-zinc-800/60 rounded" /></div></td>
                       <td className="px-5 py-3.5"><div className="space-y-1.5"><div className="h-3 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" /><div className="h-2.5 w-24 bg-zinc-100 dark:bg-zinc-800/60 rounded" /></div></td>
@@ -414,8 +387,8 @@ export default function EmployeesPage() {
                       <tr key={emp.id} className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors ${isMgr ? "bg-amber-50/20 dark:bg-amber-950/5" : ""}`}>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded border flex items-center justify-center font-mono text-[11px] font-bold ${isMgr ? "border-amber-400 bg-amber-500 text-white shadow-xs" : "border-zinc-300 dark:border-zinc-700 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900"}`}>
-                              {isMgr ? "TP" : emp.user.name.charAt(0).toUpperCase()}
+                            <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-mono text-[11px] font-bold shrink-0 ${getPeopleAvatarTone(emp.user.name)}`}>
+                              {getInitials(emp.user.name)}
                             </div>
                             <div>
                               <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
@@ -449,13 +422,13 @@ export default function EmployeesPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-zinc-600 dark:text-zinc-400">
-                          {joinDateVal > 0 ? new Date(joinDateVal).toLocaleDateString("vi-VN") : "Chưa cập nhật"}
+                        <td className="px-5 py-3.5 font-mono whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+                          {joinDateVal > 0 ? new Date(joinDateVal).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "Chưa cập nhật"}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-zinc-800 dark:text-zinc-200">
+                        <td className="px-5 py-3.5 text-right font-mono font-semibold whitespace-nowrap text-zinc-800 dark:text-zinc-200">
                           {baseSal > 0 ? `${baseSal.toLocaleString("vi-VN")} ₫` : "--"}
                         </td>
-                        <td className="px-5 py-3.5 text-center font-mono">
+                        <td className="px-5 py-3.5 text-center font-mono whitespace-nowrap">
                           {emp.status === "RESIGNED" ? (
                             <span className="inline-flex items-center px-2 py-0.5 text-[10px] rounded bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 font-semibold">THÔI VIỆC</span>
                           ) : (
@@ -494,8 +467,8 @@ export default function EmployeesPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-zinc-500 dark:text-zinc-400 mr-1">Trang <strong className="font-mono text-zinc-900 dark:text-zinc-100">{safePage}</strong> / <span className="font-mono">{totalPages}</span></span>
-              <button type="button" disabled={safePage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-all active:scale-[0.98]"><ChevronLeft className="w-3.5 h-3.5" /> Trước</button>
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-all active:scale-[0.98]">Sau <ChevronRight className="w-3.5 h-3.5" /></button>
+              <button type="button" disabled={safePage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors active:scale-[0.98]"><ChevronLeft className="w-3.5 h-3.5" /> Trước</button>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors active:scale-[0.98]">Sau <ChevronRight className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         </div>
@@ -577,7 +550,7 @@ export default function EmployeesPage() {
 
             {/* Compensation & Contract Details */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+              <h4 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 tracking-tight">
                 Hợp đồng & Chế độ đãi ngộ
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -627,7 +600,7 @@ export default function EmployeesPage() {
                 <button
                   type="button"
                   onClick={() => setViewingEmp(null)}
-                  className="px-4 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium transition-colors"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
                 >
                   Đóng
                 </button>

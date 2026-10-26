@@ -2,175 +2,199 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { useConfirm, CardGridSkeleton } from "@/components/providers/ToastProvider";
+import { ArrowUpRight } from "lucide-react";
+import { TableSkeleton } from "@/components/providers/ToastProvider";
+
+interface CareerJob {
+  id: string;
+  title: string;
+  description: string;
+  headcount: number;
+  dueDate?: string | null;
+  department?: {
+    name?: string;
+  } | null;
+}
 
 export default function CareersPage() {
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<CareerJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const confirm = useConfirm();
 
-  const { data: session } = useSession();
-  const userRole = (session?.user as any)?.roleName;
-  const canManageJobs = userRole === "SYSTEM_ADMIN" || userRole === "HR";
-
-  const fetchJobs = () => {
+  useEffect(() => {
     fetch("/api/careers/jobs")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data: unknown) => {
         if (Array.isArray(data)) {
-          setJobs(data);
+          setJobs(data as CareerJob[]);
         } else {
-          console.error("API Error:", data);
           setJobs([]);
         }
         setLoading(false);
       })
-      .catch(err => {
-        console.error("Fetch Error:", err);
+      .catch(() => {
         setJobs([]);
         setLoading(false);
       });
-  };
-
-  useEffect(() => {
-    fetchJobs();
   }, []);
 
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase("vi");
     if (!query) return jobs;
-    return jobs.filter((job) => [job.title, job.department?.name, job.description].filter(Boolean).join(" ").toLocaleLowerCase("vi").includes(query));
+    return jobs.filter((job) =>
+      [job.title, job.department?.name, job.description]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("vi")
+        .includes(query)
+    );
   }, [jobs, searchQuery]);
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!(await confirm(`Bạn có chắc muốn xóa tin tuyển dụng "${title}"?`))) return;
-    try {
-      const res = await fetch(`/api/recruitment/jobs/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        fetchJobs();
-      } else {
-        alert("Lỗi khi xóa tin tuyển dụng.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Lỗi kết nối.");
-    }
-  };
+  const totalOpenHeadcount = useMemo(
+    () => filteredJobs.reduce((sum, item) => sum + (Number(item.headcount) || 0), 0),
+    [filteredJobs]
+  );
 
   return (
-    <div className="career-page min-h-dvh bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      
-      {/* Top Corporate Nav */}
-      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-              N
-            </div>
-            <div>
-              <span className="font-bold text-sm tracking-tight text-zinc-900 dark:text-zinc-100">
-                NEXUSTECH
-              </span>
-              <span className="text-[11px] text-zinc-400 block -mt-0.5">
-                Cổng Tuyển dụng Doanh nghiệp
-              </span>
-            </div>
+    <div className="career-page min-h-dvh bg-[#f4f6f8] dark:bg-[#0c0e10] text-[#131416] dark:text-[#f2f4f7] p-2 sm:p-3">
+      {/* Top Slate Frame Header */}
+      <header className="max-w-6xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-md bg-[#1b6c80] text-white flex items-center justify-center font-semibold text-xs">
+            NX
           </div>
-
-          <div className="flex items-center gap-3 text-xs">
-            <Link 
-              href="/login" 
-              className="px-3.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 active:scale-[0.98] dark:text-zinc-300 font-medium transition-colors"
-            >
-              <span>Cổng Nhân viên Nội bộ →</span>
-            </Link>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm tracking-tight text-[#131416] dark:text-white">
+              Nexustech
+            </span>
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-[#e6e8eb] dark:bg-[#1e2328] text-[#434648] dark:text-[#9ba3b0]">
+              Cổng tuyển dụng
+            </span>
           </div>
         </div>
+
+        <Link
+          href="/login"
+          className="px-3.5 py-1.5 rounded-md bg-[#1b6c80] hover:bg-[#155666] text-white text-[13px] font-medium transition-colors"
+        >
+          <span>Đăng nhập nội bộ →</span>
+        </Link>
       </header>
 
-      <section className="border-b border-zinc-200 bg-[#efe8dc] px-4 py-14 dark:border-zinc-800 dark:bg-[#1b2d24] sm:py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[minmax(0,1fr)_15rem] md:items-end">
-          <div><span className="folio-kicker">Nexustech / cùng làm việc</span><h1 className="mt-5 max-w-3xl text-4xl text-zinc-900 dark:text-zinc-100 sm:text-6xl">Công việc tốt bắt đầu từ những người cùng chí hướng.</h1><p className="mt-6 max-w-xl text-sm leading-7 text-zinc-600 dark:text-zinc-400">Khám phá các vị trí đang tuyển và gửi hồ sơ trực tiếp cho đội ngũ nhân sự Nexustech.</p></div>
-          <div className="border-t border-[#ba7146] pt-4 text-xs leading-6 text-zinc-600 dark:text-zinc-300"><span className="block font-mono text-[#a86239]">GHI CHÚ / 01</span><p className="mt-2">Mỗi vị trí là một cơ hội để tạo ra công việc có ích cùng một đội ngũ lâu dài.</p></div>
-        </div>
-      </section>
-
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10">
-        <div className="flex items-center justify-between mb-8 pb-4 border-b border-zinc-200/80 dark:border-zinc-800/80">
-          <div>
-            <h2 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">Vị trí đang tuyển</h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Khám phá các cơ hội nghề nghiệp và nộp hồ sơ trực tuyến</p>
+      {/* Inset White Sheet */}
+      <main className="max-w-6xl mx-auto rounded-2xl border border-[#e6e8eb] dark:border-[#22262b] bg-white dark:bg-[#121518] p-6 sm:p-10">
+        <div className="flex flex-col gap-6 pb-8 border-b border-[#e6e8eb] dark:border-[#22262b] lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <h1 className="text-2xl sm:text-[28px] font-semibold tracking-tight text-[#131416] dark:text-white leading-[1.2]">
+              Định biên tuyển dụng tại Nexustech.
+            </h1>
+            <p className="mt-2.5 text-sm leading-relaxed text-[#5d5f60] dark:text-[#9ba3b0]">
+              Danh sách các vị trí chuyên môn đang mở tuyển chính thức. Hồ sơ ứng viên được tiếp nhận và phản hồi trực tiếp từ Ban Quản trị Nhân sự.
+            </p>
           </div>
-          <span className="text-xs font-bold font-mono px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200/60 dark:border-blue-800/60">
-            {filteredJobs.length} Vị trí {searchQuery ? "phù hợp" : "mở"}
+
+          <div className="flex items-center gap-6 border border-[#e6e8eb] dark:border-[#22262b] rounded-lg px-5 py-3 bg-[#f8f9fb] dark:bg-[#171b1f] tabular-nums shrink-0">
+            <div>
+              <div className="text-xs text-[#5d5f60] dark:text-[#9ba3b0]">Vị trí đang mở</div>
+              <div className="text-xl font-normal text-[#131416] dark:text-white mt-0.5">{filteredJobs.length} vị trí</div>
+            </div>
+            <div className="h-8 w-px bg-[#e6e8eb] dark:bg-[#22262b]" />
+            <div>
+              <div className="text-xs text-[#5d5f60] dark:text-[#9ba3b0]">Tổng chỉ tiêu</div>
+              <div className="text-xl font-normal text-[#1b6c80] dark:text-[#2ba3be] mt-0.5">{totalOpenHeadcount} nhân sự</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="w-full sm:max-w-sm">
+            <label htmlFor="career-search" className="sr-only">
+              Tìm vị trí tuyển dụng
+            </label>
+            <input
+              id="career-search"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Tìm theo chức danh hoặc đơn vị..."
+              className="w-full h-9 px-3.5 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#171b1f] text-[13px] text-[#131416] dark:text-white placeholder:text-[#5d5f60] focus:outline-none focus:border-[#1b6c80]"
+            />
+          </div>
+          <span className="text-[13px] text-[#5d5f60] dark:text-[#9ba3b0] tabular-nums">
+            Hiển thị {filteredJobs.length} vị trí tuyển dụng
           </span>
         </div>
 
-        <div className="mb-6">
-          <label htmlFor="career-search" className="sr-only">Tìm vị trí tuyển dụng</label>
-          <input id="career-search" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm theo chức danh, phòng ban hoặc mô tả..." className="w-full sm:max-w-md px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-        </div>
-
+        {/* Sheet-Native Table List */}
         {loading ? (
-          <CardGridSkeleton count={4} />
+          <TableSkeleton rows={4} cols={4} />
         ) : jobs.length === 0 ? (
-          <div className="text-center py-16 text-zinc-500 bento-card rounded-xl p-8 border border-zinc-200/80 dark:border-zinc-800">
-            Hiện tại không có vị trí nào đang mở tuyển. Vui lòng quay lại sau!
+          <div className="py-12 text-center text-[13px] text-[#5d5f60] border-t border-[#e6e8eb] dark:border-[#22262b]">
+            Hiện tại chưa có đợt tuyển dụng mới. Vui lòng quay lại sau.
           </div>
         ) : filteredJobs.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500 bento-card rounded-xl p-8 border border-zinc-200/80 dark:border-zinc-800">
-            Không tìm thấy vị trí phù hợp. <button type="button" onClick={() => setSearchQuery("")} className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">Xóa từ khóa tìm kiếm</button>
+          <div className="py-12 text-center text-[13px] text-[#5d5f60] border-t border-[#e6e8eb] dark:border-[#22262b]">
+            Không tìm thấy vị trí phù hợp với từ khóa.{" "}
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="text-[#1b6c80] font-medium hover:underline"
+            >
+              Xóa bộ lọc
+            </button>
           </div>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2">
-            {filteredJobs.map((job) => (
-              <div 
-                key={job.id} 
-                className="bento-card p-5.5 rounded-xl hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> Đang mở tuyển
-                    </span>
-                    <span className="text-[11px] font-mono text-zinc-400">
-                      {job.department?.name || 'Công nghệ'}
-                    </span>
-                  </div>
-
-                  <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {job.title}
-                  </h3>
-
-                  <div className="flex flex-wrap gap-4 text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                    <div>Đơn vị: <strong className="text-zinc-800 dark:text-zinc-200">{job.department?.name || 'Nexustech'}</strong></div>
-                    <div>Chỉ tiêu: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{job.headcount}</strong></div>
-                    {job.dueDate && (
-                      <div className="font-mono text-zinc-400">
-                        Hạn nộp: {new Date(job.dueDate).toLocaleDateString('vi-VN')}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-zinc-600 dark:text-zinc-400 line-clamp-3 text-xs leading-relaxed">{job.description}</p>
-                </div>
-                
-                <div className="mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Nộp hồ sơ trực tuyến</span>
-                  <Link 
-                    href={`/careers/${job.id}`} 
-                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                  >
-                    <span>Xem chi tiết & Ứng tuyển →</span>
-                  </Link>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto border-t border-[#e6e8eb] dark:border-[#22262b]">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-[#e6e8eb] dark:border-[#22262b] text-[13px] text-[#5d5f60] dark:text-[#9ba3b0]">
+                  <th className="py-3 pr-4 font-medium">Chức danh & Mô tả công việc</th>
+                  <th className="py-3 px-4 font-medium">Đơn vị tiếp nhận</th>
+                  <th className="py-3 px-4 font-medium text-right">Chỉ tiêu</th>
+                  <th className="py-3 px-4 font-medium text-right">Hạn nhận hồ sơ</th>
+                  <th className="py-3 pl-4 font-medium text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eef0f2] dark:divide-[#1b1f24] tabular-nums">
+                {filteredJobs.map((job) => (
+                  <tr key={job.id} className="group hover:bg-[#f8f9fb] dark:hover:bg-[#171b1f] transition-colors">
+                    <td className="py-4 pr-4 max-w-md">
+                      <Link
+                        href={`/careers/${job.id}`}
+                        className="font-semibold text-sm text-[#131416] dark:text-white group-hover:text-[#1b6c80] dark:group-hover:text-[#2ba3be] transition-colors block"
+                      >
+                        {job.title}
+                      </Link>
+                      <p className="text-[13px] text-[#5d5f60] dark:text-[#9ba3b0] line-clamp-1 mt-1">
+                        {job.description}
+                      </p>
+                    </td>
+                    <td className="py-4 px-4 text-[#434648] dark:text-[#cfd3d8]">
+                      {job.department?.name || "Khối Công nghệ"}
+                    </td>
+                    <td className="py-4 px-4 text-right font-medium text-[#131416] dark:text-white">
+                      {job.headcount} <span className="text-[13px] font-normal text-[#5d5f60]">người</span>
+                    </td>
+                    <td className="py-4 px-4 text-right text-[#5d5f60] dark:text-[#9ba3b0]">
+                      {job.dueDate ? new Date(job.dueDate).toLocaleDateString("vi-VN") : "Tuyển liên tục"}
+                    </td>
+                    <td className="py-4 pl-4 text-right">
+                      <Link
+                        href={`/careers/${job.id}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-[#cfd3d8] dark:border-[#2c3138] bg-white dark:bg-[#121518] px-3 py-1.5 text-[13px] font-medium text-[#131416] dark:text-white hover:border-[#1b6c80] hover:text-[#1b6c80] transition-colors"
+                      >
+                        <span>Ứng tuyển</span>
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

@@ -92,7 +92,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
             </button>
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-md text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition-colors"
               title="Thoát về danh sách (Esc)"
             >
               <X className="w-3.5 h-3.5" />
@@ -171,7 +171,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
               <span className="text-zinc-400 uppercase text-[10px] font-medium tracking-wider">Vai trò hệ thống</span>
               <div className="mt-1">
                 {(user?.role?.name === "BOD" || emp?.role === "BOD") ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border border-zinc-800 dark:border-zinc-300">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-600 text-white dark:bg-blue-600 dark:text-white border border-zinc-800 dark:border-zinc-300">
                     Ban Giám Đốc (BOD)
                   </span>
                 ) : (user?.role?.name === "SYSTEM_ADMIN" || emp?.role === "SYSTEM_ADMIN") ? (
@@ -219,7 +219,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
             
             {/* Section I: Thu nhập */}
             <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-              <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/80 text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex justify-between uppercase tracking-wider">
+              <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/80 text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex justify-between tracking-tight">
                 <span>I. Các khoản thu nhập (Gross)</span>
                 <span>Số tiền (VNĐ)</span>
               </div>
@@ -241,7 +241,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
 
             {/* Section II: Khấu trừ */}
             <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-              <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/80 text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex justify-between uppercase tracking-wider">
+              <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/80 text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex justify-between tracking-tight">
                 <span>II. Các khoản giảm trừ nghĩa vụ (B)</span>
                 <span>Số tiền (VNĐ)</span>
               </div>
@@ -272,16 +272,16 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
             </div>
 
             {/* Section III: Net Take-home */}
-            <div className="p-5 bg-zinc-900 dark:bg-zinc-800/80 text-white rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="p-5 bg-blue-50/70 dark:bg-zinc-800/80 border border-blue-200 dark:border-zinc-700 text-zinc-900 dark:text-white rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-zinc-300">
+                <div className="text-xs tracking-tight font-semibold text-zinc-800 dark:text-zinc-200">
                   III. Thực lĩnh chuyển khoản (Net = A - B)
                 </div>
-                <div className="text-xs text-zinc-400 mt-0.5">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Hình thức: Chuyển khoản ngân hàng Techcombank
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-emerald-400 font-mono">
+              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono">
                 {formatVND(netSalary)}
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function PayslipDetailModal({ isOpen, onClose, payroll }: Payslip
             </button>
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 rounded-md text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition-colors"
             >
               <X className="w-3.5 h-3.5" />
               Thoát

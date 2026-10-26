@@ -7,7 +7,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    if (!session || !session.user) return new NextResponse("Unauthorized", { status: 401 });
+    if (!session || !session.user || (!session.user.id && !session.user.email) || (session.user as any).revoked) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
@@ -25,8 +27,9 @@ export async function GET(req: Request) {
       return new NextResponse("Forbidden", { status: 403 });
     }
     const userId = session.user.id || undefined;
+    const userEmail = session.user.email || undefined;
 
-    const records = await getPayrolls(m, y, { roleName, userId });
+    const records = await getPayrolls(m, y, { roleName, userId, userEmail });
     return NextResponse.json(records);
   } catch (error) {
     console.error("[PAYROLL_GET]", error);

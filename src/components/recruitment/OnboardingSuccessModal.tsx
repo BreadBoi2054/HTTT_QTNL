@@ -170,7 +170,7 @@ export default function OnboardingSuccessModal({ isOpen, onClose, candidate }: O
               <Link
                 href="/dashboard/personnel-changes"
                 onClick={onClose}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors"
               >
                 <FileCheck className="w-3.5 h-3.5" />
                 Xem quyết định

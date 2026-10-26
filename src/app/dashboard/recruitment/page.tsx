@@ -129,13 +129,13 @@ export default function RecruitmentDashboard() {
           <div className="flex bg-zinc-100/80 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
             <button 
               onClick={() => setActiveTab("KANBAN")} 
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === 'KANBAN' ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'KANBAN' ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
             >
               <LayoutGrid className="w-3.5 h-3.5" /> <span>Bảng ứng viên</span>
             </button>
             <button 
               onClick={() => setActiveTab("JOBS")} 
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === 'JOBS' ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'JOBS' ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
             >
               <Briefcase className="w-3.5 h-3.5" /> <span>Tin tuyển dụng</span>
             </button>
@@ -162,7 +162,7 @@ export default function RecruitmentDashboard() {
                 <span className="text-[11px] font-mono text-zinc-500">{pct}%</span>
               </div>
               <div className="mt-2 w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div className={`h-full ${stage.dotColor} transition-all duration-300`} style={{ width: `${pct}%` }} />
+                <div className={`h-full ${stage.dotColor} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
               </div>
             </div>
           );
@@ -239,7 +239,7 @@ export default function RecruitmentDashboard() {
                           setDraggedAppId(null);
                           setDragOverColId(null);
                         }}
-                        className={`bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-xs transition-all ${
+                        className={`bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-xs transition-colors ${
                           canReviewCandidates ? "cursor-grab active:cursor-grabbing" : ""
                         } ${draggedAppId === app.id ? "opacity-50 scale-[0.98]" : ""}`}
                       >

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 import { Plus, Edit2, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/providers/ToastProvider";
 
@@ -157,11 +158,11 @@ export default function JobManagementView() {
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   Hạn nộp hồ sơ
                 </label>
-                <input
-                  type="date"
+                <VietnameseDatePicker
                   value={dueDate}
-                  onChange={e => setDueDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:border-blue-600 outline-none transition-colors"
+                  onChange={(iso) => setDueDate(iso)}
+                  placeholder="Chọn hạn nộp hồ sơ (DD/MM/YYYY)..."
+                  ariaLabel="Hạn nộp hồ sơ tuyển dụng"
                 />
               </div>
 
@@ -205,7 +206,7 @@ export default function JobManagementView() {
                 </button>
                 <button 
                   type="submit" 
-                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium rounded-lg transition-colors"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
                 >
                   Lưu vị trí tuyển dụng
                 </button>
@@ -223,7 +224,7 @@ export default function JobManagementView() {
               </div>
               <button 
                 onClick={() => openForm(null)} 
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-medium rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> 
                 <span>Thêm vị trí</span>

@@ -119,7 +119,7 @@ export default function AuditLogDetailModal({ isOpen, onClose, log }: AuditLogDe
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center gap-1 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-medium transition-colors shadow-xs"
+              className="flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
             >
               <X className="w-4 h-4" />
               <span>Thoát</span>

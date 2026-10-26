@@ -182,7 +182,7 @@ export default function DepartmentModal({
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-medium text-xs rounded-lg disabled:opacity-50 flex items-center gap-2 transition-colors"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-lg disabled:opacity-50 flex items-center gap-2 transition-colors"
             >
               {loading && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
               {department ? "Lưu thay đổi" : "Tạo phòng ban"}

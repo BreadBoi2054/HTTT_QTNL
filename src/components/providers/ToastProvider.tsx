@@ -52,7 +52,7 @@ export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
           {Array.from({ length: cols }).map((__, cIdx) => (
             <div
               key={cIdx}
-              className={`h-4 rounded-md bg-zinc-200/70 dark:bg-zinc-800 animate-pulse ${
+              className={`h-4 rounded-md bg-zinc-200/70 dark:bg-zinc-800 skeleton-shimmer ${
                 cIdx === 0 ? "w-44" : cIdx === cols - 1 ? "w-20" : "w-28"
               }`}
             />
@@ -69,14 +69,14 @@ export function CardGridSkeleton({ count = 4 }: { count?: number }) {
       {Array.from({ length: count }).map((_, idx) => (
         <div key={idx} className="bento-card p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="h-4 w-36 rounded-md bg-zinc-200/70 dark:bg-zinc-800 animate-pulse" />
-            <div className="h-7 w-7 rounded-lg bg-zinc-200/70 dark:bg-zinc-800 animate-pulse" />
+            <div className="h-4 w-36 rounded-md bg-zinc-200/70 dark:bg-zinc-800 skeleton-shimmer" />
+            <div className="h-7 w-7 rounded-lg bg-zinc-200/70 dark:bg-zinc-800 skeleton-shimmer" />
           </div>
-          <div className="h-3 w-full rounded-md bg-zinc-100 dark:bg-zinc-800/60 animate-pulse" />
-          <div className="h-3 w-2/3 rounded-md bg-zinc-100 dark:bg-zinc-800/60 animate-pulse" />
+          <div className="h-3 w-full rounded-md bg-zinc-100 dark:bg-zinc-800/60 skeleton-shimmer" />
+          <div className="h-3 w-2/3 rounded-md bg-zinc-100 dark:bg-zinc-800/60 skeleton-shimmer" />
           <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800">
-            <div className="h-3 w-20 rounded-md bg-zinc-200/60 dark:bg-zinc-800 animate-pulse" />
-            <div className="h-6 w-16 rounded-lg bg-zinc-200/60 dark:bg-zinc-800 animate-pulse" />
+            <div className="h-3 w-20 rounded-md bg-zinc-200/60 dark:bg-zinc-800 skeleton-shimmer" />
+            <div className="h-6 w-16 rounded-lg bg-zinc-200/60 dark:bg-zinc-800 skeleton-shimmer" />
           </div>
         </div>
       ))}
@@ -85,7 +85,7 @@ export function CardGridSkeleton({ count = 4 }: { count?: number }) {
 }
 
 function inferToastMeta(rawMessage: string): { type: ToastType; title: string; cleanMessage: string } {
-  const cleanMessage = rawMessage.replace(/^[✅❌⚠️ℹ️🔔]+\s*/, "").trim();
+  const cleanMessage = rawMessage.replace(/^[\u2705\u274C\u26A0\uFE0F\u2139\uD83D\uDD14]+\s*/u, "").trim();
   const lower = cleanMessage.toLowerCase();
 
   if (
@@ -248,13 +248,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const getAccentBorder = (type: ToastType) => {
     switch (type) {
       case "success":
-        return "border-l-4 border-l-emerald-600 dark:border-l-emerald-500";
+        return "border-emerald-500/30 dark:border-emerald-500/25";
       case "error":
-        return "border-l-4 border-l-rose-600 dark:border-l-rose-500";
+        return "border-rose-500/30 dark:border-rose-500/25";
       case "warning":
-        return "border-l-4 border-l-amber-500 dark:border-l-amber-400";
+        return "border-amber-500/30 dark:border-amber-500/25";
       default:
-        return "border-l-4 border-l-blue-600 dark:border-l-blue-500";
+        return "border-blue-500/30 dark:border-blue-500/25";
     }
   };
 

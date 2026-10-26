@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Clock3, Plus, Check, X } from "lucide-react";
+import VietnameseDatePicker from "@/components/ui/VietnameseDatePicker";
 
 type RequestRecord = {
   id: string;
@@ -96,7 +97,15 @@ export default function OvertimePanel({ userId, roleName, onApproved }: { userId
     </div>
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2 text-xs">
       {canCreateForOthers && <label className="min-w-44 flex-1 space-y-1"><span className="text-zinc-500">Nhân viên (để trống = tôi)</span><select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-2"><option value="">Bản thân</option>{employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.user.name}</option>)}</select></label>}
-      <label className="space-y-1"><span className="text-zinc-500">Ngày OT</span><input required type="date" value={date} onChange={(e) => setDate(e.target.value)} className="block rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-2" /></label>
+      <div className="space-y-1 min-w-[220px]">
+        <span className="text-zinc-500 block">Ngày OT</span>
+        <VietnameseDatePicker
+          value={date}
+          onChange={setDate}
+          ariaLabel="Ngày OT"
+          placeholder="Chọn ngày tăng ca..."
+        />
+      </div>
       <label className="space-y-1"><span className="text-zinc-500">Số giờ</span><input required type="number" min="0.5" max="12" step="0.5" value={hours} onChange={(e) => setHours(Number(e.target.value))} className="block w-20 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-2" /></label>
       <label className="min-w-36 flex-1 space-y-1"><span className="text-zinc-500">Lý do</span><input value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} className="block w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-2" /></label>
       <button disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 text-white px-3 py-2 font-semibold disabled:opacity-50"><Plus className="w-3.5 h-3.5" /> Gửi đề nghị</button>
@@ -129,7 +138,7 @@ export default function OvertimePanel({ userId, roleName, onApproved }: { userId
               {hasWarning && (
                 <div className="text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-1 font-medium">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                  <span>{item.warnings?.[0] || `Vượt ngưỡng 40h/tháng hoặc 200h/năm — Duyệt theo thỏa thuận 2 bên.`}</span>
+                  <span>{item.warnings?.[0] || `Vượt ngưỡng 40h/tháng hoặc 200h/năm · Duyệt theo thỏa thuận 2 bên.`}</span>
                 </div>
               )}
             </div>
