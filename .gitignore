@@ -64,6 +64,6 @@ next-env.d.ts
 # Python report generators & cache
 __pycache__/
 *.py[cod]
-/scripts/amis_diagrams/
+/scripts/*_diagrams/
 /scripts/report_generator/
 /scripts/*.py
